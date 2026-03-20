@@ -35,10 +35,10 @@ const NAV_ITEMS: NavItem[] = [
  {
    label: "사이트 설정", href: "/admin/settings", icon: "Settings",
    children: [
-     { label: "히어로 섹션", href: "/admin/settings/hero" },
-     { label: "실적 수치", href: "/admin/settings/stats" },
-     { label: "CTA 설정", href: "/admin/settings/cta" },
-     { label: "배너 관리", href: "/admin/settings/banner" },
+     { label: "히어로 섹션", href: "/admin/settings?tab=hero" },
+     { label: "실적 수치", href: "/admin/settings?tab=stats" },
+     { label: "CTA 설정", href: "/admin/settings?tab=cta" },
+     { label: "배너 관리", href: "/admin/settings?tab=banner" },
    ],
  },
  { label: "퀵배너 관리", href: "/admin/banners", icon: "Megaphone" },

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ImageIcon, Hash, MousePointerClick, Megaphone,
   Save, Plus, Trash2, GripVertical,
@@ -30,9 +31,25 @@ const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }
 ];
 
 export default function AdminSettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("hero");
+  return (
+    <Suspense fallback={<div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>}>
+      <AdminSettingsInner />
+    </Suspense>
+  );
+}
+
+function AdminSettingsInner() {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as SettingsTab | null;
+  const [activeTab, setActiveTab] = useState<SettingsTab>(tabParam || "hero");
   const [saveMessage, setSaveMessage] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (tabParam && ["hero", "stats", "cta", "banner", "integrations"].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // Hero
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
