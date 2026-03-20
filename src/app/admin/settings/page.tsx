@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ImageIcon, Hash, MousePointerClick, Megaphone,
   Save, Plus, Trash2, GripVertical,
   Key, Mail, Cloud, Calendar, Database, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DEMO_STATS, DEMO_HERO_SLIDES, DEMO_EDUCATION_IMAGES, DEMO_SPECIALTY_IMAGES } from "@/lib/demo-data";
+import { COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
 
 type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations";
 
@@ -32,22 +32,21 @@ const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("hero");
   const [saveMessage, setSaveMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
   // Hero
-  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(
-    DEMO_HERO_SLIDES.map((s) => ({ imageUrl: s.imageUrl, title: s.title.replace("\n", " "), subtitle: s.subtitle, ctaText: s.ctaText, ctaLink: s.ctaLink, isActive: s.isActive }))
-  );
-  const [eduImages, setEduImages] = useState<Record<string, string>>({ ...DEMO_EDUCATION_IMAGES });
-  const [specImages, setSpecImages] = useState<Record<string, string>>({ ...DEMO_SPECIALTY_IMAGES });
+  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
+  const [eduImages, setEduImages] = useState<Record<string, string>>({});
+  const [specImages, setSpecImages] = useState<Record<string, string>>({});
 
   // Stats
-  const [stats, setStats] = useState<StatItem[]>(DEMO_STATS.map((s) => ({ ...s })));
+  const [stats, setStats] = useState<StatItem[]>([]);
 
   // CTA
-  const [cta, setCta] = useState<CtaConfig>({ buttonText: "수강 신청하기", buttonUrl: "https://aish.runmoa.com/classes", floatingEnabled: true });
+  const [cta, setCta] = useState<CtaConfig>({ buttonText: "수강 신청하기", buttonUrl: "", floatingEnabled: true });
 
   // Banner
-  const [banner, setBanner] = useState<BannerConfig>({ enabled: true, title: "제4회 스마트워크톤", dDayDate: "2026-07-07", link: "/workathon" });
+  const [banner, setBanner] = useState<BannerConfig>({ enabled: true, title: "", dDayDate: "", link: "" });
 
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
@@ -55,7 +54,54 @@ export default function AdminSettingsPage() {
   const [driveConfig, setDriveConfig] = useState<DriveConfig>({ folderId: "", autoSyncEnabled: false });
   const [calendarConfig, setCalendarConfig] = useState<CalendarConfig>({ calendarId: "", autoRegisterEnabled: false });
 
-  const showSave = () => { setSaveMessage("저장되었습니다"); setTimeout(() => setSaveMessage(""), 2000); };
+  useEffect(() => {
+    Promise.all([
+      getSingletonDoc<{ slides: HeroSlide[]; educationImages: Record<string, string>; specialtyImages: Record<string, string> }>(COLLECTIONS.SETTINGS, "hero"),
+      getSingletonDoc<{ items: StatItem[] }>(COLLECTIONS.SETTINGS, "stats"),
+      getSingletonDoc<CtaConfig>(COLLECTIONS.SETTINGS, "cta"),
+      getSingletonDoc<BannerConfig>(COLLECTIONS.SETTINGS, "banner"),
+      getSingletonDoc<{ googleApi: GoogleApiConfig; emailConfig: EmailConfig; driveConfig: DriveConfig; calendarConfig: CalendarConfig }>(COLLECTIONS.SETTINGS, "integrations"),
+    ]).then(([heroDoc, statsDoc, ctaDoc, bannerDoc, intDoc]) => {
+      if (heroDoc) {
+        if (heroDoc.slides) setHeroSlides(heroDoc.slides);
+        if (heroDoc.educationImages) setEduImages(heroDoc.educationImages);
+        if (heroDoc.specialtyImages) setSpecImages(heroDoc.specialtyImages);
+      }
+      if (statsDoc?.items) setStats(statsDoc.items);
+      if (ctaDoc) setCta({ buttonText: ctaDoc.buttonText ?? "", buttonUrl: ctaDoc.buttonUrl ?? "", floatingEnabled: ctaDoc.floatingEnabled ?? true });
+      if (bannerDoc) setBanner({ enabled: bannerDoc.enabled ?? true, title: bannerDoc.title ?? "", dDayDate: bannerDoc.dDayDate ?? "", link: bannerDoc.link ?? "" });
+      if (intDoc) {
+        if (intDoc.googleApi) setGoogleApi(intDoc.googleApi);
+        if (intDoc.emailConfig) setEmailConfig(intDoc.emailConfig);
+        if (intDoc.driveConfig) setDriveConfig(intDoc.driveConfig);
+        if (intDoc.calendarConfig) setCalendarConfig(intDoc.calendarConfig);
+      }
+    }).catch(console.error);
+  }, []);
+
+  const showSave = async () => {
+    setSaving(true);
+    try {
+      if (activeTab === "hero") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "hero", { slides: heroSlides, educationImages: eduImages, specialtyImages: specImages });
+      } else if (activeTab === "stats") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "stats", { items: stats });
+      } else if (activeTab === "cta") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "cta", cta);
+      } else if (activeTab === "banner") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "banner", banner);
+      } else if (activeTab === "integrations") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "integrations", { googleApi, emailConfig, driveConfig, calendarConfig });
+      }
+      setSaveMessage("저장되었습니다");
+      setTimeout(() => setSaveMessage(""), 2000);
+    } catch (e) {
+      console.error(e);
+      alert("저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const updateHeroSlide = (index: number, field: keyof HeroSlide, value: string | boolean) => {
     setHeroSlides((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
@@ -127,7 +173,7 @@ export default function AdminSettingsPage() {
               ))}
             </div>
             <div className="flex items-center gap-3 mt-6">
-              <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
               {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
             </div>
           </div>
@@ -146,7 +192,7 @@ export default function AdminSettingsPage() {
               ))}
             </div>
             <div className="flex items-center gap-3 mt-4">
-              <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
               {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
             </div>
           </div>
@@ -165,7 +211,7 @@ export default function AdminSettingsPage() {
               ))}
             </div>
             <div className="flex items-center gap-3 mt-4">
-              <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
               {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
             </div>
           </div>
@@ -196,7 +242,7 @@ export default function AdminSettingsPage() {
           </div>
           <div className="flex gap-3 mt-6">
             <button onClick={addStat} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"><Plus size={16} />항목 추가</button>
-            <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+            <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
             {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
           </div>
         </div>
@@ -222,7 +268,7 @@ export default function AdminSettingsPage() {
             </div>
           </div>
           <div className="flex items-center gap-3 mt-6">
-            <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+            <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
             {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
           </div>
         </div>
@@ -251,7 +297,7 @@ export default function AdminSettingsPage() {
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" /></div>
           </div>
           <div className="flex items-center gap-3 mt-6">
-            <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+            <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
             {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
           </div>
         </div>
@@ -293,7 +339,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 mt-6">
-              <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
               {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
             </div>
           </div>
@@ -325,7 +371,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 mt-6">
-              <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
               {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
             </div>
           </div>
@@ -354,7 +400,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 mt-6">
-              <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
               {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
             </div>
           </div>
@@ -382,7 +428,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 mt-6">
-              <button onClick={showSave} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"><Save size={16} />저장하기</button>
+              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
               {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
             </div>
           </div>

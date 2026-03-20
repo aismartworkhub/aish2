@@ -1,17 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
-import { DEMO_QUICK_BANNERS, type QuickBannerDemo } from "@/lib/demo-data";
+import { type QuickBannerDemo } from "@/lib/demo-data";
 import { BANNER_STYLE_LABELS, BANNER_POSITION_LABELS } from "@/lib/constants";
+import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 
 export default function AdminBannersPage() {
-  const [banners, setBanners] = useState<QuickBannerDemo[]>([...DEMO_QUICK_BANNERS]);
+  const [banners, setBanners] = useState<QuickBannerDemo[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<QuickBannerDemo>>({});
+  const [saving, setSaving] = useState(false);
 
-  const defaultForm: QuickBannerDemo = {
+  useEffect(() => {
+    loadBanners();
+  }, []);
+
+  const loadBanners = async () => {
+    try {
+      const data = await getCollection<QuickBannerDemo>(COLLECTIONS.BANNERS);
+      setBanners(data.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const defaultForm = (): QuickBannerDemo => ({
     id: "",
     title: "",
     description: "",
@@ -28,10 +46,10 @@ export default function AdminBannersPage() {
     startDate: "",
     endDate: "",
     displayOrder: banners.length + 1,
-  };
+  });
 
   const openCreate = () => {
-    setForm({ ...defaultForm, id: `qb-${Date.now()}` });
+    setForm({ ...defaultForm() });
     setEditIdx(null);
     setShowModal(true);
   };
@@ -42,28 +60,52 @@ export default function AdminBannersPage() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.title?.trim()) return;
-    const banner = { ...defaultForm, ...form } as QuickBannerDemo;
-    if (editIdx !== null) {
-      setBanners((prev) => prev.map((b, i) => (i === editIdx ? banner : b)));
-    } else {
-      setBanners((prev) => [...prev, banner]);
+    setSaving(true);
+    try {
+      const banner = { ...defaultForm(), ...form } as QuickBannerDemo;
+      if (editIdx !== null && banners[editIdx]?.id) {
+        await upsertDoc(COLLECTIONS.BANNERS, banners[editIdx].id, banner);
+        setBanners((prev) => prev.map((b, i) => (i === editIdx ? { ...banner, id: banners[editIdx].id } : b)));
+      } else {
+        const id = await createDoc(COLLECTIONS.BANNERS, banner);
+        setBanners((prev) => [...prev, { ...banner, id }]);
+      }
+      setShowModal(false);
+    } catch (e) {
+      console.error(e);
+      alert("저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
     }
-    setShowModal(false);
   };
 
-  const toggleActive = (idx: number) => {
-    setBanners((prev) =>
-      prev.map((b, i) => (i === idx ? { ...b, isActive: !b.isActive } : b))
-    );
+  const toggleActive = async (idx: number) => {
+    const banner = banners[idx];
+    if (!banner.id) return;
+    const newActive = !banner.isActive;
+    try {
+      await updateDocFields(COLLECTIONS.BANNERS, banner.id, { isActive: newActive });
+      setBanners((prev) => prev.map((b, i) => (i === idx ? { ...b, isActive: newActive } : b)));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleDelete = (idx: number) => {
-    if (confirm("삭제하시겠습니까?")) {
+  const handleDelete = async (idx: number) => {
+    const banner = banners[idx];
+    if (!banner.id || !confirm("삭제하시겠습니까?")) return;
+    try {
+      await removeDoc(COLLECTIONS.BANNERS, banner.id);
       setBanners((prev) => prev.filter((_, i) => i !== idx));
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
     }
   };
+
+  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
 
   return (
     <div className="space-y-6">
@@ -81,54 +123,58 @@ export default function AdminBannersPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 text-left">
-              <th className="px-4 py-3 font-medium text-gray-500">제목</th>
-              <th className="px-4 py-3 font-medium text-gray-500">스타일</th>
-              <th className="px-4 py-3 font-medium text-gray-500">위치</th>
-              <th className="px-4 py-3 font-medium text-gray-500">기간</th>
-              <th className="px-4 py-3 font-medium text-gray-500">상태</th>
-              <th className="px-4 py-3 font-medium text-gray-500 text-right">관리</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {banners.map((banner, idx) => (
-              <tr key={banner.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <p className="font-medium text-gray-900">{banner.title}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{banner.description}</p>
-                </td>
-                <td className="px-4 py-3 text-gray-600">{BANNER_STYLE_LABELS[banner.style]}</td>
-                <td className="px-4 py-3 text-gray-600">{BANNER_POSITION_LABELS[banner.position]}</td>
-                <td className="px-4 py-3 text-gray-500 text-xs">
-                  {banner.startDate} ~ {banner.endDate}
-                </td>
-                <td className="px-4 py-3">
-                  <button onClick={() => toggleActive(idx)}>
-                    {banner.isActive ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full">
-                        <Eye size={12} /> 활성
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                        <EyeOff size={12} /> 비활성
-                      </span>
-                    )}
-                  </button>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button onClick={() => openEdit(idx)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400">
-                    <Pencil size={14} />
-                  </button>
-                  <button onClick={() => handleDelete(idx)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
-                    <Trash2 size={14} />
-                  </button>
-                </td>
+        {banners.length === 0 ? (
+          <div className="py-12 text-center text-gray-400 text-sm">등록된 배너가 없습니다.</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-left">
+                <th className="px-4 py-3 font-medium text-gray-500">제목</th>
+                <th className="px-4 py-3 font-medium text-gray-500">스타일</th>
+                <th className="px-4 py-3 font-medium text-gray-500">위치</th>
+                <th className="px-4 py-3 font-medium text-gray-500">기간</th>
+                <th className="px-4 py-3 font-medium text-gray-500">상태</th>
+                <th className="px-4 py-3 font-medium text-gray-500 text-right">관리</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {banners.map((banner, idx) => (
+                <tr key={banner.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-gray-900">{banner.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{banner.description}</p>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{BANNER_STYLE_LABELS[banner.style]}</td>
+                  <td className="px-4 py-3 text-gray-600">{BANNER_POSITION_LABELS[banner.position]}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">
+                    {banner.startDate} ~ {banner.endDate}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => toggleActive(idx)}>
+                      {banner.isActive ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full">
+                          <Eye size={12} /> 활성
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                          <EyeOff size={12} /> 비활성
+                        </span>
+                      )}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => openEdit(idx)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => handleDelete(idx)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {showModal && (
@@ -216,6 +262,16 @@ export default function AdminBannersPage() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={form.isActive ?? true}
+                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                  className="rounded border-gray-300"
+                />
+                <label htmlFor="isActive" className="text-sm text-gray-700">활성화</label>
+              </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button
@@ -226,9 +282,10 @@ export default function AdminBannersPage() {
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                disabled={saving}
+                className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
               >
-                {editIdx !== null ? "수정" : "추가"}
+                {saving ? "저장중..." : editIdx !== null ? "수정" : "추가"}
               </button>
             </div>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Award,
   Plus,
@@ -18,6 +18,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 
 // =============================================================================
 // Types
@@ -53,53 +54,6 @@ interface CertificateRequest {
 
 type TabKey = "cohorts" | "graduates" | "requests";
 
-// =============================================================================
-// Demo data
-// =============================================================================
-
-const DEMO_COHORTS: Cohort[] = [
-  {
-    id: "cohort-1",
-    name: "1기",
-    programTitle: "AI 기초 정규과정",
-    startDate: "2025-03-01",
-    endDate: "2025-06-30",
-    graduateCount: 32,
-  },
-  {
-    id: "cohort-2",
-    name: "2기",
-    programTitle: "AI 기초 정규과정",
-    startDate: "2025-07-01",
-    endDate: "2025-10-31",
-    graduateCount: 28,
-  },
-  {
-    id: "cohort-3",
-    name: "AI 기초 정규과정 11기",
-    programTitle: "AI 기초 정규과정",
-    startDate: "2025-11-01",
-    endDate: "2026-02-28",
-    graduateCount: 45,
-  },
-];
-
-const DEMO_GRADUATES: Graduate[] = [
-  { id: "grad-1", cohortId: "cohort-1", name: "김민수", email: "minsu@example.com", studentId: "STU-2025-001", status: "수료" },
-  { id: "grad-2", cohortId: "cohort-1", name: "이서연", email: "seoyeon@example.com", studentId: "STU-2025-002", status: "졸업" },
-  { id: "grad-3", cohortId: "cohort-1", name: "박지호", email: "jiho@example.com", studentId: "STU-2025-003", status: "미수료" },
-  { id: "grad-4", cohortId: "cohort-2", name: "최유진", email: "yujin@example.com", studentId: "STU-2025-004", status: "수료" },
-  { id: "grad-5", cohortId: "cohort-2", name: "정하윤", email: "hayun@example.com", studentId: "STU-2025-005", status: "졸업" },
-  { id: "grad-6", cohortId: "cohort-3", name: "한소미", email: "somi@example.com", studentId: "STU-2025-006", status: "수료" },
-];
-
-const DEMO_REQUESTS: CertificateRequest[] = [
-  { id: "req-1", graduateId: "grad-1", name: "김민수", email: "minsu@example.com", cohortName: "1기", requestDate: "2026-03-10", status: "대기" },
-  { id: "req-2", graduateId: "grad-2", name: "이서연", email: "seoyeon@example.com", cohortName: "1기", requestDate: "2026-03-08", status: "승인" },
-  { id: "req-3", graduateId: "grad-4", name: "최유진", email: "yujin@example.com", cohortName: "2기", requestDate: "2026-03-05", status: "발급완료" },
-  { id: "req-4", graduateId: "grad-5", name: "정하윤", email: "hayun@example.com", cohortName: "2기", requestDate: "2026-03-12", status: "거절" },
-  { id: "req-5", graduateId: "grad-6", name: "한소미", email: "somi@example.com", cohortName: "AI 기초 정규과정 11기", requestDate: "2026-03-15", status: "대기" },
-];
 
 // =============================================================================
 // Helpers
@@ -130,15 +84,16 @@ const STATUS_REQUEST_COLORS: Record<CertificateRequest["status"], string> = {
 
 export default function AdminCertificatesPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("cohorts");
+  const [loading, setLoading] = useState(true);
 
   // --- Cohort state ---
-  const [cohorts, setCohorts] = useState<Cohort[]>([...DEMO_COHORTS]);
+  const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [cohortModalOpen, setCohortModalOpen] = useState(false);
   const [editingCohort, setEditingCohort] = useState<Cohort | null>(null);
   const [cohortForm, setCohortForm] = useState({ name: "", programTitle: "", startDate: "", endDate: "" });
 
   // --- Graduate state ---
-  const [graduates, setGraduates] = useState<Graduate[]>([...DEMO_GRADUATES]);
+  const [graduates, setGraduates] = useState<Graduate[]>([]);
   const [selectedCohortId, setSelectedCohortId] = useState<string>("");
   const [gradSearch, setGradSearch] = useState("");
   const [bulkInput, setBulkInput] = useState("");
@@ -148,10 +103,22 @@ export default function AdminCertificatesPage() {
   const [gradForm, setGradForm] = useState({ name: "", email: "", studentId: "", status: "수료" as Graduate["status"] });
 
   // --- Request state ---
-  const [requests, setRequests] = useState<CertificateRequest[]>([...DEMO_REQUESTS]);
+  const [requests, setRequests] = useState<CertificateRequest[]>([]);
   const [reqSearch, setReqSearch] = useState("");
   const [reqStatusFilter, setReqStatusFilter] = useState<string>("ALL");
   const [detailRequest, setDetailRequest] = useState<CertificateRequest | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      getCollection<Cohort>(COLLECTIONS.CERTIFICATES_COHORTS),
+      getCollection<Graduate>(COLLECTIONS.CERTIFICATES_GRADUATES),
+      getCollection<CertificateRequest>(COLLECTIONS.CERTIFICATES_REQUESTS),
+    ]).then(([c, g, r]) => {
+      setCohorts(c);
+      setGraduates(g);
+      setRequests(r);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
 
   // =========================================================================
   // Tab 1 - Cohort CRUD
@@ -174,35 +141,41 @@ export default function AdminCertificatesPage() {
     setEditingCohort(null);
   };
 
-  const saveCohort = () => {
+  const saveCohort = async () => {
     if (!cohortForm.name.trim()) return;
-    if (editingCohort) {
-      setCohorts((prev) =>
-        prev.map((c) =>
-          c.id === editingCohort.id
-            ? { ...c, name: cohortForm.name, programTitle: cohortForm.programTitle, startDate: cohortForm.startDate, endDate: cohortForm.endDate }
-            : c
-        )
-      );
-    } else {
-      const newCohort: Cohort = {
-        id: `cohort-${Date.now()}`,
-        name: cohortForm.name,
-        programTitle: cohortForm.programTitle,
-        startDate: cohortForm.startDate,
-        endDate: cohortForm.endDate,
-        graduateCount: 0,
-      };
-      setCohorts((prev) => [newCohort, ...prev]);
+    try {
+      if (editingCohort) {
+        await upsertDoc(COLLECTIONS.CERTIFICATES_COHORTS, editingCohort.id, cohortForm);
+        setCohorts((prev) =>
+          prev.map((c) =>
+            c.id === editingCohort.id
+              ? { ...c, ...cohortForm }
+              : c
+          )
+        );
+      } else {
+        const data = { ...cohortForm, graduateCount: 0 };
+        const id = await createDoc(COLLECTIONS.CERTIFICATES_COHORTS, data);
+        setCohorts((prev) => [{ id, ...data }, ...prev]);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("저장에 실패했습니다.");
     }
     closeCohortModal();
   };
 
-  const deleteCohort = (id: string) => {
+  const deleteCohort = async (id: string) => {
     if (!window.confirm("이 기수를 삭제하시겠습니까?")) return;
-    setCohorts((prev) => prev.filter((c) => c.id !== id));
-    setGraduates((prev) => prev.filter((g) => g.cohortId !== id));
-    if (selectedCohortId === id) setSelectedCohortId("");
+    try {
+      await removeDoc(COLLECTIONS.CERTIFICATES_COHORTS, id);
+      setCohorts((prev) => prev.filter((c) => c.id !== id));
+      setGraduates((prev) => prev.filter((g) => g.cohortId !== id));
+      if (selectedCohortId === id) setSelectedCohortId("");
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
+    }
   };
 
   // =========================================================================
@@ -237,78 +210,109 @@ export default function AdminCertificatesPage() {
     setEditingGrad(null);
   };
 
-  const saveGrad = () => {
+  const saveGrad = async () => {
     if (!gradForm.name.trim()) return;
-    if (editingGrad) {
-      setGraduates((prev) =>
-        prev.map((g) =>
-          g.id === editingGrad.id
-            ? { ...g, name: gradForm.name, email: gradForm.email, studentId: gradForm.studentId, status: gradForm.status }
-            : g
-        )
-      );
-    } else {
-      const newGrad: Graduate = {
-        id: `grad-${Date.now()}`,
-        cohortId: selectedCohortId,
-        name: gradForm.name,
-        email: gradForm.email,
-        studentId: gradForm.studentId,
-        status: gradForm.status,
-      };
-      setGraduates((prev) => [...prev, newGrad]);
-      // update cohort count
-      setCohorts((prev) =>
-        prev.map((c) => (c.id === selectedCohortId ? { ...c, graduateCount: c.graduateCount + 1 } : c))
-      );
+    try {
+      if (editingGrad) {
+        await upsertDoc(COLLECTIONS.CERTIFICATES_GRADUATES, editingGrad.id, gradForm);
+        setGraduates((prev) =>
+          prev.map((g) =>
+            g.id === editingGrad.id ? { ...g, ...gradForm } : g
+          )
+        );
+      } else {
+        const data = { ...gradForm, cohortId: selectedCohortId };
+        const id = await createDoc(COLLECTIONS.CERTIFICATES_GRADUATES, data);
+        setGraduates((prev) => [...prev, { id, ...data }]);
+        const cohort = cohorts.find((c) => c.id === selectedCohortId);
+        if (cohort) {
+          const newCount = cohort.graduateCount + 1;
+          await updateDocFields(COLLECTIONS.CERTIFICATES_COHORTS, selectedCohortId, { graduateCount: newCount });
+          setCohorts((prev) =>
+            prev.map((c) => (c.id === selectedCohortId ? { ...c, graduateCount: newCount } : c))
+          );
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      alert("저장에 실패했습니다.");
     }
     closeGradModal();
   };
 
-  const deleteGrad = (id: string) => {
+  const deleteGrad = async (id: string) => {
     if (!window.confirm("이 졸업자를 삭제하시겠습니까?")) return;
     const grad = graduates.find((g) => g.id === id);
-    setGraduates((prev) => prev.filter((g) => g.id !== id));
-    if (grad) {
-      setCohorts((prev) =>
-        prev.map((c) => (c.id === grad.cohortId ? { ...c, graduateCount: Math.max(0, c.graduateCount - 1) } : c))
-      );
+    try {
+      await removeDoc(COLLECTIONS.CERTIFICATES_GRADUATES, id);
+      setGraduates((prev) => prev.filter((g) => g.id !== id));
+      if (grad) {
+        const cohort = cohorts.find((c) => c.id === grad.cohortId);
+        if (cohort) {
+          const newCount = Math.max(0, cohort.graduateCount - 1);
+          await updateDocFields(COLLECTIONS.CERTIFICATES_COHORTS, grad.cohortId, { graduateCount: newCount });
+          setCohorts((prev) =>
+            prev.map((c) => (c.id === grad.cohortId ? { ...c, graduateCount: newCount } : c))
+          );
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
     }
   };
 
-  const changeGradStatus = (id: string, status: Graduate["status"]) => {
-    setGraduates((prev) => prev.map((g) => (g.id === id ? { ...g, status } : g)));
+  const changeGradStatus = async (id: string, status: Graduate["status"]) => {
+    try {
+      await updateDocFields(COLLECTIONS.CERTIFICATES_GRADUATES, id, { status });
+      setGraduates((prev) => prev.map((g) => (g.id === id ? { ...g, status } : g)));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleBulkUpload = () => {
+  const handleBulkUpload = async () => {
     if (!selectedCohortId || !bulkInput.trim()) return;
     const lines = bulkInput.trim().split("\n");
-    let addedCount = 0;
-    const newGrads: Graduate[] = [];
+    const newGrads: Omit<Graduate, "id">[] = [];
     for (const line of lines) {
       const parts = line.split(",").map((s) => s.trim());
       if (parts.length >= 3) {
         newGrads.push({
-          id: `grad-${Date.now()}-${addedCount}`,
           cohortId: selectedCohortId,
           name: parts[0],
           email: parts[1],
           studentId: parts[2],
           status: "수료",
         });
-        addedCount++;
       }
     }
-    if (newGrads.length > 0) {
-      setGraduates((prev) => [...prev, ...newGrads]);
-      setCohorts((prev) =>
-        prev.map((c) => (c.id === selectedCohortId ? { ...c, graduateCount: c.graduateCount + newGrads.length } : c))
+    if (newGrads.length === 0) {
+      alert("유효한 데이터가 없습니다. 형식: 이름,이메일,학번 (한 줄에 한 명)");
+      return;
+    }
+    try {
+      const created = await Promise.all(
+        newGrads.map(async (g) => {
+          const id = await createDoc(COLLECTIONS.CERTIFICATES_GRADUATES, g);
+          return { id, ...g } as Graduate;
+        })
       );
+      setGraduates((prev) => [...prev, ...created]);
+      const cohort = cohorts.find((c) => c.id === selectedCohortId);
+      if (cohort) {
+        const newCount = cohort.graduateCount + created.length;
+        await updateDocFields(COLLECTIONS.CERTIFICATES_COHORTS, selectedCohortId, { graduateCount: newCount });
+        setCohorts((prev) =>
+          prev.map((c) => (c.id === selectedCohortId ? { ...c, graduateCount: newCount } : c))
+        );
+      }
       setBulkInput("");
       setShowBulkUpload(false);
-      alert(`${newGrads.length}명의 졸업자가 등록되었습니다.`);
-    } else {
-      alert("유효한 데이터가 없습니다. 형식: 이름,이메일,학번 (한 줄에 한 명)");
+      alert(`${created.length}명의 졸업자가 등록되었습니다.`);
+    } catch (e) {
+      console.error(e);
+      alert("일괄 등록에 실패했습니다.");
     }
   };
 
@@ -325,16 +329,24 @@ export default function AdminCertificatesPage() {
     return matchSearch && matchStatus;
   });
 
-  const changeReqStatus = (id: string, status: CertificateRequest["status"]) => {
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
-    if (status === "승인") {
-      alert("수료증이 등록된 이메일로 발송됩니다 (이메일 연동 설정 필요)");
+  const changeReqStatus = async (id: string, status: CertificateRequest["status"]) => {
+    try {
+      await updateDocFields(COLLECTIONS.CERTIFICATES_REQUESTS, id, { status });
+      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+      if (status === "승인") {
+        alert("수료증이 등록된 이메일로 발송됩니다 (이메일 연동 설정 필요)");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("상태 변경에 실패했습니다.");
     }
   };
 
   // =========================================================================
   // Render
   // =========================================================================
+
+  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
 
   return (
     <div>

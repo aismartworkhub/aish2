@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -24,13 +24,14 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type PartnerCategory = "정부기관" | "대학교" | "기업" | "스타트업" | "기타";
 
 interface Partner {
-  id: number;
+  id: string;
   name: string;
   logoUrl: string;
   category: PartnerCategory;
@@ -43,7 +44,7 @@ interface Partner {
 type ApplicationStatus = "신규" | "검토중" | "승인" | "거절";
 
 interface PartnerApplication {
-  id: number;
+  id: string;
   companyName: string;
   contactName: string;
   email: string;
@@ -74,22 +75,6 @@ const STATUS_CONFIG: Record<ApplicationStatus, { color: string; icon: React.Elem
 
 const APPLICATION_STATUSES: ApplicationStatus[] = ["신규", "검토중", "승인", "거절"];
 
-const INITIAL_PARTNERS: Partner[] = [
-  { id: 1, name: "과학기술정보통신부", logoUrl: "/images/partners/msit.png", category: "정부기관", website: "https://www.msit.go.kr", description: "대한민국 과학기술정보통신부. AI 교육 및 인재 양성 정책 협력.", isActive: true, displayOrder: 1 },
-  { id: 2, name: "한국정보화진흥원", logoUrl: "/images/partners/nia.png", category: "정부기관", website: "https://www.nia.or.kr", description: "국가 정보화 촉진 및 디지털 역량 강화 협력 기관.", isActive: true, displayOrder: 2 },
-  { id: 3, name: "서울대학교 AI연구원", logoUrl: "/images/partners/snu-ai.png", category: "대학교", website: "https://aiis.snu.ac.kr", description: "서울대학교 AI 연구원과의 학술 교류 및 공동 연구.", isActive: true, displayOrder: 3 },
-  { id: 4, name: "KAIST", logoUrl: "/images/partners/kaist.png", category: "대학교", website: "https://www.kaist.ac.kr", description: "KAIST AI 대학원 연계 프로그램 및 연구 협력.", isActive: true, displayOrder: 4 },
-  { id: 5, name: "삼성전자", logoUrl: "/images/partners/samsung.png", category: "기업", website: "https://www.samsung.com", description: "삼성전자 AI 센터와의 기술 협력 및 인턴십 프로그램.", isActive: true, displayOrder: 5 },
-  { id: 6, name: "네이버", logoUrl: "/images/partners/naver.png", category: "기업", website: "https://www.navercorp.com", description: "네이버 AI Lab 기술 교류 및 데이터셋 제공 협력.", isActive: false, displayOrder: 6 },
-];
-
-const INITIAL_APPLICATIONS: PartnerApplication[] = [
-  { id: 1, companyName: "AI스타트업 코리아", contactName: "김민수", email: "kim@aistartup.kr", phone: "010-1234-5678", message: "AI 교육 프로그램과 연계한 스타트업 인큐베이팅 협력을 제안합니다. 당사는 자연어처리 분야 기술력을 보유하고 있으며, 교육생들에게 실무 프로젝트 기회를 제공할 수 있습니다.", status: "신규", date: "2026-03-19" },
-  { id: 2, companyName: "데이터랩스", contactName: "이서연", email: "lee@datalabs.io", phone: "010-2345-6789", message: "데이터 분석 및 시각화 도구 관련 교육 콘텐츠 공동 개발을 제안드립니다.", status: "검토중", date: "2026-03-17" },
-  { id: 3, companyName: "경기대학교 SW융합학부", contactName: "박준혁", email: "park@kyonggi.ac.kr", phone: "031-249-1234", message: "대학 정규 과정과 AISH 프로그램 연계를 통한 학점 인정 협력 모델을 논의하고 싶습니다.", status: "승인", date: "2026-03-15" },
-  { id: 4, companyName: "테크브릿지", contactName: "최지은", email: "choi@techbridge.co", phone: "010-3456-7890", message: "해외 AI 컨퍼런스 공동 참가 및 글로벌 네트워킹 행사 공동 주최를 제안합니다.", status: "거절", date: "2026-03-12" },
-  { id: 5, companyName: "로보틱스플러스", contactName: "정우진", email: "jung@roboticsplus.kr", phone: "010-4567-8901", message: "로보틱스 분야 AI 응용 교육 커리큘럼 공동 개발 및 장비 지원 가능합니다.", status: "신규", date: "2026-03-20" },
-];
 
 const EMPTY_PARTNER: Omit<Partner, "id"> = {
   name: "",
@@ -101,13 +86,16 @@ const EMPTY_PARTNER: Omit<Partner, "id"> = {
   displayOrder: 0,
 };
 
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AdminPartnersPage() {
   const [activeTab, setActiveTab] = useState<"partners" | "applications">("partners");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // ── Partners state ──
-  const [partners, setPartners] = useState<Partner[]>(INITIAL_PARTNERS);
+  const [partners, setPartners] = useState<Partner[]>([]);
   const [partnerSearch, setPartnerSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<PartnerCategory | "ALL">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -115,10 +103,20 @@ export default function AdminPartnersPage() {
   const [formData, setFormData] = useState<Omit<Partner, "id">>(EMPTY_PARTNER);
 
   // ── Applications state ──
-  const [applications, setApplications] = useState<PartnerApplication[]>(INITIAL_APPLICATIONS);
+  const [applications, setApplications] = useState<PartnerApplication[]>([]);
   const [appSearch, setAppSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "ALL">("ALL");
-  const [selectedAppId, setSelectedAppId] = useState<number | null>(null);
+  const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      getCollection<Partner>(COLLECTIONS.PARTNERS),
+      getCollection<PartnerApplication>(COLLECTIONS.PARTNER_APPLICATIONS),
+    ]).then(([p, a]) => {
+      setPartners(p);
+      setApplications(a);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
 
   // ── Partners CRUD ──
   const filteredPartners = partners.filter((p) => {
@@ -140,29 +138,47 @@ export default function AdminPartnersPage() {
     setIsModalOpen(true);
   };
 
-  const handleSavePartner = () => {
+  const handleSavePartner = async () => {
     if (!formData.name.trim()) return;
-    if (editingPartner) {
-      setPartners((prev) =>
-        prev.map((p) => (p.id === editingPartner.id ? { ...p, ...formData } : p))
-      );
-    } else {
-      const newId = Math.max(0, ...partners.map((p) => p.id)) + 1;
-      setPartners((prev) => [...prev, { id: newId, ...formData }]);
+    setSaving(true);
+    try {
+      if (editingPartner) {
+        await upsertDoc(COLLECTIONS.PARTNERS, editingPartner.id, formData);
+        setPartners((prev) => prev.map((p) => p.id === editingPartner.id ? { ...p, ...formData } : p));
+      } else {
+        const id = await createDoc(COLLECTIONS.PARTNERS, { ...formData, displayOrder: partners.length + 1 });
+        setPartners((prev) => [...prev, { id, ...formData }]);
+      }
+      setIsModalOpen(false);
+    } catch (e) {
+      console.error(e);
+      alert("저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
     }
-    setIsModalOpen(false);
   };
 
-  const deletePartner = (id: number) => {
-    if (confirm("이 파트너사를 삭제하시겠습니까?")) {
+  const deletePartner = async (id: string) => {
+    if (!confirm("이 파트너사를 삭제하시겠습니까?")) return;
+    try {
+      await removeDoc(COLLECTIONS.PARTNERS, id);
       setPartners((prev) => prev.filter((p) => p.id !== id));
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
     }
   };
 
-  const togglePartnerActive = (id: number) => {
-    setPartners((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p))
-    );
+  const togglePartnerActive = async (id: string) => {
+    const partner = partners.find((p) => p.id === id);
+    if (!partner) return;
+    const newActive = !partner.isActive;
+    try {
+      await updateDocFields(COLLECTIONS.PARTNERS, id, { isActive: newActive });
+      setPartners((prev) => prev.map((p) => p.id === id ? { ...p, isActive: newActive } : p));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // ── Applications ──
@@ -178,16 +194,25 @@ export default function AdminPartnersPage() {
 
   const selectedApp = applications.find((a) => a.id === selectedAppId) ?? null;
 
-  const changeAppStatus = (id: number, status: ApplicationStatus) => {
-    setApplications((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status } : a))
-    );
+  const changeAppStatus = async (id: string, status: ApplicationStatus) => {
+    try {
+      await updateDocFields(COLLECTIONS.PARTNER_APPLICATIONS, id, { status });
+      setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+    } catch (e) {
+      console.error(e);
+      alert("상태 변경에 실패했습니다.");
+    }
   };
 
-  const deleteApplication = (id: number) => {
-    if (confirm("이 문의를 삭제하시겠습니까?")) {
+  const deleteApplication = async (id: string) => {
+    if (!confirm("이 문의를 삭제하시겠습니까?")) return;
+    try {
+      await removeDoc(COLLECTIONS.PARTNER_APPLICATIONS, id);
       setApplications((prev) => prev.filter((a) => a.id !== id));
       if (selectedAppId === id) setSelectedAppId(null);
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
     }
   };
 

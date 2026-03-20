@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Mail, MailOpen, Clock, CheckCircle, XCircle, Trash2, Save, Send, Settings, Bell, Reply } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INQUIRY_STATUS_LABELS } from "@/lib/constants";
+import { COLLECTIONS, getCollection, updateDocFields, removeDoc } from "@/lib/firestore";
 
 type InquiryStatus = "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
 interface Inquiry {
-  id: number;
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -30,23 +31,16 @@ const CATEGORY_LABELS: Record<string, string> = {
   TECHNICAL: "기술 문의",
 };
 
-const INITIAL_INQUIRIES: Inquiry[] = [
-  { id: 1, name: "김○○", email: "kim@test.com", phone: "010-1234-5678", subject: "11기 수강 관련 문의", category: "ENROLLMENT", status: "NEW", date: "2026.03.17", content: "11기 과정 수강 신청 방법이 궁금합니다. 현재 직장인인데 참여 가능한가요?", adminNote: "", emailSent: false, replyContent: "" },
-  { id: 2, name: "이○○", email: "lee@test.com", phone: "010-2345-6789", subject: "기업 교육 협력 제안", category: "PARTNERSHIP", status: "IN_PROGRESS", date: "2026.03.16", content: "기업 단체 교육 문의드립니다. 20명 규모의 AI 기초 교육을 진행하고 싶습니다.", adminNote: "담당자 연결 예정", emailSent: true, replyContent: "" },
-  { id: 3, name: "박○○", email: "park@test.com", phone: "010-3456-7890", subject: "수료증 재발급 요청", category: "CERTIFICATE", status: "RESOLVED", date: "2026.03.15", content: "10기 수료증 재발급을 요청합니다.", adminNote: "재발급 완료", emailSent: true, replyContent: "수료증이 등록하신 이메일로 재발급 되었습니다." },
-  { id: 4, name: "최○○", email: "choi@test.com", phone: "010-4567-8901", subject: "워크톤 참가 문의", category: "GENERAL", status: "NEW", date: "2026.03.14", content: "4회 워크톤 관련 문의입니다. 비전공자도 참여할 수 있나요?", adminNote: "", emailSent: false, replyContent: "" },
-  { id: 5, name: "정○○", email: "jung@test.com", phone: "010-5678-9012", subject: "오프라인 과정 장소 문의", category: "ENROLLMENT", status: "CLOSED", date: "2026.03.13", content: "오프라인 수업은 어디에서 진행되나요?", adminNote: "테헤란로 안내 완료", emailSent: true, replyContent: "오프라인 수업은 서울 강남구 테헤란로에서 진행됩니다." },
-];
-
 const STATUS_ICONS: Record<string, React.ElementType> = { NEW: Mail, IN_PROGRESS: Clock, RESOLVED: CheckCircle, CLOSED: XCircle };
 const STATUS_COLORS: Record<string, string> = { NEW: "bg-red-100 text-red-700", IN_PROGRESS: "bg-yellow-100 text-yellow-700", RESOLVED: "bg-green-100 text-green-700", CLOSED: "bg-gray-100 text-gray-700" };
 
 export default function AdminInquiriesPage() {
-  const [inquiries, setInquiries] = useState<Inquiry[]>(INITIAL_INQUIRIES);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editNote, setEditNote] = useState("");
   const [editStatus, setEditStatus] = useState<InquiryStatus>("NEW");
   const [replyText, setReplyText] = useState("");
@@ -54,6 +48,22 @@ export default function AdminInquiriesPage() {
   const [showEmailSettings, setShowEmailSettings] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
   const [emailNotify, setEmailNotify] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadInquiries();
+  }, []);
+
+  const loadInquiries = async () => {
+    try {
+      const data = await getCollection<Inquiry>(COLLECTIONS.INQUIRIES);
+      setInquiries(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = inquiries.filter((i) => {
     const matchSearch = !searchQuery || i.subject.includes(searchQuery) || i.name.includes(searchQuery) || i.email.includes(searchQuery);
@@ -64,7 +74,7 @@ export default function AdminInquiriesPage() {
 
   const selected = inquiries.find((i) => i.id === selectedId);
 
-  const selectInquiry = (id: number) => {
+  const selectInquiry = (id: string) => {
     const inq = inquiries.find((i) => i.id === id);
     if (inq) {
       setSelectedId(id);
@@ -75,34 +85,55 @@ export default function AdminInquiriesPage() {
     }
   };
 
-  const saveInquiry = () => {
+  const saveInquiry = async () => {
     if (!selectedId) return;
-    setInquiries((prev) => prev.map((i) => i.id === selectedId ? { ...i, status: editStatus, adminNote: editNote, replyContent: replyText } : i));
-    setSaveMessage("저장되었습니다");
-    setTimeout(() => setSaveMessage(""), 2000);
+    setSaving(true);
+    try {
+      const updates = { status: editStatus, adminNote: editNote, replyContent: replyText };
+      await updateDocFields(COLLECTIONS.INQUIRIES, selectedId, updates);
+      setInquiries((prev) => prev.map((i) => i.id === selectedId ? { ...i, ...updates } : i));
+      setSaveMessage("저장되었습니다");
+      setTimeout(() => setSaveMessage(""), 2000);
+    } catch (e) {
+      console.error(e);
+      setSaveMessage("저장에 실패했습니다");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const sendReply = () => {
+  const sendReply = async () => {
     if (!selectedId || !replyText.trim()) return;
-    setInquiries((prev) => prev.map((i) => i.id === selectedId ? {
-      ...i,
-      status: "RESOLVED" as InquiryStatus,
-      replyContent: replyText,
-      emailSent: true,
-    } : i));
-    setEditStatus("RESOLVED");
-    setSaveMessage("답변이 이메일로 전송되었습니다 (이메일 연동 설정 시 실제 발송)");
-    setTimeout(() => setSaveMessage(""), 3000);
+    setSaving(true);
+    try {
+      const updates = { status: "RESOLVED" as InquiryStatus, replyContent: replyText, emailSent: true };
+      await updateDocFields(COLLECTIONS.INQUIRIES, selectedId, updates);
+      setInquiries((prev) => prev.map((i) => i.id === selectedId ? { ...i, ...updates } : i));
+      setEditStatus("RESOLVED");
+      setSaveMessage("답변이 저장되었습니다 (이메일 연동 설정 시 실제 발송)");
+      setTimeout(() => setSaveMessage(""), 3000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const deleteInquiry = (id: number) => {
-    if (confirm("정말 삭제하시겠습니까?")) {
+  const deleteInquiry = async (id: string) => {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
+    try {
+      await removeDoc(COLLECTIONS.INQUIRIES, id);
       setInquiries((prev) => prev.filter((i) => i.id !== id));
       if (selectedId === id) setSelectedId(null);
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
     }
   };
 
   const newCount = inquiries.filter((i) => i.status === "NEW").length;
+
+  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
 
   return (
     <div>
@@ -114,8 +145,7 @@ export default function AdminInquiriesPage() {
         <div className="flex gap-2">
           {newCount > 0 && (
             <span className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-red-50 text-red-600 text-sm font-medium">
-              <Bell size={14} />
-              신규 {newCount}건
+              <Bell size={14} />신규 {newCount}건
             </span>
           )}
           <button onClick={() => setShowEmailSettings(true)}
@@ -125,7 +155,6 @@ export default function AdminInquiriesPage() {
         </div>
       </div>
 
-      {/* 상태 카운트 */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {(["NEW", "IN_PROGRESS", "RESOLVED", "CLOSED"] as const).map((status) => {
           const Icon = STATUS_ICONS[status];
@@ -145,7 +174,6 @@ export default function AdminInquiriesPage() {
       </div>
 
       <div className="grid lg:grid-cols-5 gap-6">
-        {/* 목록 */}
         <div className="lg:col-span-2">
           <div className="flex gap-2 mb-4">
             <div className="relative flex-1">
@@ -189,7 +217,6 @@ export default function AdminInquiriesPage() {
           </div>
         </div>
 
-        {/* 상세 */}
         <div className="lg:col-span-3">
           {selected ? (
             <div className="space-y-4">
@@ -204,7 +231,6 @@ export default function AdminInquiriesPage() {
                     <option value="CLOSED">종료</option>
                   </select>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-100">
                   <div><span className="text-xs text-gray-400">이름</span><p className="text-sm font-medium text-gray-900">{selected.name}</p></div>
                   <div><span className="text-xs text-gray-400">이메일</span><p className="text-sm font-medium text-primary-600">{selected.email}</p></div>
@@ -217,12 +243,10 @@ export default function AdminInquiriesPage() {
                     </p>
                   </div>
                 </div>
-
                 <div className="mb-6">
                   <span className="text-xs text-gray-400">문의 내용</span>
                   <p className="mt-2 text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-lg p-4">{selected.content}</p>
                 </div>
-
                 <div>
                   <span className="text-xs text-gray-400">관리자 메모 (내부용)</span>
                   <textarea rows={2} value={editNote} onChange={(e) => setEditNote(e.target.value)}
@@ -231,7 +255,6 @@ export default function AdminInquiriesPage() {
                 </div>
               </div>
 
-              {/* 이메일 답변 섹션 */}
               <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Reply size={18} className="text-primary-600" />
@@ -249,21 +272,18 @@ export default function AdminInquiriesPage() {
                 <textarea rows={4} value={replyText} onChange={(e) => setReplyText(e.target.value)}
                   placeholder="답변 내용을 입력하세요..."
                   className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
-
                 <div className="flex items-center gap-3 mt-4">
-                  <button onClick={sendReply} disabled={!replyText.trim()}
+                  <button onClick={sendReply} disabled={!replyText.trim() || saving}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50">
                     <Send size={16} />이메일 답변 보내기
                   </button>
-                  <button onClick={saveInquiry}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
-                    <Save size={16} />메모만 저장
+                  <button onClick={saveInquiry} disabled={saving}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50">
+                    <Save size={16} />{saving ? "저장중..." : "메모만 저장"}
                   </button>
                   {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
                 </div>
-                <p className="text-xs text-gray-400 mt-2">
-                  * 실제 이메일 발송은 관리자 설정 &gt; 외부 연동에서 이메일 설정을 완료해야 작동합니다.
-                </p>
+                <p className="text-xs text-gray-400 mt-2">* 실제 이메일 발송은 관리자 설정 &gt; 외부 연동에서 이메일 설정을 완료해야 작동합니다.</p>
               </div>
             </div>
           ) : (
@@ -275,15 +295,12 @@ export default function AdminInquiriesPage() {
         </div>
       </div>
 
-      {/* 이메일 설정 모달 */}
       {showEmailSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">이메일 알림 설정</h2>
-              <button onClick={() => setShowEmailSettings(false)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400">
-                <XCircle size={18} />
-              </button>
+              <button onClick={() => setShowEmailSettings(false)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400"><XCircle size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 text-blue-700 text-sm p-3 rounded-lg">
@@ -305,7 +322,7 @@ export default function AdminInquiriesPage() {
             </div>
             <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
               <button onClick={() => setShowEmailSettings(false)} className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
-              <button onClick={() => { setShowEmailSettings(false); }}
+              <button onClick={() => setShowEmailSettings(false)}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors">
                 <Save size={16} />저장
               </button>

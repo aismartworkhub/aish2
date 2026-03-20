@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CalendarDays, MapPin, Users, Download, Edit, CheckCircle,
   Clock, XCircle, Save, Plus, Trash2, ChevronRight,
   Eye, FileText, ArrowLeft, Search, LayoutList,
 } from "lucide-react";
 import { cn, calculateDDay } from "@/lib/utils";
+import { COLLECTIONS, getCollection, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ interface ScheduleItem {
 }
 
 interface Registration {
-  id: number;
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -72,84 +73,23 @@ const REG_STATUS_COLORS: Record<RegStatus, string> = {
   ATTENDED: "bg-blue-100 text-blue-700",
 };
 
-// ─── Demo Data ───────────────────────────────────────────────────────────────
-
-const DEMO_EVENTS: EventData[] = [
-  {
-    id: "evt-001",
-    title: "2026 스마트워크톤",
-    description: "AI 기반 업무 혁신을 주제로 한 워크톤 행사입니다.",
-    eventDate: "2026-04-15",
-    venue: "서울 코엑스 컨퍼런스홀",
-    maxParticipants: 100,
-    status: "OPEN",
-    schedule: [
-      { time: "09:00-09:30", title: "등록 및 네트워킹", speaker: null },
-      { time: "09:30-10:00", title: "개회사 및 환영사", speaker: "김대표" },
-      { time: "10:00-11:00", title: "AI 업무 혁신 키노트", speaker: "이교수" },
-      { time: "11:00-12:00", title: "팀 빌딩 및 과제 소개", speaker: "박매니저" },
-      { time: "12:00-13:00", title: "점심 식사", speaker: null },
-      { time: "13:00-17:00", title: "워크톤 진행", speaker: null },
-      { time: "17:00-18:00", title: "발표 및 시상", speaker: null },
-    ],
-    registrations: [
-      { id: 1, name: "김○○", email: "kim@test.com", phone: "010-1234-5678", org: "A대학", status: "CONFIRMED", date: "2026.03.15" },
-      { id: 2, name: "이○○", email: "lee@test.com", phone: "010-2345-6789", org: "B기업", status: "PENDING", date: "2026.03.16" },
-      { id: 3, name: "박○○", email: "park@test.com", phone: "010-3456-7890", org: "C단체", status: "CONFIRMED", date: "2026.03.14" },
-      { id: 4, name: "최○○", email: "choi@test.com", phone: "010-4567-8901", org: "D대학", status: "CANCELLED", date: "2026.03.13" },
-      { id: 5, name: "정○○", email: "jung@test.com", phone: "010-5678-9012", org: "E기업", status: "PENDING", date: "2026.03.17" },
-      { id: 6, name: "강○○", email: "kang@test.com", phone: "010-6789-0123", org: "F스타트업", status: "CONFIRMED", date: "2026.03.12" },
-    ],
-  },
-  {
-    id: "evt-002",
-    title: "AI 세미나 2026",
-    description: "최신 AI 기술 트렌드를 공유하는 세미나입니다.",
-    eventDate: "2026-05-10",
-    venue: "판교 스타트업캠퍼스",
-    maxParticipants: 50,
-    status: "DRAFT",
-    schedule: [
-      { time: "14:00-14:30", title: "등록", speaker: null },
-      { time: "14:30-15:30", title: "LLM의 현재와 미래", speaker: "최연구원" },
-      { time: "15:30-16:30", title: "실무 적용 사례 발표", speaker: "정팀장" },
-      { time: "16:30-17:00", title: "Q&A 및 네트워킹", speaker: null },
-    ],
-    registrations: [
-      { id: 1, name: "한○○", email: "han@test.com", phone: "010-7890-1234", org: "G연구소", status: "CONFIRMED", date: "2026.04.01" },
-      { id: 2, name: "오○○", email: "oh@test.com", phone: "010-8901-2345", org: "H기업", status: "PENDING", date: "2026.04.02" },
-    ],
-  },
-  {
-    id: "evt-003",
-    title: "데이터 해커톤",
-    description: "공공 데이터를 활용한 해커톤 대회입니다.",
-    eventDate: "2026-06-20",
-    venue: "부산 벡스코",
-    maxParticipants: 200,
-    status: "OPEN",
-    schedule: [
-      { time: "10:00-10:30", title: "오프닝", speaker: "운영위원장" },
-      { time: "10:30-18:00", title: "해커톤 진행", speaker: null },
-      { time: "18:00-19:00", title: "심사 및 시상", speaker: null },
-    ],
-    registrations: [
-      { id: 1, name: "서○○", email: "seo@test.com", phone: "010-1111-2222", org: "I대학", status: "CONFIRMED", date: "2026.05.01" },
-      { id: 2, name: "윤○○", email: "yoon@test.com", phone: "010-3333-4444", org: "J기업", status: "CONFIRMED", date: "2026.05.02" },
-      { id: 3, name: "임○○", email: "lim@test.com", phone: "010-5555-6666", org: "K스타트업", status: "PENDING", date: "2026.05.03" },
-    ],
-  },
-];
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AdminWorkathonPage() {
   const [activeTab, setActiveTab] = useState<Tab>("list");
-  const [events, setEvents] = useState<EventData[]>(DEMO_EVENTS);
+  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<EventData[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saveMessage, setSaveMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    getCollection<EventData>(COLLECTIONS.EVENTS)
+      .then(setEvents)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null;
 
@@ -168,10 +108,8 @@ export default function AdminWorkathonPage() {
     setActiveTab(tab);
   };
 
-  const createEvent = () => {
-    const newId = `evt-${Date.now()}`;
-    const newEvent: EventData = {
-      id: newId,
+  const createEvent = async () => {
+    const newEventData: Omit<EventData, "id"> = {
       title: "새 이벤트",
       description: "",
       eventDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
@@ -181,16 +119,29 @@ export default function AdminWorkathonPage() {
       schedule: [],
       registrations: [],
     };
-    setEvents((prev) => [newEvent, ...prev]);
-    selectEvent(newId, "detail");
+    try {
+      const id = await createDoc(COLLECTIONS.EVENTS, newEventData);
+      const newEvent: EventData = { id, ...newEventData };
+      setEvents((prev) => [newEvent, ...prev]);
+      selectEvent(id, "detail");
+    } catch (e) {
+      console.error(e);
+      alert("이벤트 생성에 실패했습니다.");
+    }
   };
 
-  const deleteEvent = (id: string) => {
+  const deleteEvent = async (id: string) => {
     if (!confirm("이 이벤트를 삭제하시겠습니까?")) return;
-    setEvents((prev) => prev.filter((e) => e.id !== id));
-    if (selectedEventId === id) {
-      setSelectedEventId(null);
-      setActiveTab("list");
+    try {
+      await removeDoc(COLLECTIONS.EVENTS, id);
+      setEvents((prev) => prev.filter((e) => e.id !== id));
+      if (selectedEventId === id) {
+        setSelectedEventId(null);
+        setActiveTab("list");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
     }
   };
 
@@ -226,47 +177,79 @@ export default function AdminWorkathonPage() {
     );
   };
 
-  const saveSchedule = () => {
-    setSaveMessage("저장되었습니다");
-    setTimeout(() => setSaveMessage(""), 2000);
+  const saveEvent = async () => {
+    if (!selectedEvent) return;
+    try {
+      const { id, ...data } = selectedEvent;
+      await upsertDoc(COLLECTIONS.EVENTS, id, data);
+      setSaveMessage("저장되었습니다");
+      setTimeout(() => setSaveMessage(""), 2000);
+    } catch (e) {
+      console.error(e);
+      alert("저장에 실패했습니다.");
+    }
   };
 
   // ─── Registration helpers ────────────────────────────────────────────────
 
-  const changeRegStatus = (eventId: string, regId: number, status: RegStatus) => {
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.id === eventId
-          ? { ...e, registrations: e.registrations.map((r) => (r.id === regId ? { ...r, status } : r)) }
-          : e,
-      ),
-    );
+  const changeRegStatus = async (eventId: string, regId: string, status: RegStatus) => {
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+    const updatedRegs = event.registrations.map((r) => (r.id === regId ? { ...r, status } : r));
+    try {
+      await upsertDoc(COLLECTIONS.EVENTS, eventId, { ...event, registrations: updatedRegs });
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === eventId
+            ? { ...e, registrations: updatedRegs }
+            : e,
+        ),
+      );
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const deleteRegistration = (eventId: string, regId: number) => {
+  const deleteRegistration = async (eventId: string, regId: string) => {
     if (!confirm("정말 삭제하시겠습니까?")) return;
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.id === eventId ? { ...e, registrations: e.registrations.filter((r) => r.id !== regId) } : e,
-      ),
-    );
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+    const updatedRegs = event.registrations.filter((r) => r.id !== regId);
+    try {
+      await upsertDoc(COLLECTIONS.EVENTS, eventId, { ...event, registrations: updatedRegs });
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === eventId ? { ...e, registrations: updatedRegs } : e,
+        ),
+      );
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
+    }
   };
 
-  const toggleSelect = (id: number) =>
+  const toggleSelect = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
 
   const toggleSelectAll = (regs: Registration[]) =>
     setSelectedIds(selectedIds.length === regs.length ? [] : regs.map((r) => r.id));
 
-  const bulkConfirm = (eventId: string) => {
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.id === eventId
-          ? { ...e, registrations: e.registrations.map((r) => (selectedIds.includes(r.id) ? { ...r, status: "CONFIRMED" as RegStatus } : r)) }
-          : e,
-      ),
+  const bulkConfirm = async (eventId: string) => {
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+    const updatedRegs = event.registrations.map((r) =>
+      selectedIds.includes(r.id) ? { ...r, status: "CONFIRMED" as RegStatus } : r
     );
-    setSelectedIds([]);
+    try {
+      await upsertDoc(COLLECTIONS.EVENTS, eventId, { ...event, registrations: updatedRegs });
+      setEvents((prev) =>
+        prev.map((e) => e.id === eventId ? { ...e, registrations: updatedRegs } : e)
+      );
+      setSelectedIds([]);
+    } catch (e) {
+      console.error(e);
+      alert("저장에 실패했습니다.");
+    }
   };
 
   const exportCSV = (event: EventData) => {
@@ -290,6 +273,8 @@ export default function AdminWorkathonPage() {
   const pending = selectedEvent?.registrations.filter((r) => r.status === "PENDING").length ?? 0;
 
   // ─── Render ──────────────────────────────────────────────────────────────
+
+  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
 
   return (
     <div>
@@ -576,7 +561,7 @@ export default function AdminWorkathonPage() {
             </div>
             <div className="flex items-center gap-3 mt-4">
               <button
-                onClick={saveSchedule}
+                onClick={saveEvent}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
               >
                 <Save size={16} />
@@ -637,7 +622,7 @@ export default function AdminWorkathonPage() {
             {selectedEvent.schedule.length > 0 && (
               <div className="flex items-center gap-3 mt-4">
                 <button
-                  onClick={saveSchedule}
+                  onClick={saveEvent}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
                 >
                   <Save size={16} />
