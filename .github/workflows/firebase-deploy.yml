@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting
+name: Deploy to Firebase
 
 on:
   push:
@@ -29,6 +29,26 @@ jobs:
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_CLAUDE_FUNCTION_URL: ${{ secrets.NEXT_PUBLIC_CLAUDE_FUNCTION_URL }}
+
+      - name: Deploy Firestore Rules
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only firestore:rules
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT_ID: aish-web-v2
+
+      - name: Install Cloud Functions dependencies
+        run: cd functions && npm ci
+
+      - name: Deploy Cloud Functions
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only functions
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT_ID: aish-web-v2
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
