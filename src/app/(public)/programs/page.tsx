@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ExternalLink, Search, Filter } from "lucide-react";
 import { DEMO_PROGRAMS } from "@/lib/demo-data";
+import { getCollection, COLLECTIONS } from "@/lib/firestore";
 import { CTA_URL, CTA_TEXT, PROGRAM_CATEGORY_LABELS, PROGRAM_STATUS_LABELS, PROGRAM_STATUS_COLORS } from "@/lib/constants";
 
 export default function ProgramsPage() {
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
+  const [programs, setPrograms] = useState(DEMO_PROGRAMS);
 
-  const filtered = DEMO_PROGRAMS.filter((p) => {
+  useEffect(() => {
+    getCollection<typeof DEMO_PROGRAMS[0]>(COLLECTIONS.PROGRAMS)
+      .then((data) => { if (data.length > 0) setPrograms(data); })
+      .catch(console.error);
+  }, []);
+
+  const filtered = programs.filter((p) => {
     if (filter !== "ALL" && p.category !== filter) return false;
     if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -79,7 +87,7 @@ export default function ProgramsPage() {
                 <div className="text-xs text-gray-400 space-y-1 mb-4">
                   <p>일정: {program.schedule}</p>
                   <p>기간: {program.startDate} ~ {program.endDate}</p>
-                  <p>강사: {program.instructors.join(", ")}</p>
+                  <p>강사: {(program.instructors || []).join(", ")}</p>
                 </div>
 
                 {program.status !== "CLOSED" && (

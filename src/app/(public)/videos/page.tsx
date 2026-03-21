@@ -1,19 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Play, ExternalLink } from "lucide-react";
 import { VIDEO_CATEGORY_LABELS } from "@/lib/constants";
+import { getCollection, COLLECTIONS } from "@/lib/firestore";
 
-const DEMO_VIDEOS = [
+const FALLBACK_VIDEOS = [
   { id: "v1", title: "AI 기초 정규과정 OT", category: "LECTURE", youtubeUrl: "https://youtube.com/watch?v=example1", thumbnailUrl: "", publishedAt: "2026-03-01" },
   { id: "v2", title: "제3회 스마트워크톤 하이라이트", category: "WORKATHON", youtubeUrl: "https://youtube.com/watch?v=example2", thumbnailUrl: "", publishedAt: "2025-12-15" },
   { id: "v3", title: "김상용 강사 인터뷰", category: "INTERVIEW", youtubeUrl: "https://youtube.com/watch?v=example3", thumbnailUrl: "", publishedAt: "2026-01-10" },
   { id: "v4", title: "AISH 홍보 영상", category: "PROMO", youtubeUrl: "https://youtube.com/watch?v=example4", thumbnailUrl: "", publishedAt: "2025-09-01" },
 ];
 
+interface VideoItem {
+  id: string;
+  title: string;
+  category: string;
+  youtubeUrl: string;
+  thumbnailUrl?: string;
+  publishedAt: string;
+}
+
 export default function VideosPage() {
   const [filter, setFilter] = useState("ALL");
-  const filtered = filter === "ALL" ? DEMO_VIDEOS : DEMO_VIDEOS.filter((v) => v.category === filter);
+  const [videos, setVideos] = useState<VideoItem[]>(FALLBACK_VIDEOS);
+
+  useEffect(() => {
+    getCollection<VideoItem>(COLLECTIONS.VIDEOS)
+      .then((data) => { if (data.length > 0) setVideos(data); })
+      .catch(console.error);
+  }, []);
+
+  const filtered = filter === "ALL" ? videos : videos.filter((v) => v.category === filter);
 
   return (
     <div className="py-16">
@@ -61,7 +79,7 @@ export default function VideosPage() {
               </div>
               <div className="p-4">
                 <span className="text-xs bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full">
-                  {VIDEO_CATEGORY_LABELS[video.category]}
+                  {VIDEO_CATEGORY_LABELS[video.category] || video.category}
                 </span>
                 <h3 className="font-semibold text-gray-900 mt-2 group-hover:text-primary-600 transition-colors">
                   {video.title}

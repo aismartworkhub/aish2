@@ -20,7 +20,8 @@ export default function ClaudePage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/claude", {
+      const claudeUrl = process.env.NEXT_PUBLIC_CLAUDE_FUNCTION_URL || "/api/claude";
+      const res = await fetch(claudeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),

@@ -1,0 +1,106 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: 인증된 사용자인지 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 공개 읽기, 인증된 사용자만 쓰기 가능한 컬렉션들
+    // (공개 사이트에서 읽어야 하는 데이터)
+    match /banners/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /programs/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /videos/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /posts/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /faq/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /reviews/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /events/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /gallery/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /partners/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /instructors/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /history/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /certificateCohorts/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /certificateGraduates/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 사이트 설정 (공개 읽기 필요: 히어로, 배너 등)
+    match /siteSettings/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // 비공개 컬렉션 (인증된 사용자만 읽기/쓰기)
+    match /inquiries/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /partnerApplications/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /certificateRequests/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /admins/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // 기본 거부: 위에 명시되지 않은 모든 경로
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

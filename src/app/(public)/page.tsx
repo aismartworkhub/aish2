@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight, Search, SlidersHorizontal, ChevronRight,
   Users, GraduationCap, UserCheck, Building, Star,
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { CTA_URL, CTA_TEXT, PROGRAM_CATEGORY_LABELS } from "@/lib/constants";
 import { DEMO_STATS, DEMO_PROGRAMS, DEMO_REVIEWS, DEMO_WORKATHON } from "@/lib/demo-data";
+import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
 import { calculateDDay } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 
@@ -92,8 +93,43 @@ const RECENT_NOTICES = [
 ];
 
 export default function HomePage() {
-  const dDay = calculateDDay(DEMO_WORKATHON.eventDate);
+  const [stats, setStats] = useState(DEMO_STATS);
+  const [programs, setPrograms] = useState(DEMO_PROGRAMS);
+  const [reviews, setReviews] = useState(DEMO_REVIEWS);
+  const [workathon, setWorkathon] = useState(DEMO_WORKATHON);
+  const [notices, setNotices] = useState(RECENT_NOTICES);
+
+  const dDay = calculateDDay(workathon.eventDate);
   const revealRefs = useRef<HTMLElement[]>([]);
+
+  // Load real data from Firestore, fallback to demo data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [firestorePrograms, firestoreReviews, firestoreEvents, firestorePosts, statDoc] = await Promise.all([
+          getCollection<typeof DEMO_PROGRAMS[0]>(COLLECTIONS.PROGRAMS),
+          getCollection<typeof DEMO_REVIEWS[0]>(COLLECTIONS.REVIEWS),
+          getCollection<typeof DEMO_WORKATHON>(COLLECTIONS.EVENTS),
+          getCollection<{ id: string; type: string; title: string; category?: string; createdAt?: string }>(COLLECTIONS.POSTS),
+          getSingletonDoc<{ items: typeof DEMO_STATS }>(COLLECTIONS.SETTINGS, "stats"),
+        ]);
+        if (firestorePrograms.length > 0) setPrograms(firestorePrograms);
+        if (firestoreReviews.length > 0) setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false));
+        if (firestoreEvents.length > 0) setWorkathon(firestoreEvents[0]);
+        if (statDoc?.items && statDoc.items.length > 0) setStats(statDoc.items);
+        if (firestorePosts.length > 0) {
+          const recentNotices = firestorePosts
+            .filter((p) => p.type === "NOTICE")
+            .slice(0, 4)
+            .map((p) => ({ tag: p.category || "공지", title: p.title, date: p.createdAt || "" }));
+          if (recentNotices.length > 0) setNotices(recentNotices);
+        }
+      } catch (e) {
+        console.error("Failed to load data, using demo data:", e);
+      }
+    };
+    loadData();
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -279,7 +315,7 @@ export default function HomePage() {
       <section className="py-20 md:py-24">
         <div className="container-custom">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 rounded-lg overflow-hidden">
-            {DEMO_STATS.map((stat) => {
+            {stats.map((stat) => {
               const Icon = STAT_ICONS[stat.icon] || Users;
               return (
                 <div key={stat.label} className="bg-white p-8 text-center" ref={addRevealRef}>
@@ -312,17 +348,17 @@ export default function HomePage() {
               Smart Workathon
             </p>
             <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-5">
-              {DEMO_WORKATHON.title}
+              {workathon.title}
             </h2>
             <p className="text-white/80 text-base leading-relaxed max-w-[400px]">
-              {DEMO_WORKATHON.description}
+              {workathon.description}
             </p>
             <div className="mt-5 flex items-center gap-4 text-sm text-white/60">
               <span className="text-white font-bold text-xl">D-{dDay}</span>
               <span className="w-px h-4 bg-white/30" />
-              <span>{DEMO_WORKATHON.eventDate}</span>
+              <span>{workathon.eventDate}</span>
               <span className="w-px h-4 bg-white/30" />
-              <span>{DEMO_WORKATHON.venue}</span>
+              <span>{workathon.venue}</span>
             </div>
             <Link
               href="/workathon"
@@ -344,7 +380,7 @@ export default function HomePage() {
             <div className="flex justify-between text-sm text-gray-500 mb-2">
               <span>현재 참가자</span>
               <span className="font-bold text-primary-600">
-                {DEMO_WORKATHON.currentParticipantCount}/{DEMO_WORKATHON.maxParticipants}명
+                {workathon.currentParticipantCount}/{workathon.maxParticipants}명
               </span>
             </div>
             <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -356,7 +392,7 @@ export default function HomePage() {
           </div>
 
           <div className="space-y-4">
-            {DEMO_WORKATHON.schedule.slice(0, 4).map((item, i) => (
+            {(workathon.schedule || []).slice(0, 4).map((item, i) => (
               <div key={i} className="flex items-center gap-4 text-sm">
                 <span className="text-gray-400 font-medium w-[120px] shrink-0">{item.time}</span>
                 <span className="text-gray-700 font-medium">{item.title}</span>
@@ -392,7 +428,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {DEMO_PROGRAMS.filter((p) => p.status !== "CLOSED").map((program) => (
+            {programs.filter((p) => p.status !== "CLOSED").map((program) => (
               <Link
                 key={program.id}
                 href={`/programs#${program.id}`}
@@ -438,7 +474,7 @@ export default function HomePage() {
             <p className="mt-3 text-gray-500 text-lg">수강생들의 생생한 후기</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {DEMO_REVIEWS.map((review, index) => (
+            {reviews.map((review, index) => (
               <div
                 key={index}
                 ref={addRevealRef}
@@ -524,7 +560,7 @@ export default function HomePage() {
             </Link>
           </div>
           <ul className="space-y-0">
-            {RECENT_NOTICES.map((notice, index) => (
+            {notices.map((notice, index) => (
               <li key={index}>
                 <Link
                   href="/community?tab=notice"

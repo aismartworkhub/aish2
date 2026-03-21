@@ -1,8 +1,18 @@
 "use client";
 
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function AdminHeader() {
+  const { user, signOut } = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace("/login");
+  };
+
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       <div className="flex items-center gap-4">
@@ -16,9 +26,21 @@ export default function AdminHeader() {
         </div>
       </div>
       <div className="flex items-center gap-3">
+        {user && (
+          <span className="text-sm text-gray-600 mr-2">
+            {user.displayName || user.email}
+          </span>
+        )}
         <button className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500">
           <Bell size={18} />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+        </button>
+        <button
+          onClick={handleSignOut}
+          className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+          title="로그아웃"
+        >
+          <LogOut size={18} />
         </button>
       </div>
     </header>

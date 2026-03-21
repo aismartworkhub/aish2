@@ -15,6 +15,19 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
+// Tenant path resolver
+// Default: flat collections (e.g., "programs")
+// Multi-tenant: "tenants/{tenantId}/programs"
+let _tenantPrefix = "";
+
+export function setTenantPrefix(tenantId: string | null) {
+  _tenantPrefix = tenantId ? `tenants/${tenantId}/` : "";
+}
+
+function resolveCol(col: string): string {
+  return `${_tenantPrefix}${col}`;
+}
+
 // Generic helpers
 
 export async function getCollection<T>(col: string): Promise<T[]> {

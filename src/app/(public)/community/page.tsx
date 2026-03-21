@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
+import { getCollection, createDoc, COLLECTIONS } from "@/lib/firestore";
 
 type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery";
 
@@ -22,7 +23,7 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType; color: string
   { key: "gallery", label: "갤러리", icon: Images, color: "text-pink-600 bg-pink-50" },
 ];
 
-const NOTICES = [
+const NOTICES: { id: string | number; title: string; date: string; views: number; pinned: boolean }[] = [
   { id: 1, title: "[모집] AI 기초 정규과정 11기 수강생 모집 안내", date: "2026.03.15", views: 234, pinned: true },
   { id: 2, title: "[안내] 2026년 상반기 교육 일정 안내", date: "2026.03.10", views: 189, pinned: true },
   { id: 3, title: "[소식] 제3회 스마트워크톤 결과 발표", date: "2026.02.28", views: 145, pinned: false },
@@ -30,14 +31,14 @@ const NOTICES = [
   { id: 5, title: "[소식] 누적 수강생 1,500명 돌파", date: "2026.02.15", views: 76, pinned: false },
 ];
 
-const RESOURCES = [
+const RESOURCES: { id: string | number; title: string; author: string; date: string; downloads: number; type: string }[] = [
   { id: 1, title: "AI 기초 11기 - 1주차 강의자료", author: "김상용", date: "2026.03.15", downloads: 156, type: "PDF" },
   { id: 2, title: "프롬프트 엔지니어링 실습 가이드", author: "김상용", date: "2026.03.14", downloads: 98, type: "PDF" },
   { id: 3, title: "데이터 분석 실습 데이터셋", author: "김학태", date: "2026.03.10", downloads: 76, type: "ZIP" },
   { id: 4, title: "바이브 코딩 입문 자료", author: "제갈정", date: "2026.03.05", downloads: 54, type: "PDF" },
 ];
 
-const GALLERY_IMAGES = [
+const GALLERY_IMAGES: { id: string | number; title: string; category: string; imageUrl: string }[] = [
   { id: 1, title: "AI 기초 정규과정 10기 수료식", category: "교육", imageUrl: "/images/defaults/spec-community.jpg" },
   { id: 2, title: "제3회 스마트워크톤 현장", category: "워크톤", imageUrl: "/images/defaults/workathon-bg.jpg" },
   { id: 3, title: "데이터 분석 실습 현장", category: "교육", imageUrl: "/images/defaults/edu-data.jpg" },
@@ -56,14 +57,49 @@ function CommunityContent() {
   const [certEmail, setCertEmail] = useState("");
   const [certSearched, setCertSearched] = useState(false);
 
+  const [faqList, setFaqList] = useState(DEMO_FAQ);
+  const [noticeList, setNoticeList] = useState(NOTICES);
+  const [resourceList, setResourceList] = useState(RESOURCES);
+  const [galleryList, setGalleryList] = useState(GALLERY_IMAGES);
+
   useEffect(() => {
     if (tabParam && TABS.some((t) => t.key === tabParam)) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
 
-  const handleInquirySubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    Promise.all([
+      getCollection<typeof DEMO_FAQ[0]>(COLLECTIONS.FAQ),
+      getCollection<{ id: string; type: string; title: string; category?: string; createdAt?: string; views?: number; pinned?: boolean; author?: string; downloads?: number; fileType?: string }>(COLLECTIONS.POSTS),
+      getCollection<{ id: number | string; title: string; category: string; imageUrl: string }>(COLLECTIONS.GALLERY),
+    ]).then(([faq, posts, gallery]) => {
+      if (faq.length > 0) setFaqList(faq);
+      if (posts.length > 0) {
+        const n = posts.filter((p) => p.type === "NOTICE").map((p) => ({
+          id: p.id, title: p.title, date: p.createdAt || "", views: p.views || 0, pinned: p.pinned || false,
+        }));
+        const r = posts.filter((p) => p.type === "RESOURCE").map((p) => ({
+          id: p.id, title: p.title, author: p.author || "", date: p.createdAt || "", downloads: p.downloads || 0, type: p.fileType || "PDF",
+        }));
+        if (n.length > 0) setNoticeList(n);
+        if (r.length > 0) setResourceList(r);
+      }
+      if (gallery.length > 0) setGalleryList(gallery);
+    }).catch(console.error);
+  }, []);
+
+  const handleInquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      await createDoc(COLLECTIONS.INQUIRIES, {
+        ...inquiryForm,
+        status: "NEW",
+        type: "PARTNERSHIP",
+      });
+    } catch (err) {
+      console.error(err);
+    }
     setInquirySubmitted(true);
   };
 
@@ -103,7 +139,7 @@ function CommunityContent() {
               <h2 className="text-xl font-bold text-gray-900">공지사항</h2>
             </div>
             <div className="divide-y divide-gray-50">
-              {NOTICES.map((notice) => (
+              {noticeList.map((notice) => (
                 <div key={notice.id} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer">
                   {notice.pinned && <Pin size={14} className="text-primary-500 mr-2 shrink-0" />}
                   <span className={cn("text-sm flex-1", notice.pinned ? "font-semibold text-gray-900" : "text-gray-700")}>
@@ -127,7 +163,7 @@ function CommunityContent() {
               <p className="text-sm text-gray-500 mt-1">교육 자료와 참고 문서를 다운로드하세요.</p>
             </div>
             <div className="divide-y divide-gray-50">
-              {RESOURCES.map((res) => (
+              {resourceList.map((res) => (
                 <div key={res.id} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{res.title}</p>
@@ -200,7 +236,7 @@ function CommunityContent() {
             <div className="mb-6">
               <h2 className="text-xl font-bold text-gray-900">자주 묻는 질문</h2>
             </div>
-            {DEMO_FAQ.map((faq, index) => (
+            {faqList.map((faq, index) => (
               <div
                 key={index}
                 className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
@@ -303,7 +339,7 @@ function CommunityContent() {
               <p className="text-sm text-gray-500 mt-1">교육 현장과 행사 사진을 둘러보세요.</p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {GALLERY_IMAGES.map((img) => (
+              {galleryList.map((img) => (
                 <div key={img.id} className="group relative rounded-xl overflow-hidden aspect-[4/3] cursor-pointer">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={img.imageUrl} alt={img.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />

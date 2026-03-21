@@ -1,12 +1,21 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Calendar, MapPin, Users, Clock, ArrowRight } from "lucide-react";
 import { DEMO_WORKATHON } from "@/lib/demo-data";
+import { getCollection, COLLECTIONS } from "@/lib/firestore";
 import { CTA_URL } from "@/lib/constants";
 
 export default function WorkathonPage() {
-  const w = DEMO_WORKATHON;
+  const [w, setW] = useState(DEMO_WORKATHON);
+
+  useEffect(() => {
+    getCollection<typeof DEMO_WORKATHON>(COLLECTIONS.EVENTS)
+      .then((data) => { if (data.length > 0) setW(data[0]); })
+      .catch(console.error);
+  }, []);
+
   const progress = Math.round((w.currentParticipantCount / w.maxParticipants) * 100);
 
   return (
@@ -65,7 +74,7 @@ export default function WorkathonPage() {
         <div className="bg-white rounded-xl border border-gray-100 p-6 mb-12">
           <h2 className="text-xl font-bold text-gray-900 mb-6">프로그램 일정</h2>
           <div className="space-y-4">
-            {w.schedule.map((s, i) => (
+            {(w.schedule || []).map((s, i) => (
               <div key={i} className="flex items-start gap-4 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
                 <span className="text-sm font-mono text-primary-600 w-32 shrink-0">{s.time}</span>
                 <div>
