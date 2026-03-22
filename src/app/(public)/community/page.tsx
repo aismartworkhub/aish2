@@ -125,10 +125,18 @@ function CommunityContent() {
       setCertLoading(true);
       setCertResult(null);
       try {
-        const graduates = await getCollection<{ id: string; email: string; name: string; courseName: string; completionDate: string; cohort: string }>(COLLECTIONS.CERTIFICATES_GRADUATES);
-        const match = graduates.find((g) => g.email.toLowerCase() === certEmail.trim().toLowerCase());
+        const [graduates, cohorts] = await Promise.all([
+          getCollection<{ id: string; email: string; name: string; cohortId: string; status: string; courseName?: string; completionDate?: string; cohort?: string }>(COLLECTIONS.CERTIFICATES_GRADUATES),
+          getCollection<{ id: string; name: string; programTitle: string; endDate: string }>(COLLECTIONS.CERTIFICATES_COHORTS),
+        ]);
+        const match = graduates.find((g) => g.email.toLowerCase() === certEmail.trim().toLowerCase() && g.status !== "미수료");
         if (match) {
-          setCertResult({ courseName: match.courseName, completionDate: match.completionDate, cohort: match.cohort });
+          const cohort = cohorts.find((c) => c.id === match.cohortId);
+          setCertResult({
+            courseName: match.courseName || cohort?.programTitle || "과정명 미등록",
+            completionDate: match.completionDate || cohort?.endDate || "",
+            cohort: match.cohort || cohort?.name || "",
+          });
         }
       } catch (err) {
         console.error(err);

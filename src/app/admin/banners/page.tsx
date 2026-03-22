@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { type QuickBannerDemo } from "@/lib/demo-data";
-import { BANNER_STYLE_LABELS, BANNER_POSITION_LABELS } from "@/lib/constants";
+import { BANNER_STYLE_LABELS, BANNER_POSITION_LABELS, TARGET_PAGE_OPTIONS } from "@/lib/constants";
 import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 
 export default function AdminBannersPage() {
@@ -262,15 +262,45 @@ export default function AdminBannersPage() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={form.isActive ?? true}
-                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                  className="rounded border-gray-300"
-                />
-                <label htmlFor="isActive" className="text-sm text-gray-700">활성화</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">표시 페이지</label>
+                <div className="flex flex-wrap gap-2">
+                  {TARGET_PAGE_OPTIONS.map((opt) => {
+                    const pages = form.targetPages || ["/"];
+                    const checked = pages.includes(opt.value);
+                    return (
+                      <label key={opt.value} className="inline-flex items-center gap-1.5 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked ? pages.filter((p) => p !== opt.value) : [...pages, opt.value];
+                            setForm({ ...form, targetPages: next });
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="isActive" checked={form.isActive ?? true}
+                    onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="rounded border-gray-300" />
+                  <label htmlFor="isActive" className="text-sm text-gray-700">활성화</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="isDismissible" checked={form.isDismissible ?? true}
+                    onChange={(e) => setForm({ ...form, isDismissible: e.target.checked })} className="rounded border-gray-300" />
+                  <label htmlFor="isDismissible" className="text-sm text-gray-700">닫기 가능</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="ctaOpenNewTab" checked={form.ctaOpenNewTab ?? false}
+                    onChange={(e) => setForm({ ...form, ctaOpenNewTab: e.target.checked })} className="rounded border-gray-300" />
+                  <label htmlFor="ctaOpenNewTab" className="text-sm text-gray-700">새 탭에서 열기</label>
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
