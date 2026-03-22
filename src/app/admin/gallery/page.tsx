@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { ImageIcon, Plus, Trash2, Edit, X, Save, Search, FolderOpen, ExternalLink, Grid, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, getCollection, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "@/lib/firebase";
 
 type PhotoCategory = "교육" | "워크톤" | "행사" | "기타";
 
@@ -46,6 +48,7 @@ export default function AdminGalleryPage() {
   const [driveFolderId, setDriveFolderId] = useState("");
   const [showDriveSection, setShowDriveSection] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadPhotos();
@@ -268,11 +271,29 @@ export default function AdminGalleryPage() {
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1.5 block">파일 업로드</label>
-                <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-primary-300 transition-colors cursor-pointer">
+                <label className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:border-primary-300 transition-colors cursor-pointer block">
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) { alert("파일 크기는 5MB 이하여야 합니다."); return; }
+                    setUploading(true);
+                    try {
+                      const fileName = `gallery/${Date.now()}_${file.name}`;
+                      const storageRef = ref(storage, fileName);
+                      await uploadBytes(storageRef, file);
+                      const url = await getDownloadURL(storageRef);
+                      setEditingPhoto((prev) => prev ? { ...prev, imageUrl: url } : prev);
+                    } catch (err) {
+                      console.error(err);
+                      alert("업로드에 실패했습니다.");
+                    } finally {
+                      setUploading(false);
+                    }
+                  }} />
                   <Upload size={24} className="mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500">클릭하여 이미지를 업로드하세요</p>
+                  <p className="text-sm text-gray-500">{uploading ? "업로드 중..." : "클릭하여 이미지를 업로드하세요"}</p>
                   <p className="text-xs text-gray-400 mt-1">PNG, JPG, WEBP (최대 5MB)</p>
-                </div>
+                </label>
               </div>
               {editingPhoto.imageUrl && (
                 <div className="rounded-lg overflow-hidden border border-gray-100">

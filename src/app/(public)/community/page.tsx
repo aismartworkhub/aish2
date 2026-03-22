@@ -58,6 +58,8 @@ function CommunityContent() {
   const [inquirySubmitted, setInquirySubmitted] = useState(false);
   const [certEmail, setCertEmail] = useState("");
   const [certSearched, setCertSearched] = useState(false);
+  const [certResult, setCertResult] = useState<{ courseName: string; completionDate: string; cohort: string } | null>(null);
+  const [certLoading, setCertLoading] = useState(false);
 
   const [faqList, setFaqList] = useState(DEMO_FAQ);
   const [noticeList, setNoticeList] = useState(NOTICES);
@@ -119,8 +121,21 @@ function CommunityContent() {
   };
 
   const handleCertSearch = () => {
-    requireLogin(() => {
-      setCertSearched(true);
+    requireLogin(async () => {
+      setCertLoading(true);
+      setCertResult(null);
+      try {
+        const graduates = await getCollection<{ id: string; email: string; name: string; courseName: string; completionDate: string; cohort: string }>(COLLECTIONS.CERTIFICATES_GRADUATES);
+        const match = graduates.find((g) => g.email.toLowerCase() === certEmail.trim().toLowerCase());
+        if (match) {
+          setCertResult({ courseName: match.courseName, completionDate: match.completionDate, cohort: match.cohort });
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setCertSearched(true);
+        setCertLoading(false);
+      }
     }, "수료증을 조회하려면 로그인이 필요합니다.");
   };
 
@@ -222,25 +237,35 @@ function CommunityContent() {
                   <input
                     type="email"
                     value={certEmail}
-                    onChange={(e) => { setCertEmail(e.target.value); setCertSearched(false); }}
+                    onChange={(e) => { setCertEmail(e.target.value); setCertSearched(false); setCertResult(null); }}
                     placeholder="수강 신청 시 사용한 이메일을 입력하세요"
                     className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                   />
                 </div>
                 <button
                   onClick={() => handleCertSearch()}
-                  disabled={!certEmail.trim()}
+                  disabled={!certEmail.trim() || certLoading}
                   className="w-full py-3 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"
                 >
-                  수료증 조회
+                  {certLoading ? "조회 중..." : "수료증 조회"}
                 </button>
-                {certSearched && (
+                {certSearched && !certResult && (
                   <div className="bg-yellow-50 text-yellow-700 text-sm p-4 rounded-lg">
                     <p className="font-medium mb-1">수료 정보를 찾을 수 없습니다.</p>
                     <p className="text-yellow-600 text-xs">
                       수강 신청 시 등록한 이메일과 동일한지 확인해 주세요.
                       문의사항은 협력 문의 탭을 이용해 주세요.
                     </p>
+                  </div>
+                )}
+                {certResult && (
+                  <div className="bg-green-50 text-green-700 text-sm p-4 rounded-lg">
+                    <p className="font-medium mb-2">수료 정보가 확인되었습니다!</p>
+                    <div className="space-y-1 text-green-600 text-xs">
+                      <p>과정명: <strong>{certResult.courseName}</strong></p>
+                      <p>기수: <strong>{certResult.cohort}</strong></p>
+                      <p>수료일: <strong>{certResult.completionDate}</strong></p>
+                    </div>
                   </div>
                 )}
               </div>

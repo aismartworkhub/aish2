@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import Link from "next/link";
-import { DEMO_QUICK_BANNERS } from "@/lib/demo-data";
+import { DEMO_QUICK_BANNERS, QuickBannerDemo } from "@/lib/demo-data";
+import { getCollection, COLLECTIONS } from "@/lib/firestore";
 
 const STYLE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   INFO: { bg: "bg-blue-50", text: "text-blue-800", border: "border-blue-200" },
@@ -16,11 +17,18 @@ const STYLE_COLORS: Record<string, { bg: string; text: string; border: string }>
 export default function QuickBannerDisplay() {
   const currentPath = usePathname() || "/";
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [banners, setBanners] = useState<QuickBannerDemo[]>(DEMO_QUICK_BANNERS);
 
-  const activeBanners = DEMO_QUICK_BANNERS.filter(
+  useEffect(() => {
+    getCollection<QuickBannerDemo>(COLLECTIONS.BANNERS)
+      .then((data) => { if (data.length > 0) setBanners(data); })
+      .catch(console.error);
+  }, []);
+
+  const activeBanners = banners.filter(
     (b) =>
       b.isActive &&
-      b.targetPages.includes(currentPath) &&
+      (b.targetPages || []).includes(currentPath) &&
       !dismissed.has(b.id)
   );
 
