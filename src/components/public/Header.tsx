@@ -3,14 +3,33 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronRight, Search } from "lucide-react";
+import { Menu, X, ChevronRight, Search, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, CTA_URL, CTA_TEXT } from "@/lib/constants";
+import { useAuth } from "@/contexts/AuthContext";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
+
+  const handleGoogleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setUserMenuOpen(false);
+  };
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 100);
@@ -60,7 +79,7 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* 우측 CTA + 햄버거 */}
+          {/* 우측 CTA + 로그인 + 햄버거 */}
           <div className="flex items-center gap-3">
             <a
               href={CTA_URL}
@@ -68,9 +87,59 @@ export default function Header() {
               rel="noopener noreferrer"
               className="hidden md:inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white text-sm font-medium rounded hover:bg-primary-600 transition-colors"
             >
-              수강 신청
+              교육과정
               <Search size={16} />
             </a>
+
+            {/* 로그인 / 프로필 */}
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
+                    {user.photoURL ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
+                    ) : (
+                      <span className="text-sm font-bold text-primary-600">
+                        {(user.displayName || user.email || "U").charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="hidden md:block text-sm text-gray-700 max-w-[100px] truncate">
+                    {user.displayName || user.email?.split("@")[0]}
+                  </span>
+                </button>
+                {userMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                    <div className="absolute right-0 top-12 z-50 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2">
+                      <div className="px-4 py-2 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900 truncate">{user.displayName || "사용자"}</p>
+                        <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                      </div>
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                      >
+                        <LogOut size={14} />
+                        로그아웃
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={handleGoogleLogin}
+                className="hidden md:inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+              >
+                <User size={16} />
+                로그인
+              </button>
+            )}
 
             <button
               type="button"

@@ -386,7 +386,7 @@ export default function HomePage() {
             <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-primary-500 rounded-full transition-all duration-1000"
-                style={{ width: `${(DEMO_WORKATHON.currentParticipantCount / DEMO_WORKATHON.maxParticipants) * 100}%` }}
+                style={{ width: `${(workathon.currentParticipantCount / workathon.maxParticipants) * 100}%` }}
               />
             </div>
           </div>
@@ -404,7 +404,7 @@ export default function HomePage() {
             href="/workathon"
             className="mt-8 inline-flex items-center gap-2 text-primary-600 font-semibold text-sm hover:text-primary-700 transition-colors"
           >
-            참가 신청하기
+            교육과정 보기
             <ArrowRight size={16} />
           </Link>
         </div>

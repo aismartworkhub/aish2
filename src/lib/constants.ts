@@ -4,7 +4,7 @@ export const SITE_DESCRIPTION = "미래를 선도하는 교육 플랫폼 AISH - 
 export const SITE_DOMAIN = "aish.co.kr";
 
 export const CTA_URL = "https://aish.runmoa.com/classes";
-export const CTA_TEXT = "수강 신청하기";
+export const CTA_TEXT = "교육과정 보기";
 
 export const NAV_ITEMS = [
  { label: "홈", href: "/" },
@@ -51,7 +51,7 @@ export const ADMIN_NAV_ITEMS = [
  { label: "영상 관리", href: "/admin/videos", icon: "Video" },
  { label: "후기 관리", href: "/admin/reviews", icon: "Star" },
  {
-   label: "이벤트 관리",
+   label: "행사관리",
    href: "/admin/workathon",
    icon: "Trophy",
  },

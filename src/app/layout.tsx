@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_NAME, SITE_FULL_NAME, SITE_DESCRIPTION } from "@/lib/constants";
+import Providers from "@/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,7 +19,9 @@ export default function RootLayout({
 }) {
  return (
    <html lang="ko">
-     <body>{children}</body>
+     <body>
+       <Providers>{children}</Providers>
+     </body>
    </html>
  );
 }

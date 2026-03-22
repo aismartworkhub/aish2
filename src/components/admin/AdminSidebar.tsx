@@ -54,7 +54,7 @@ const NAV_ITEMS: NavItem[] = [
  { label: "영상 관리", href: "/admin/videos", icon: "Video" },
  { label: "후기 관리", href: "/admin/reviews", icon: "Star" },
  {
-   label: "이벤트 관리", href: "/admin/workathon", icon: "Trophy",
+   label: "행사관리", href: "/admin/workathon", icon: "Trophy",
  },
  { label: "FAQ", href: "/admin/faq", icon: "HelpCircle" },
  { label: "문의 관리", href: "/admin/inquiries", icon: "Mail" },

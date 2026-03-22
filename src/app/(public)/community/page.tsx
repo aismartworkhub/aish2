@@ -11,6 +11,8 @@ import {
 import { cn } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
 import { getCollection, createDoc, COLLECTIONS } from "@/lib/firestore";
+import { useLoginGuard } from "@/hooks/useLoginGuard";
+import LoginModal from "@/components/public/LoginModal";
 
 type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery";
 
@@ -62,6 +64,8 @@ function CommunityContent() {
   const [resourceList, setResourceList] = useState(RESOURCES);
   const [galleryList, setGalleryList] = useState(GALLERY_IMAGES);
 
+  const { user, showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
+
   useEffect(() => {
     if (tabParam && TABS.some((t) => t.key === tabParam)) {
       setActiveTab(tabParam);
@@ -89,18 +93,35 @@ function CommunityContent() {
     }).catch(console.error);
   }, []);
 
-  const handleInquirySubmit = async (e: React.FormEvent) => {
+  const handleInquirySubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await createDoc(COLLECTIONS.INQUIRIES, {
-        ...inquiryForm,
-        status: "NEW",
-        type: "PARTNERSHIP",
-      });
-    } catch (err) {
-      console.error(err);
-    }
-    setInquirySubmitted(true);
+    requireLogin(async () => {
+      try {
+        await createDoc(COLLECTIONS.INQUIRIES, {
+          ...inquiryForm,
+          status: "NEW",
+          type: "PARTNERSHIP",
+          userId: user?.uid,
+          userEmail: user?.email,
+        });
+      } catch (err) {
+        console.error(err);
+      }
+      setInquirySubmitted(true);
+    }, "협력 문의를 보내려면 로그인이 필요합니다.");
+  };
+
+  const handleDownload = (resTitle: string) => {
+    requireLogin(() => {
+      // TODO: 실제 파일 다운로드 로직
+      alert(`"${resTitle}" 다운로드를 시작합니다.`);
+    }, "자료를 다운로드하려면 로그인이 필요합니다.");
+  };
+
+  const handleCertSearch = () => {
+    requireLogin(() => {
+      setCertSearched(true);
+    }, "수료증을 조회하려면 로그인이 필요합니다.");
   };
 
   return (
@@ -172,7 +193,7 @@ function CommunityContent() {
                   <div className="flex items-center gap-4 shrink-0 ml-4">
                     <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{res.type}</span>
                     <span className="text-xs text-gray-400 flex items-center gap-1"><Download size={12} />{res.downloads}</span>
-                    <button className="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition-colors">
+                    <button onClick={() => handleDownload(res.title)} className="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition-colors">
                       <Download size={16} />
                     </button>
                   </div>
@@ -207,7 +228,7 @@ function CommunityContent() {
                   />
                 </div>
                 <button
-                  onClick={() => setCertSearched(true)}
+                  onClick={() => handleCertSearch()}
                   disabled={!certEmail.trim()}
                   className="w-full py-3 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"
                 >
@@ -354,6 +375,7 @@ function CommunityContent() {
           </div>
         )}
       </div>
+      <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>
   );
 }
