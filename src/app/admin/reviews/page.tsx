@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Star, Trash2, CheckCircle, XCircle, Award, Plus, Pencil, Upload, Search, X, Filter } from "lucide-react";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 interface Review {
   id: string;
@@ -43,8 +44,7 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
 }
 
 export default function AdminReviewsPage() {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: reviews, setData: setReviews, loading } = useFirestoreCollection<Review>(COLLECTIONS.REVIEWS);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [formData, setFormData] = useState<Omit<Review, "id">>(emptyReview);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -54,21 +54,6 @@ export default function AdminReviewsPage() {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterFeatured, setFilterFeatured] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    loadReviews();
-  }, []);
-
-  const loadReviews = async () => {
-    try {
-      const data = await getCollection<Review>(COLLECTIONS.REVIEWS);
-      setReviews(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredReviews = useMemo(() => {
     return reviews.filter((r) => {

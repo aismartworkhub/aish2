@@ -28,34 +28,59 @@ function resolveCol(col: string): string {
   return `${_tenantPrefix}${col}`;
 }
 
+// In-memory cache (stale-while-revalidate)
+const CACHE_TTL = 30_000; // 30초 내 재요청은 캐시 반환
+const _cache = new Map<string, { data: unknown[]; ts: number }>();
+
+export function invalidateCache(col: string) {
+  _cache.delete(col);
+}
+
 // Generic helpers
 
 export async function getCollection<T>(col: string): Promise<T[]> {
+  const cached = _cache.get(col);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data as T[];
+  }
   const snap = await getDocs(collection(db, col));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+  _cache.set(col, { data: result, ts: Date.now() });
+  return result;
 }
 
 export async function getOrderedCollection<T>(col: string, field: string, dir: "asc" | "desc" = "asc"): Promise<T[]> {
+  const cacheKey = `${col}__${field}__${dir}`;
+  const cached = _cache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data as T[];
+  }
   const q = query(collection(db, col), orderBy(field, dir));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+  _cache.set(cacheKey, { data: result, ts: Date.now() });
+  return result;
 }
 
 export async function createDoc<T extends DocumentData>(col: string, data: WithFieldValue<T>): Promise<string> {
   const ref = await addDoc(collection(db, col), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  invalidateCache(col);
   return ref.id;
 }
 
 export async function upsertDoc<T extends DocumentData>(col: string, id: string, data: WithFieldValue<T>): Promise<void> {
   await setDoc(doc(db, col, id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  invalidateCache(col);
 }
 
 export async function updateDocFields<T extends DocumentData>(col: string, id: string, data: Partial<T>): Promise<void> {
   await updateDoc(doc(db, col, id), { ...data, updatedAt: serverTimestamp() } as DocumentData);
+  invalidateCache(col);
 }
 
 export async function removeDoc(col: string, id: string): Promise<void> {
   await deleteDoc(doc(db, col, id));
+  invalidateCache(col);
 }
 
 export async function getDocById<T>(col: string, id: string): Promise<T | null> {
@@ -70,6 +95,7 @@ export async function getSingletonDoc<T>(col: string, id: string): Promise<T | n
 
 export async function setSingletonDoc<T extends DocumentData>(col: string, id: string, data: WithFieldValue<T>): Promise<void> {
   await setDoc(doc(db, col, id), { ...data, updatedAt: serverTimestamp() });
+  invalidateCache(col);
 }
 
 // Collection name constants

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 interface FAQItem {
   id: string;
@@ -13,28 +14,12 @@ interface FAQItem {
 }
 
 export default function AdminFAQPage() {
-  const [items, setItems] = useState<FAQItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items, setData: setItems, loading } = useFirestoreCollection<FAQItem>(COLLECTIONS.FAQ);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Omit<FAQItem, "id">>({ question: "", answer: "", category: "GENERAL" });
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    loadFAQ();
-  }, []);
-
-  const loadFAQ = async () => {
-    try {
-      const data = await getCollection<FAQItem>(COLLECTIONS.FAQ);
-      setItems(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openCreate = () => {
     setForm({ question: "", answer: "", category: "GENERAL" });

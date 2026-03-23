@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 interface Instructor {
   id: string;
@@ -19,25 +20,15 @@ const EMPTY_FORM: Omit<Instructor, "id"> = {
   name: "", title: "", bio: "", imageUrl: "", specialties: [], isActive: true, displayOrder: 0,
 };
 
+const instructorSort = (a: Instructor, b: Instructor) => (a.displayOrder || 0) - (b.displayOrder || 0);
+
 export default function AdminInstructorsPage() {
-  const [items, setItems] = useState<Instructor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items, setData: setItems, loading } = useFirestoreCollection<Instructor>(COLLECTIONS.INSTRUCTORS, instructorSort);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [specInput, setSpecInput] = useState("");
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const data = await getCollection<Instructor>(COLLECTIONS.INSTRUCTORS);
-      setItems(data.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0)));
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
 
   const openCreate = () => { setForm(EMPTY_FORM); setEditId(null); setSpecInput(""); setShowModal(true); };
   const openEdit = (item: Instructor) => {

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, Pencil, Trash2, Shield, ShieldCheck } from "lucide-react";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 interface AdminUser {
   id: string;
@@ -23,21 +24,11 @@ const ROLE_COLORS: Record<string, string> = {
 const EMPTY_FORM: Omit<AdminUser, "id"> = { name: "", email: "", role: "editor", isActive: true };
 
 export default function AdminUsersPage() {
-  const [items, setItems] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items, setData: setItems, loading } = useFirestoreCollection<AdminUser>(COLLECTIONS.ADMINS);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => { loadData(); }, []);
-
-  const loadData = async () => {
-    try {
-      const data = await getCollection<AdminUser>(COLLECTIONS.ADMINS);
-      setItems(data);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
 
   const openCreate = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
   const openEdit = (item: AdminUser) => {

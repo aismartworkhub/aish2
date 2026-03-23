@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { Search, Mail, MailOpen, Clock, CheckCircle, XCircle, Trash2, Save, Send, Settings, Bell, Reply } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INQUIRY_STATUS_LABELS } from "@/lib/constants";
-import { COLLECTIONS, getCollection, updateDocFields, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, updateDocFields, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 type InquiryStatus = "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
@@ -35,8 +36,8 @@ const STATUS_ICONS: Record<string, React.ElementType> = { NEW: Mail, IN_PROGRESS
 const STATUS_COLORS: Record<string, string> = { NEW: "bg-red-100 text-red-700", IN_PROGRESS: "bg-yellow-100 text-yellow-700", RESOLVED: "bg-green-100 text-green-700", CLOSED: "bg-gray-100 text-gray-700" };
 
 export default function AdminInquiriesPage() {
+  const { data: rawInquiries, loading } = useFirestoreCollection<Inquiry & { createdAt?: { seconds: number }; message?: string }>(COLLECTIONS.INQUIRIES);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -51,28 +52,17 @@ export default function AdminInquiriesPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadInquiries();
-  }, []);
-
-  const loadInquiries = async () => {
-    try {
-      const data = await getCollection<Inquiry & { createdAt?: { seconds: number }; message?: string }>(COLLECTIONS.INQUIRIES);
-      setInquiries(data.map((d) => ({
-        ...d,
-        date: d.date || (d.createdAt?.seconds ? new Date(d.createdAt.seconds * 1000).toISOString().slice(0, 10) : ""),
-        content: d.content || d.message || "",
-        adminNote: d.adminNote || "",
-        replyContent: d.replyContent || "",
-        emailSent: d.emailSent || false,
-        status: d.status || "NEW",
-        category: d.category || "GENERAL",
-      })));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setInquiries(rawInquiries.map((d) => ({
+      ...d,
+      date: d.date || (d.createdAt?.seconds ? new Date(d.createdAt.seconds * 1000).toISOString().slice(0, 10) : ""),
+      content: d.content || d.message || "",
+      adminNote: d.adminNote || "",
+      replyContent: d.replyContent || "",
+      emailSent: d.emailSent || false,
+      status: d.status || "NEW",
+      category: d.category || "GENERAL",
+    })));
+  }, [rawInquiries]);
 
   const filtered = inquiries.filter((i) => {
     const matchSearch = !searchQuery || i.subject.includes(searchQuery) || i.name.includes(searchQuery) || i.email.includes(searchQuery);

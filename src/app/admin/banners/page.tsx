@@ -1,33 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { type QuickBannerDemo } from "@/lib/demo-data";
 import { BANNER_STYLE_LABELS, BANNER_POSITION_LABELS, TARGET_PAGE_OPTIONS } from "@/lib/constants";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+
+const bannerSort = (a: QuickBannerDemo, b: QuickBannerDemo) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
 
 export default function AdminBannersPage() {
-  const [banners, setBanners] = useState<QuickBannerDemo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: banners, setData: setBanners, loading } = useFirestoreCollection<QuickBannerDemo>(COLLECTIONS.BANNERS, bannerSort);
   const [showModal, setShowModal] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<QuickBannerDemo>>({});
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    loadBanners();
-  }, []);
-
-  const loadBanners = async () => {
-    try {
-      const data = await getCollection<QuickBannerDemo>(COLLECTIONS.BANNERS);
-      setBanners(data.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const defaultForm = (): QuickBannerDemo => ({
     id: "",

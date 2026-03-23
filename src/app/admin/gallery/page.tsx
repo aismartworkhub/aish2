@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ImageIcon, Plus, Trash2, Edit, X, Save, Search, FolderOpen, ExternalLink, Grid, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 
@@ -38,8 +39,7 @@ const emptyPhoto = (): Omit<Photo, "id"> => ({
 });
 
 export default function AdminGalleryPage() {
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: photos, setData: setPhotos, loading } = useFirestoreCollection<Photo>(COLLECTIONS.GALLERY);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<PhotoCategory | "전체">("전체");
   const [editingPhoto, setEditingPhoto] = useState<(Omit<Photo, "id"> & { id?: string }) | null>(null);
@@ -49,21 +49,6 @@ export default function AdminGalleryPage() {
   const [showDriveSection, setShowDriveSection] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-
-  useEffect(() => {
-    loadPhotos();
-  }, []);
-
-  const loadPhotos = async () => {
-    try {
-      const data = await getCollection<Photo>(COLLECTIONS.GALLERY);
-      setPhotos(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filtered = photos.filter((p) => {
     const matchesSearch = !searchQuery || p.title.toLowerCase().includes(searchQuery.toLowerCase()) || p.description.toLowerCase().includes(searchQuery.toLowerCase());

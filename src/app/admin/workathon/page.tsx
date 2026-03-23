@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   CalendarDays, MapPin, Users, Download, Edit, CheckCircle,
   Clock, XCircle, Save, Plus, Trash2, ChevronRight,
   Eye, FileText, ArrowLeft, Search, LayoutList,
 } from "lucide-react";
 import { cn, calculateDDay } from "@/lib/utils";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -77,19 +78,11 @@ const REG_STATUS_COLORS: Record<RegStatus, string> = {
 
 export default function AdminWorkathonPage() {
   const [activeTab, setActiveTab] = useState<Tab>("list");
-  const [loading, setLoading] = useState(true);
-  const [events, setEvents] = useState<EventData[]>([]);
+  const { data: events, setData: setEvents, loading } = useFirestoreCollection<EventData>(COLLECTIONS.EVENTS);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saveMessage, setSaveMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    getCollection<EventData>(COLLECTIONS.EVENTS)
-      .then(setEvents)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null;
 

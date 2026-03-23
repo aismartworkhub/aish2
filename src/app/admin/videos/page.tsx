@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, Search, Play, Edit, Trash2, X, Save, Star, ExternalLink, Youtube, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VIDEO_CATEGORY_LABELS } from "@/lib/constants";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 type VideoCategory = "LECTURE" | "WORKATHON" | "INTERVIEW" | "PROMO";
 
@@ -51,8 +52,7 @@ const emptyVideo = (): Omit<Video, "id"> => ({
 });
 
 export default function AdminVideosPage() {
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: videos, setData: setVideos, loading } = useFirestoreCollection<Video>(COLLECTIONS.VIDEOS);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"ALL" | VideoCategory>("ALL");
   const [editingVideo, setEditingVideo] = useState<(Omit<Video, "id"> & { id?: string }) | null>(null);
@@ -60,21 +60,6 @@ export default function AdminVideosPage() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkUrls, setBulkUrls] = useState("");
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    loadVideos();
-  }, []);
-
-  const loadVideos = async () => {
-    try {
-      const data = await getCollection<Video>(COLLECTIONS.VIDEOS);
-      setVideos(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filtered = videos.filter((v) => {
     const matchSearch = !searchQuery || v.title.toLowerCase().includes(searchQuery.toLowerCase()) || v.instructor.toLowerCase().includes(searchQuery.toLowerCase());

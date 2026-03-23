@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   Plus, Search, Edit, Trash2, Pin, Eye, FileText, X, Save, Link, Paperclip, ExternalLink, Upload, Image as ImageIcon, File,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 type BoardType = "NOTICE" | "RESOURCE";
 
@@ -64,8 +65,7 @@ function getAttachmentIcon(type: string) {
 }
 
 export default function AdminPostsPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: posts, setData: setPosts, loading } = useFirestoreCollection<Post>(COLLECTIONS.POSTS);
   const [boardFilter, setBoardFilter] = useState<"ALL" | BoardType>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPost, setEditingPost] = useState<(Omit<Post, "id"> & { id?: string }) | null>(null);
@@ -75,21 +75,6 @@ export default function AdminPostsPage() {
   const [attachmentLinkUrl, setAttachmentLinkUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    loadPosts();
-  }, []);
-
-  const loadPosts = async () => {
-    try {
-      const data = await getCollection<Post>(COLLECTIONS.POSTS);
-      setPosts(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filtered = posts
     .filter((p) => boardFilter === "ALL" || p.boardType === boardFilter)

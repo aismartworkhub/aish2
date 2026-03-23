@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 interface HistoryItem {
   id: string;
@@ -16,22 +17,14 @@ interface HistoryItem {
 const EMPTY_FORM: Omit<HistoryItem, "id"> = { year: new Date().getFullYear().toString(), month: "01", title: "", description: "", category: "일반" };
 const CATEGORIES = ["일반", "설립", "프로그램", "수상", "협약", "기타"];
 
+const historySort = (a: HistoryItem, b: HistoryItem) => `${b.year}${b.month}`.localeCompare(`${a.year}${a.month}`);
+
 export default function AdminHistoryPage() {
-  const [items, setItems] = useState<HistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items, setData: setItems, loading } = useFirestoreCollection<HistoryItem>(COLLECTIONS.HISTORY, historySort);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => { loadData(); }, []);
-
-  const loadData = async () => {
-    try {
-      const data = await getCollection<HistoryItem>(COLLECTIONS.HISTORY);
-      setItems(data.sort((a, b) => `${b.year}${b.month}`.localeCompare(`${a.year}${a.month}`)));
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
 
   const openCreate = () => { setForm(EMPTY_FORM); setEditId(null); setShowModal(true); };
   const openEdit = (item: HistoryItem) => {

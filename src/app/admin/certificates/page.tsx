@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Award,
   Plus,
@@ -18,7 +18,8 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 // =============================================================================
 // Types
@@ -84,16 +85,15 @@ const STATUS_REQUEST_COLORS: Record<CertificateRequest["status"], string> = {
 
 export default function AdminCertificatesPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("cohorts");
-  const [loading, setLoading] = useState(true);
 
   // --- Cohort state ---
-  const [cohorts, setCohorts] = useState<Cohort[]>([]);
+  const { data: cohorts, setData: setCohorts, loading: loadingCohorts } = useFirestoreCollection<Cohort>(COLLECTIONS.CERTIFICATES_COHORTS);
   const [cohortModalOpen, setCohortModalOpen] = useState(false);
   const [editingCohort, setEditingCohort] = useState<Cohort | null>(null);
   const [cohortForm, setCohortForm] = useState({ name: "", programTitle: "", startDate: "", endDate: "" });
 
   // --- Graduate state ---
-  const [graduates, setGraduates] = useState<Graduate[]>([]);
+  const { data: graduates, setData: setGraduates, loading: loadingGrads } = useFirestoreCollection<Graduate>(COLLECTIONS.CERTIFICATES_GRADUATES);
   const [selectedCohortId, setSelectedCohortId] = useState<string>("");
   const [gradSearch, setGradSearch] = useState("");
   const [bulkInput, setBulkInput] = useState("");
@@ -103,22 +103,12 @@ export default function AdminCertificatesPage() {
   const [gradForm, setGradForm] = useState({ name: "", email: "", studentId: "", status: "수료" as Graduate["status"] });
 
   // --- Request state ---
-  const [requests, setRequests] = useState<CertificateRequest[]>([]);
+  const { data: requests, setData: setRequests, loading: loadingReqs } = useFirestoreCollection<CertificateRequest>(COLLECTIONS.CERTIFICATES_REQUESTS);
   const [reqSearch, setReqSearch] = useState("");
   const [reqStatusFilter, setReqStatusFilter] = useState<string>("ALL");
   const [detailRequest, setDetailRequest] = useState<CertificateRequest | null>(null);
 
-  useEffect(() => {
-    Promise.all([
-      getCollection<Cohort>(COLLECTIONS.CERTIFICATES_COHORTS),
-      getCollection<Graduate>(COLLECTIONS.CERTIFICATES_GRADUATES),
-      getCollection<CertificateRequest>(COLLECTIONS.CERTIFICATES_REQUESTS),
-    ]).then(([c, g, r]) => {
-      setCohorts(c);
-      setGraduates(g);
-      setRequests(r);
-    }).catch(console.error).finally(() => setLoading(false));
-  }, []);
+  const loading = loadingCohorts || loadingGrads || loadingReqs;
 
   // =========================================================================
   // Tab 1 - Cohort CRUD

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Search,
   Plus,
@@ -24,7 +24,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -91,11 +92,10 @@ const EMPTY_PARTNER: Omit<Partner, "id"> = {
 
 export default function AdminPartnersPage() {
   const [activeTab, setActiveTab] = useState<"partners" | "applications">("partners");
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // ── Partners state ──
-  const [partners, setPartners] = useState<Partner[]>([]);
+  const { data: partners, setData: setPartners, loading: loadingPartners } = useFirestoreCollection<Partner>(COLLECTIONS.PARTNERS);
   const [partnerSearch, setPartnerSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<PartnerCategory | "ALL">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -103,20 +103,12 @@ export default function AdminPartnersPage() {
   const [formData, setFormData] = useState<Omit<Partner, "id">>(EMPTY_PARTNER);
 
   // ── Applications state ──
-  const [applications, setApplications] = useState<PartnerApplication[]>([]);
+  const { data: applications, setData: setApplications, loading: loadingApps } = useFirestoreCollection<PartnerApplication>(COLLECTIONS.PARTNER_APPLICATIONS);
   const [appSearch, setAppSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "ALL">("ALL");
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([
-      getCollection<Partner>(COLLECTIONS.PARTNERS),
-      getCollection<PartnerApplication>(COLLECTIONS.PARTNER_APPLICATIONS),
-    ]).then(([p, a]) => {
-      setPartners(p);
-      setApplications(a);
-    }).catch(console.error).finally(() => setLoading(false));
-  }, []);
+  const loading = loadingPartners || loadingApps;
 
   // ── Partners CRUD ──
   const filteredPartners = partners.filter((p) => {
