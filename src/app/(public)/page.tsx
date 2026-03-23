@@ -404,7 +404,7 @@ export default function HomePage() {
             href="/workathon"
             className="mt-8 inline-flex items-center gap-2 text-primary-600 font-semibold text-sm hover:text-primary-700 transition-colors"
           >
-            교육과정 보기
+            워크톤 자세히 보기
             <ArrowRight size={16} />
           </Link>
         </div>

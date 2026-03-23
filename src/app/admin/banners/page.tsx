@@ -266,7 +266,7 @@ export default function AdminBannersPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">표시 페이지</label>
                 <div className="flex flex-wrap gap-2">
                   {TARGET_PAGE_OPTIONS.map((opt) => {
-                    const pages = form.targetPages || ["/"];
+                    const pages = form.targetPages ?? ["/"];
                     const checked = pages.includes(opt.value);
                     return (
                       <label key={opt.value} className="inline-flex items-center gap-1.5 text-sm">

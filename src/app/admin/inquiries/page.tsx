@@ -56,8 +56,17 @@ export default function AdminInquiriesPage() {
 
   const loadInquiries = async () => {
     try {
-      const data = await getCollection<Inquiry>(COLLECTIONS.INQUIRIES);
-      setInquiries(data);
+      const data = await getCollection<Inquiry & { createdAt?: { seconds: number }; message?: string }>(COLLECTIONS.INQUIRIES);
+      setInquiries(data.map((d) => ({
+        ...d,
+        date: d.date || (d.createdAt?.seconds ? new Date(d.createdAt.seconds * 1000).toISOString().slice(0, 10) : ""),
+        content: d.content || d.message || "",
+        adminNote: d.adminNote || "",
+        replyContent: d.replyContent || "",
+        emailSent: d.emailSent || false,
+        status: d.status || "NEW",
+        category: d.category || "GENERAL",
+      })));
     } catch (e) {
       console.error(e);
     } finally {

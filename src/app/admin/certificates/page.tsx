@@ -268,6 +268,7 @@ export default function AdminCertificatesPage() {
       setGraduates((prev) => prev.map((g) => (g.id === id ? { ...g, status } : g)));
     } catch (e) {
       console.error(e);
+      alert("상태 변경에 실패했습니다.");
     }
   };
 

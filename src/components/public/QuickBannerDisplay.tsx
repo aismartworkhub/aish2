@@ -25,12 +25,15 @@ export default function QuickBannerDisplay() {
       .catch(console.error);
   }, []);
 
-  const activeBanners = banners.filter(
-    (b) =>
-      b.isActive &&
-      (b.targetPages || []).includes(currentPath) &&
-      !dismissed.has(b.id)
-  );
+  const now = new Date().toISOString().slice(0, 10);
+  const activeBanners = banners.filter((b) => {
+    if (!b.isActive) return false;
+    if (!(b.targetPages || []).includes(currentPath)) return false;
+    if (dismissed.has(b.id)) return false;
+    if (b.startDate && now < b.startDate) return false;
+    if (b.endDate && now > b.endDate) return false;
+    return true;
+  });
 
   if (activeBanners.length === 0) return null;
 

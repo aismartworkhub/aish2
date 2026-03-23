@@ -21,7 +21,10 @@ export default function AboutPage() {
       getCollection<typeof DEMO_PARTNERS[0]>(COLLECTIONS.PARTNERS),
     ]).then(([h, p]) => {
       if (h.length > 0) setHistory(h.sort((a, b) => `${b.year}${b.month}`.localeCompare(`${a.year}${a.month}`)));
-      if (p.length > 0) setPartners(p.filter((partner) => (partner as { isActive?: boolean }).isActive !== false));
+      if (p.length > 0) setPartners(
+        p.filter((partner) => (partner as { isActive?: boolean }).isActive !== false)
+         .sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 999) - ((b as { displayOrder?: number }).displayOrder ?? 999))
+      );
     }).catch(console.error);
   }, []);
 

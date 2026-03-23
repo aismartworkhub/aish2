@@ -91,4 +91,5 @@ export const COLLECTIONS = {
   SETTINGS: "siteSettings",
   INSTRUCTORS: "instructors",
   HISTORY: "history",
+  ADMINS: "admins",
 } as const;

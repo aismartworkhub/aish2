@@ -275,7 +275,7 @@ export default function AdminGalleryPage() {
                   <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
-                    if (file.size > 5 * 1024 * 1024) { alert("파일 크기는 5MB 이하여야 합니다."); return; }
+                    if (file.size > 5 * 1024 * 1024) { alert("파일 크기는 5MB 이하여야 합니다."); e.target.value = ""; return; }
                     setUploading(true);
                     try {
                       const fileName = `gallery/${Date.now()}_${file.name}`;
@@ -288,6 +288,7 @@ export default function AdminGalleryPage() {
                       alert("업로드에 실패했습니다.");
                     } finally {
                       setUploading(false);
+                      e.target.value = "";
                     }
                   }} />
                   <Upload size={24} className="mx-auto text-gray-400 mb-2" />

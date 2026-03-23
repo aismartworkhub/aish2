@@ -57,8 +57,9 @@ function CommunityContent() {
   const [inquiryForm, setInquiryForm] = useState({ name: "", email: "", phone: "", company: "", subject: "", message: "" });
   const [inquirySubmitted, setInquirySubmitted] = useState(false);
   const [certEmail, setCertEmail] = useState("");
+  const [certName, setCertName] = useState("");
   const [certSearched, setCertSearched] = useState(false);
-  const [certResult, setCertResult] = useState<{ courseName: string; completionDate: string; cohort: string } | null>(null);
+  const [certResult, setCertResult] = useState<{ courseName: string; completionDate: string; cohort: string; status: string } | null>(null);
   const [certLoading, setCertLoading] = useState(false);
 
   const [faqList, setFaqList] = useState(DEMO_FAQ);
@@ -105,6 +106,12 @@ function CommunityContent() {
           type: "PARTNERSHIP",
           userId: user?.uid,
           userEmail: user?.email,
+          date: new Date().toISOString().slice(0, 10),
+          adminNote: "",
+          replyContent: "",
+          emailSent: false,
+          category: "PARTNERSHIP",
+          content: inquiryForm.message,
         });
       } catch (err) {
         console.error(err);
@@ -129,13 +136,21 @@ function CommunityContent() {
           getCollection<{ id: string; email: string; name: string; cohortId: string; status: string; courseName?: string; completionDate?: string; cohort?: string }>(COLLECTIONS.CERTIFICATES_GRADUATES),
           getCollection<{ id: string; name: string; programTitle: string; endDate: string }>(COLLECTIONS.CERTIFICATES_COHORTS),
         ]);
-        const match = graduates.find((g) => g.email.toLowerCase() === certEmail.trim().toLowerCase() && g.status !== "미수료");
+        const emailLower = certEmail.trim().toLowerCase();
+        const nameTrimmed = certName.trim();
+        const match = graduates.find((g) => {
+          const emailMatch = emailLower && g.email.toLowerCase() === emailLower;
+          const nameMatch = nameTrimmed && g.name === nameTrimmed;
+          const isEligible = g.status === "수료" || g.status === "졸업";
+          return (emailMatch || nameMatch) && isEligible;
+        });
         if (match) {
           const cohort = cohorts.find((c) => c.id === match.cohortId);
           setCertResult({
             courseName: match.courseName || cohort?.programTitle || "과정명 미등록",
             completionDate: match.completionDate || cohort?.endDate || "",
             cohort: match.cohort || cohort?.name || "",
+            status: match.status,
           });
         }
       } catch (err) {
@@ -250,9 +265,19 @@ function CommunityContent() {
                     className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                   />
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1.5 block">이름 (선택)</label>
+                  <input
+                    type="text"
+                    value={certName}
+                    onChange={(e) => { setCertName(e.target.value); setCertSearched(false); setCertResult(null); }}
+                    placeholder="이메일로 찾을 수 없을 때 이름으로 검색합니다"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  />
+                </div>
                 <button
                   onClick={() => handleCertSearch()}
-                  disabled={!certEmail.trim() || certLoading}
+                  disabled={(!certEmail.trim() && !certName.trim()) || certLoading}
                   className="w-full py-3 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"
                 >
                   {certLoading ? "조회 중..." : "수료증 조회"}
@@ -260,10 +285,13 @@ function CommunityContent() {
                 {certSearched && !certResult && (
                   <div className="bg-yellow-50 text-yellow-700 text-sm p-4 rounded-lg">
                     <p className="font-medium mb-1">수료 정보를 찾을 수 없습니다.</p>
-                    <p className="text-yellow-600 text-xs">
-                      수강 신청 시 등록한 이메일과 동일한지 확인해 주세요.
-                      문의사항은 협력 문의 탭을 이용해 주세요.
-                    </p>
+                    <ul className="text-yellow-600 text-xs space-y-1 mt-2 list-disc list-inside">
+                      <li>수강 신청 시 등록한 이메일과 동일한지 확인해 주세요.</li>
+                      <li>이메일로 찾을 수 없는 경우 이름으로도 검색해 보세요.</li>
+                      <li>수료 또는 졸업 상태인 수강생만 조회 가능합니다.</li>
+                      <li>관리자가 아직 수료 정보를 등록하지 않았을 수 있습니다.</li>
+                      <li>문의사항은 <button type="button" onClick={() => setActiveTab("inquiry")} className="underline font-medium">협력 문의</button> 탭을 이용해 주세요.</li>
+                    </ul>
                   </div>
                 )}
                 {certResult && (
@@ -272,6 +300,7 @@ function CommunityContent() {
                     <div className="space-y-1 text-green-600 text-xs">
                       <p>과정명: <strong>{certResult.courseName}</strong></p>
                       <p>기수: <strong>{certResult.cohort}</strong></p>
+                      <p>상태: <strong>{certResult.status}</strong></p>
                       <p>수료일: <strong>{certResult.completionDate}</strong></p>
                     </div>
                   </div>

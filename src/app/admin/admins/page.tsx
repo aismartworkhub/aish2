@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, Shield, ShieldCheck } from "lucide-react";
-import { COLLECTIONS, getCollection, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
-
-const ADMIN_COLLECTION = "admins";
+import { COLLECTIONS, getCollection, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 
 interface AdminUser {
   id: string;
@@ -36,7 +34,7 @@ export default function AdminUsersPage() {
 
   const loadData = async () => {
     try {
-      const data = await getCollection<AdminUser>(ADMIN_COLLECTION);
+      const data = await getCollection<AdminUser>(COLLECTIONS.ADMINS);
       setItems(data);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
@@ -52,10 +50,10 @@ export default function AdminUsersPage() {
     setSaving(true);
     try {
       if (editId) {
-        await upsertDoc(ADMIN_COLLECTION, editId, form);
+        await upsertDoc(COLLECTIONS.ADMINS, editId, form);
         setItems((prev) => prev.map((i) => i.id === editId ? { ...i, ...form } : i));
       } else {
-        const id = await createDoc(ADMIN_COLLECTION, form);
+        const id = await createDoc(COLLECTIONS.ADMINS, form);
         setItems((prev) => [...prev, { id, ...form }]);
       }
       setShowModal(false);
@@ -65,16 +63,16 @@ export default function AdminUsersPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("삭제하시겠습니까?")) return;
     try {
-      await removeDoc(ADMIN_COLLECTION, id);
+      await removeDoc(COLLECTIONS.ADMINS, id);
       setItems((prev) => prev.filter((i) => i.id !== id));
     } catch (e) { console.error(e); alert("삭제에 실패했습니다."); }
   };
 
   const toggleActive = async (item: AdminUser) => {
     try {
-      await upsertDoc(ADMIN_COLLECTION, item.id, { ...item, isActive: !item.isActive });
+      await updateDocFields(COLLECTIONS.ADMINS, item.id, { isActive: !item.isActive });
       setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, isActive: !i.isActive } : i));
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); alert("상태 변경에 실패했습니다."); }
   };
 
   if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
