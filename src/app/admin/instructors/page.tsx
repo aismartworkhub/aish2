@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 interface Instructor {
   id: string;
@@ -23,7 +24,7 @@ const EMPTY_FORM: Omit<Instructor, "id"> = {
 const instructorSort = (a: Instructor, b: Instructor) => (a.displayOrder || 0) - (b.displayOrder || 0);
 
 export default function AdminInstructorsPage() {
-  const { data: items, setData: setItems, loading } = useFirestoreCollection<Instructor>(COLLECTIONS.INSTRUCTORS, instructorSort);
+  const { data: items, setData: setItems, loading, error, refresh } = useFirestoreCollection<Instructor>(COLLECTIONS.INSTRUCTORS, instructorSort);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -79,7 +80,8 @@ export default function AdminInstructorsPage() {
     setForm({ ...form, specialties: form.specialties.filter((x) => x !== s) });
   };
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div className="space-y-6">

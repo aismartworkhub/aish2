@@ -7,6 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 type BoardType = "NOTICE" | "RESOURCE";
 
@@ -65,7 +66,7 @@ function getAttachmentIcon(type: string) {
 }
 
 export default function AdminPostsPage() {
-  const { data: posts, setData: setPosts, loading } = useFirestoreCollection<Post>(COLLECTIONS.POSTS);
+  const { data: posts, setData: setPosts, loading, error, refresh } = useFirestoreCollection<Post>(COLLECTIONS.POSTS);
   const [boardFilter, setBoardFilter] = useState<"ALL" | BoardType>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPost, setEditingPost] = useState<(Omit<Post, "id"> & { id?: string }) | null>(null);
@@ -207,7 +208,8 @@ export default function AdminPostsPage() {
 
   const hasResourceLinks = (post: Post) => post.googleLink || post.notionLink || post.slackLink;
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div>

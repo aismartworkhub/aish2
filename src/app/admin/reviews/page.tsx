@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Star, Trash2, CheckCircle, XCircle, Award, Plus, Pencil, Upload, Search, X, Filter } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 interface Review {
   id: string;
@@ -44,7 +45,7 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
 }
 
 export default function AdminReviewsPage() {
-  const { data: reviews, setData: setReviews, loading } = useFirestoreCollection<Review>(COLLECTIONS.REVIEWS);
+  const { data: reviews, setData: setReviews, loading, error, refresh } = useFirestoreCollection<Review>(COLLECTIONS.REVIEWS);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [formData, setFormData] = useState<Omit<Review, "id">>(emptyReview);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -180,7 +181,8 @@ export default function AdminReviewsPage() {
     }
   };
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div className="space-y-6">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Pencil, Trash2, Shield, ShieldCheck } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 interface AdminUser {
   id: string;
@@ -24,7 +25,7 @@ const ROLE_COLORS: Record<string, string> = {
 const EMPTY_FORM: Omit<AdminUser, "id"> = { name: "", email: "", role: "editor", isActive: true };
 
 export default function AdminUsersPage() {
-  const { data: items, setData: setItems, loading } = useFirestoreCollection<AdminUser>(COLLECTIONS.ADMINS);
+  const { data: items, setData: setItems, loading, error, refresh } = useFirestoreCollection<AdminUser>(COLLECTIONS.ADMINS);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -66,7 +67,8 @@ export default function AdminUsersPage() {
     } catch (e) { console.error(e); alert("상태 변경에 실패했습니다."); }
   };
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div className="space-y-6">

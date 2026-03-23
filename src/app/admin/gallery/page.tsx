@@ -5,6 +5,7 @@ import { ImageIcon, Plus, Trash2, Edit, X, Save, Search, FolderOpen, ExternalLin
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 
@@ -39,7 +40,7 @@ const emptyPhoto = (): Omit<Photo, "id"> => ({
 });
 
 export default function AdminGalleryPage() {
-  const { data: photos, setData: setPhotos, loading } = useFirestoreCollection<Photo>(COLLECTIONS.GALLERY);
+  const { data: photos, setData: setPhotos, loading, error, refresh } = useFirestoreCollection<Photo>(COLLECTIONS.GALLERY);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<PhotoCategory | "전체">("전체");
   const [editingPhoto, setEditingPhoto] = useState<(Omit<Photo, "id"> & { id?: string }) | null>(null);
@@ -118,7 +119,8 @@ export default function AdminGalleryPage() {
     }
   };
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div>

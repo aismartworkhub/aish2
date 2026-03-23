@@ -7,6 +7,7 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import { PROGRAM_CATEGORY_LABELS, PROGRAM_STATUS_LABELS } from "@/lib/constants";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 interface Program {
   id: string;
@@ -61,7 +62,7 @@ function formFromProgram(p: Program): ProgramFormData {
 }
 
 export default function AdminProgramsPage() {
-  const { data: programs, setData: setPrograms, loading } = useFirestoreCollection<Program>(COLLECTIONS.PROGRAMS);
+  const { data: programs, setData: setPrograms, loading, error, refresh } = useFirestoreCollection<Program>(COLLECTIONS.PROGRAMS);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
@@ -181,7 +182,8 @@ export default function AdminProgramsPage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div>

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { VIDEO_CATEGORY_LABELS } from "@/lib/constants";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 type VideoCategory = "LECTURE" | "WORKATHON" | "INTERVIEW" | "PROMO";
 
@@ -52,7 +53,7 @@ const emptyVideo = (): Omit<Video, "id"> => ({
 });
 
 export default function AdminVideosPage() {
-  const { data: videos, setData: setVideos, loading } = useFirestoreCollection<Video>(COLLECTIONS.VIDEOS);
+  const { data: videos, setData: setVideos, loading, error, refresh } = useFirestoreCollection<Video>(COLLECTIONS.VIDEOS);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"ALL" | VideoCategory>("ALL");
   const [editingVideo, setEditingVideo] = useState<(Omit<Video, "id"> & { id?: string }) | null>(null);
@@ -145,7 +146,8 @@ export default function AdminVideosPage() {
     }
   };
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div>

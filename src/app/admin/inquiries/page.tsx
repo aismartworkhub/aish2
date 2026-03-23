@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { INQUIRY_STATUS_LABELS } from "@/lib/constants";
 import { COLLECTIONS, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 type InquiryStatus = "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
@@ -36,7 +37,7 @@ const STATUS_ICONS: Record<string, React.ElementType> = { NEW: Mail, IN_PROGRESS
 const STATUS_COLORS: Record<string, string> = { NEW: "bg-red-100 text-red-700", IN_PROGRESS: "bg-yellow-100 text-yellow-700", RESOLVED: "bg-green-100 text-green-700", CLOSED: "bg-gray-100 text-gray-700" };
 
 export default function AdminInquiriesPage() {
-  const { data: rawInquiries, loading } = useFirestoreCollection<Inquiry & { createdAt?: { seconds: number }; message?: string }>(COLLECTIONS.INQUIRIES);
+  const { data: rawInquiries, loading, error, refresh } = useFirestoreCollection<Inquiry & { createdAt?: { seconds: number }; message?: string }>(COLLECTIONS.INQUIRIES);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -132,7 +133,8 @@ export default function AdminInquiriesPage() {
 
   const newCount = inquiries.filter((i) => i.status === "NEW").length;
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div>

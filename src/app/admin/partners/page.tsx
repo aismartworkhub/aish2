@@ -26,6 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,7 @@ export default function AdminPartnersPage() {
   const [saving, setSaving] = useState(false);
 
   // ── Partners state ──
-  const { data: partners, setData: setPartners, loading: loadingPartners } = useFirestoreCollection<Partner>(COLLECTIONS.PARTNERS);
+  const { data: partners, setData: setPartners, loading: loadingPartners, error: errorPartners, refresh: refreshPartners } = useFirestoreCollection<Partner>(COLLECTIONS.PARTNERS);
   const [partnerSearch, setPartnerSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<PartnerCategory | "ALL">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -103,12 +104,17 @@ export default function AdminPartnersPage() {
   const [formData, setFormData] = useState<Omit<Partner, "id">>(EMPTY_PARTNER);
 
   // ── Applications state ──
-  const { data: applications, setData: setApplications, loading: loadingApps } = useFirestoreCollection<PartnerApplication>(COLLECTIONS.PARTNER_APPLICATIONS);
+  const { data: applications, setData: setApplications, loading: loadingApps, error: errorApps, refresh: refreshApps } = useFirestoreCollection<PartnerApplication>(COLLECTIONS.PARTNER_APPLICATIONS);
   const [appSearch, setAppSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "ALL">("ALL");
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
 
   const loading = loadingPartners || loadingApps;
+  const error = errorPartners || errorApps;
+  const refresh = () => { refreshPartners(); refreshApps(); };
+
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   // ── Partners CRUD ──
   const filteredPartners = partners.filter((p) => {

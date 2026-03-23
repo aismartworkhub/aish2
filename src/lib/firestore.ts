@@ -15,25 +15,16 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-// Tenant path resolver
-// Default: flat collections (e.g., "programs")
-// Multi-tenant: "tenants/{tenantId}/programs"
-let _tenantPrefix = "";
-
-export function setTenantPrefix(tenantId: string | null) {
-  _tenantPrefix = tenantId ? `tenants/${tenantId}/` : "";
-}
-
-function resolveCol(col: string): string {
-  return `${_tenantPrefix}${col}`;
-}
-
 // In-memory cache (stale-while-revalidate)
 const CACHE_TTL = 30_000; // 30초 내 재요청은 캐시 반환
 const _cache = new Map<string, { data: unknown[]; ts: number }>();
 
 export function invalidateCache(col: string) {
-  _cache.delete(col);
+  for (const key of _cache.keys()) {
+    if (key === col || key.startsWith(`${col}__`)) {
+      _cache.delete(key);
+    }
+  }
 }
 
 // Generic helpers

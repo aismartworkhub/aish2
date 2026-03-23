@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 // =============================================================================
 // Types
@@ -87,13 +88,13 @@ export default function AdminCertificatesPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("cohorts");
 
   // --- Cohort state ---
-  const { data: cohorts, setData: setCohorts, loading: loadingCohorts } = useFirestoreCollection<Cohort>(COLLECTIONS.CERTIFICATES_COHORTS);
+  const { data: cohorts, setData: setCohorts, loading: loadingCohorts, error: errorCohorts, refresh: refreshCohorts } = useFirestoreCollection<Cohort>(COLLECTIONS.CERTIFICATES_COHORTS);
   const [cohortModalOpen, setCohortModalOpen] = useState(false);
   const [editingCohort, setEditingCohort] = useState<Cohort | null>(null);
   const [cohortForm, setCohortForm] = useState({ name: "", programTitle: "", startDate: "", endDate: "" });
 
   // --- Graduate state ---
-  const { data: graduates, setData: setGraduates, loading: loadingGrads } = useFirestoreCollection<Graduate>(COLLECTIONS.CERTIFICATES_GRADUATES);
+  const { data: graduates, setData: setGraduates, loading: loadingGrads, error: errorGrads, refresh: refreshGrads } = useFirestoreCollection<Graduate>(COLLECTIONS.CERTIFICATES_GRADUATES);
   const [selectedCohortId, setSelectedCohortId] = useState<string>("");
   const [gradSearch, setGradSearch] = useState("");
   const [bulkInput, setBulkInput] = useState("");
@@ -103,12 +104,14 @@ export default function AdminCertificatesPage() {
   const [gradForm, setGradForm] = useState({ name: "", email: "", studentId: "", status: "수료" as Graduate["status"] });
 
   // --- Request state ---
-  const { data: requests, setData: setRequests, loading: loadingReqs } = useFirestoreCollection<CertificateRequest>(COLLECTIONS.CERTIFICATES_REQUESTS);
+  const { data: requests, setData: setRequests, loading: loadingReqs, error: errorReqs, refresh: refreshReqs } = useFirestoreCollection<CertificateRequest>(COLLECTIONS.CERTIFICATES_REQUESTS);
   const [reqSearch, setReqSearch] = useState("");
   const [reqStatusFilter, setReqStatusFilter] = useState<string>("ALL");
   const [detailRequest, setDetailRequest] = useState<CertificateRequest | null>(null);
 
   const loading = loadingCohorts || loadingGrads || loadingReqs;
+  const error = errorCohorts || errorGrads || errorReqs;
+  const refresh = () => { refreshCohorts(); refreshGrads(); refreshReqs(); };
 
   // =========================================================================
   // Tab 1 - Cohort CRUD
@@ -337,7 +340,8 @@ export default function AdminCertificatesPage() {
   // Render
   // =========================================================================
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div>

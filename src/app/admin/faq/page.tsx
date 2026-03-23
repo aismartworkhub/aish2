@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 interface FAQItem {
   id: string;
@@ -14,7 +15,7 @@ interface FAQItem {
 }
 
 export default function AdminFAQPage() {
-  const { data: items, setData: setItems, loading } = useFirestoreCollection<FAQItem>(COLLECTIONS.FAQ);
+  const { data: items, setData: setItems, loading, error, refresh } = useFirestoreCollection<FAQItem>(COLLECTIONS.FAQ);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -64,7 +65,8 @@ export default function AdminFAQPage() {
     }
   };
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div className="space-y-6">

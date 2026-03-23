@@ -9,6 +9,7 @@ import {
 import { cn, calculateDDay } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -78,7 +79,7 @@ const REG_STATUS_COLORS: Record<RegStatus, string> = {
 
 export default function AdminWorkathonPage() {
   const [activeTab, setActiveTab] = useState<Tab>("list");
-  const { data: events, setData: setEvents, loading } = useFirestoreCollection<EventData>(COLLECTIONS.EVENTS);
+  const { data: events, setData: setEvents, loading, error, refresh } = useFirestoreCollection<EventData>(COLLECTIONS.EVENTS);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saveMessage, setSaveMessage] = useState("");
@@ -267,7 +268,8 @@ export default function AdminWorkathonPage() {
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div>

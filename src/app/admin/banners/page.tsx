@@ -6,11 +6,12 @@ import { type QuickBannerDemo } from "@/lib/demo-data";
 import { BANNER_STYLE_LABELS, BANNER_POSITION_LABELS, TARGET_PAGE_OPTIONS } from "@/lib/constants";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
 const bannerSort = (a: QuickBannerDemo, b: QuickBannerDemo) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
 
 export default function AdminBannersPage() {
-  const { data: banners, setData: setBanners, loading } = useFirestoreCollection<QuickBannerDemo>(COLLECTIONS.BANNERS, bannerSort);
+  const { data: banners, setData: setBanners, loading, error, refresh } = useFirestoreCollection<QuickBannerDemo>(COLLECTIONS.BANNERS, bannerSort);
   const [showModal, setShowModal] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [form, setForm] = useState<Partial<QuickBannerDemo>>({});
@@ -92,7 +93,8 @@ export default function AdminBannersPage() {
     }
   };
 
-  if (loading) return <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>;
+  if (loading) return <AdminLoading />;
+  if (error) return <AdminError message={error} onRetry={refresh} />;
 
   return (
     <div className="space-y-6">
