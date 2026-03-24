@@ -402,7 +402,7 @@ export default function AdminCertificatesPage() {
 
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">기수명</th>
@@ -834,7 +834,7 @@ export default function AdminCertificatesPage() {
           {/* Request table */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">신청자</th>

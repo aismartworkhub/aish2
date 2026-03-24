@@ -111,11 +111,11 @@ export default function AdminBannersPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
         {banners.length === 0 ? (
           <div className="py-12 text-center text-gray-400 text-sm">등록된 배너가 없습니다.</div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[600px] text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left">
                 <th className="px-4 py-3 font-medium text-gray-500">제목</th>

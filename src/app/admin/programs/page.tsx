@@ -318,7 +318,7 @@ export default function AdminProgramsPage() {
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                   placeholder="프로그램 제목" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
                   <select value={formData.category} onChange={(e) => updateField("category", e.target.value)}
@@ -356,7 +356,7 @@ export default function AdminProgramsPage() {
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                   placeholder="예: 매주 화요일 19:00-21:00" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">시작일</label>
                   <input type="date" value={formData.startDate} onChange={(e) => updateField("startDate", e.target.value)}

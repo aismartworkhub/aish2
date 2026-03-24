@@ -139,7 +139,7 @@ function AdminSettingsInner() {
         <p className="text-gray-500 mt-1">메인 페이지 히어로, 실적, CTA, 배너를 관리합니다.</p>
       </div>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
         {SETTINGS_TABS.map((tab) => (
           <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSaveMessage(""); }}
             className={cn("inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors",
@@ -176,7 +176,7 @@ function AdminSettingsInner() {
                     </label>
                     <button onClick={() => deleteHeroSlide(index)} className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 ml-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 ml-0 sm:ml-10">
                     <div><label className="text-xs font-medium text-gray-500 mb-1 block">이미지 URL</label>
                       <input type="text" value={slide.imageUrl} onChange={(e) => updateHeroSlide(index, "imageUrl", e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" /></div>
                     <div><label className="text-xs font-medium text-gray-500 mb-1 block">CTA 링크</label>
@@ -242,7 +242,7 @@ function AdminSettingsInner() {
           <div className="space-y-4">
             {stats.map((stat, index) => (
               <div key={index} className="flex items-center gap-4 p-4 rounded-xl border border-gray-200">
-                <div className="flex-1 grid grid-cols-3 gap-4">
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div><label className="text-xs font-medium text-gray-500 mb-1 block">항목명</label>
                     <input type="text" value={stat.label} onChange={(e) => updateStat(index, "label", e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" /></div>

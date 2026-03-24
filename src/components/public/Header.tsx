@@ -150,10 +150,10 @@ export default function Header() {
             ) : (
               <button
                 onClick={handleGoogleLogin}
-                className="hidden md:inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+                className="inline-flex items-center gap-2 px-3 md:px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
               >
                 <User size={16} />
-                로그인
+                <span className="hidden md:inline">로그인</span>
               </button>
             )}
 

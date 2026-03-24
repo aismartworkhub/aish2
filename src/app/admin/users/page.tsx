@@ -205,7 +205,7 @@ export default function UsersPage() {
 
       {/* 테이블 */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-[700px]">
           <thead>
             <tr className="border-b border-gray-100">
               <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">사용자</th>
@@ -319,7 +319,7 @@ export default function UsersPage() {
 
               {/* 역할/상태 (슈퍼관리자 계정 제외) */}
               {editUser.email !== SUPER_ADMIN_EMAIL && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">역할</label>
                     <select
@@ -356,7 +356,7 @@ export default function UsersPage() {
                   className={INPUT_CLASS}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">기수</label>
                   <select

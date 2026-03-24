@@ -156,7 +156,7 @@ export default function AdminInquiriesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {(["NEW", "IN_PROGRESS", "RESOLVED", "CLOSED"] as const).map((status) => {
           const Icon = STATUS_ICONS[status];
           const count = inquiries.filter((i) => i.status === status).length;
@@ -232,7 +232,7 @@ export default function AdminInquiriesPage() {
                     <option value="CLOSED">종료</option>
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-100">
                   <div><span className="text-xs text-gray-400">이름</span><p className="text-sm font-medium text-gray-900">{selected.name}</p></div>
                   <div><span className="text-xs text-gray-400">이메일</span><p className="text-sm font-medium text-primary-600">{selected.email}</p></div>
                   <div><span className="text-xs text-gray-400">연락처</span><p className="text-sm font-medium text-gray-900">{selected.phone || "-"}</p></div>

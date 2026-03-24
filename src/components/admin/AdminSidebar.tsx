@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, ImageIcon, Handshake, Clock,
- Award, Shield, ChevronDown, ChevronRight, PanelLeftClose, PanelLeft,
+ Award, Shield, ChevronDown, ChevronRight, X,
  Megaphone,
 } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
@@ -67,7 +68,7 @@ const NAV_ITEMS: NavItem[] = [
  { label: "회원관리", href: "/admin/users", icon: "Users" },
 ];
 
-function SidebarItem({ item }: { item: NavItem }) {
+function SidebarItem({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
  const pathname = usePathname();
  const [isOpen, setIsOpen] = useState(false);
  const Icon = ICON_MAP[item.icon] || LayoutDashboard;
@@ -93,6 +94,7 @@ function SidebarItem({ item }: { item: NavItem }) {
              <Link
                key={child.href}
                href={child.href}
+               onClick={onNavigate}
                className={cn(
                  "block px-3 py-2 rounded-lg text-sm transition-colors",
                  pathname === child.href
@@ -112,6 +114,7 @@ function SidebarItem({ item }: { item: NavItem }) {
  return (
    <Link
      href={item.href}
+     onClick={onNavigate}
      className={cn(
        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
        isActive ? "text-primary-700 bg-primary-50" : "text-gray-600 hover:bg-gray-50"
@@ -123,44 +126,45 @@ function SidebarItem({ item }: { item: NavItem }) {
  );
 }
 
-export default function AdminSidebar() {
- const [isCollapsed, setIsCollapsed] = useState(false);
- const { profile } = useAuth();
+interface AdminSidebarProps {
+  mobileOpen: boolean;
+  onClose: () => void;
+}
 
- return (
-   <aside
-     className={cn(
-       "fixed top-0 left-0 h-screen bg-white border-r border-gray-200 flex flex-col transition-all duration-300 z-30",
-       isCollapsed ? "w-16" : "w-64"
-     )}
-   >
-     <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
-       {!isCollapsed && (
-         <Link href="/admin" className="flex items-center gap-2">
-           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-600 to-primary-400 flex items-center justify-center">
-             <span className="text-white font-bold text-xs">AI</span>
-           </div>
-           <span className="font-bold text-gray-900">{SITE_NAME} Admin</span>
-         </Link>
-       )}
+export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps) {
+ const { profile } = useAuth();
+ const pathname = usePathname();
+
+ // 경로 변경 시 모바일 사이드바 자동 닫기
+ useEffect(() => {
+   onClose();
+ }, [pathname, onClose]);
+
+ const sidebarContent = (
+   <>
+     <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100 shrink-0">
+       <Link href="/admin" className="flex items-center gap-2">
+         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-600 to-primary-400 flex items-center justify-center">
+           <span className="text-white font-bold text-xs">AI</span>
+         </div>
+         <span className="font-bold text-gray-900">{SITE_NAME} Admin</span>
+       </Link>
        <button
-         onClick={() => setIsCollapsed(!isCollapsed)}
-         className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"
+         onClick={onClose}
+         className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 lg:hidden"
        >
-         {isCollapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
+         <X size={18} />
        </button>
      </div>
 
-     {!isCollapsed && (
-       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-         {NAV_ITEMS.map((item) => (
-           <SidebarItem key={item.href} item={item} />
-         ))}
-       </nav>
-     )}
+     <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
+       {NAV_ITEMS.map((item) => (
+         <SidebarItem key={item.href} item={item} onNavigate={onClose} />
+       ))}
+     </nav>
 
-     {!isCollapsed && profile && (
-       <div className="p-4 border-t border-gray-100">
+     {profile && (
+       <div className="p-4 border-t border-gray-100 shrink-0">
          <div className="flex items-center gap-3">
            {profile.photoURL ? (
              <img src={profile.photoURL} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
@@ -176,6 +180,33 @@ export default function AdminSidebar() {
          </div>
        </div>
      )}
-   </aside>
+   </>
+ );
+
+ return (
+   <>
+     {/* 데스크톱 사이드바 */}
+     <aside className="hidden lg:flex fixed top-0 left-0 h-screen w-64 bg-white border-r border-gray-200 flex-col z-30">
+       {sidebarContent}
+     </aside>
+
+     {/* 모바일 오버레이 */}
+     {mobileOpen && (
+       <div
+         className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+         onClick={onClose}
+       />
+     )}
+
+     {/* 모바일 드로어 */}
+     <aside
+       className={cn(
+         "fixed top-0 left-0 h-screen w-72 bg-white border-r border-gray-200 flex flex-col z-50 lg:hidden transition-transform duration-300",
+         mobileOpen ? "translate-x-0" : "-translate-x-full"
+       )}
+     >
+       {sidebarContent}
+     </aside>
+   </>
  );
 }
