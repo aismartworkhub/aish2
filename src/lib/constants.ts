@@ -149,3 +149,6 @@ export const USER_ROLE_COLORS: Record<UserRole, string> = {
 
 /** 관리자 페이지 접근 가능 역할 */
 export const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
+
+/** 기수 옵션 */
+export const COHORT_OPTIONS = Array.from({ length: 20 }, (_, i) => `${i + 1}기`);

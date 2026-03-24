@@ -15,7 +15,7 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
+  const { user, isProfileComplete, signOut } = useAuth();
 
   const handleGoogleLogin = async () => {
     try {
@@ -98,14 +98,19 @@ export default function Header() {
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-                    {user.photoURL ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
-                    ) : (
-                      <span className="text-sm font-bold text-primary-600">
-                        {(user.displayName || user.email || "U").charAt(0)}
-                      </span>
+                  <div className="relative w-8 h-8">
+                    <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
+                      {user.photoURL ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
+                      ) : (
+                        <span className="text-sm font-bold text-primary-600">
+                          {(user.displayName || user.email || "U").charAt(0)}
+                        </span>
+                      )}
+                    </div>
+                    {!isProfileComplete && (
+                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 border-2 border-white rounded-full" />
                     )}
                   </div>
                   <span className="hidden md:block text-sm text-gray-700 max-w-[100px] truncate">
@@ -120,6 +125,17 @@ export default function Header() {
                         <p className="text-sm font-medium text-gray-900 truncate">{user.displayName || "사용자"}</p>
                         <p className="text-xs text-gray-400 truncate">{user.email}</p>
                       </div>
+                      <Link
+                        href="/profile"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                      >
+                        <User size={14} />
+                        프로필 설정
+                        {!isProfileComplete && (
+                          <span className="ml-auto w-2 h-2 bg-red-500 rounded-full" />
+                        )}
+                      </Link>
                       <button
                         onClick={handleSignOut}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"

@@ -15,6 +15,18 @@ export interface UserProfile {
   isActive: boolean;
   createdAt: unknown;
   lastLoginAt: unknown;
+  // 확장 프로필 필드
+  name?: string;
+  cohort?: string;
+  phone?: string;
+  companyName?: string;
+  companyProduct?: string;
+  companyWebsite?: string;
+  companySocial?: string;
+}
+
+function checkProfileComplete(profile: UserProfile): boolean {
+  return !!(profile.name?.trim() && profile.cohort?.trim() && profile.phone?.trim());
 }
 
 interface AuthContextType {
@@ -23,6 +35,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  isProfileComplete: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -33,6 +46,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAdmin: false,
   isSuperAdmin: false,
+  isProfileComplete: false,
   signOut: async () => {},
   refreshProfile: async () => {},
 });
@@ -46,7 +60,6 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
 
   if (snap.exists()) {
     const data = snap.data();
-    // 슈퍼관리자 이메일이면 항상 superadmin 역할 보장
     const role: UserRole = isSuperAdmin ? "superadmin" : (data.role ?? "user");
     const needsRoleUpdate = isSuperAdmin && data.role !== "superadmin";
 
@@ -66,6 +79,13 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       isActive: data.isActive ?? true,
       createdAt: data.createdAt,
       lastLoginAt: serverTimestamp(),
+      name: data.name ?? "",
+      cohort: data.cohort ?? "",
+      phone: data.phone ?? "",
+      companyName: data.companyName ?? "",
+      companyProduct: data.companyProduct ?? "",
+      companyWebsite: data.companyWebsite ?? "",
+      companySocial: data.companySocial ?? "",
     };
   }
 
@@ -96,7 +116,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const p = await ensureUserProfile(user);
       setProfile(p);
     } catch {
-      // Firestore 접근 실패 시 기본 프로필
       setProfile({
         uid: user.uid,
         email: user.email ?? "",
@@ -144,9 +163,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = profile ? ADMIN_ROLES.includes(profile.role) : false;
   const isSuperAdmin = profile?.role === "superadmin";
+  const isProfileComplete = profile ? checkProfileComplete(profile) : false;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isSuperAdmin, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isSuperAdmin, isProfileComplete, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
