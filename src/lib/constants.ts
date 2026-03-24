@@ -62,6 +62,7 @@ export const ADMIN_NAV_ITEMS = [
  { label: "연혁", href: "/admin/history", icon: "Clock" },
  { label: "수료증", href: "/admin/certificates", icon: "Award" },
  { label: "관리자", href: "/admin/admins", icon: "Shield" },
+ { label: "회원관리", href: "/admin/users", icon: "Users" },
 ] as const;
 
 export const PROGRAM_CATEGORY_LABELS: Record<string, string> = {
@@ -124,3 +125,27 @@ export const BANNER_POSITION_LABELS: Record<string, string> = {
  BOTTOM: "페이지 하단",
  MODAL: "팝업",
 };
+
+// ── 사용자 역할 체계 ──
+export const SUPER_ADMIN_EMAIL = "aismartworkhub@gmail.com";
+
+export type UserRole = "superadmin" | "admin" | "member" | "user" | "premium";
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+ superadmin: "슈퍼관리자",
+ admin: "권한위임자",
+ member: "정회원",
+ user: "일반 사용자",
+ premium: "멤버십",
+};
+
+export const USER_ROLE_COLORS: Record<UserRole, string> = {
+ superadmin: "bg-red-50 text-red-700",
+ admin: "bg-blue-50 text-blue-700",
+ member: "bg-green-50 text-green-700",
+ user: "bg-gray-100 text-gray-600",
+ premium: "bg-purple-50 text-purple-700",
+};
+
+/** 관리자 페이지 접근 가능 역할 */
+export const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];

@@ -2,20 +2,12 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { COLLECTIONS, getCollection } from "@/lib/firestore";
+import { useEffect } from "react";
 import { ShieldX } from "lucide-react";
 
-interface AdminRecord {
-  id: string;
-  email: string;
-  isActive: boolean;
-}
-
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading, signOut } = useAuth();
+  const { user, profile, loading, isAdmin, signOut } = useAuth();
   const router = useRouter();
-  const [adminCheck, setAdminCheck] = useState<"loading" | "authorized" | "denied">("loading");
 
   useEffect(() => {
     if (!loading && !user) {
@@ -23,26 +15,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    if (!user) return;
-
-    getCollection<AdminRecord>(COLLECTIONS.ADMINS)
-      .then((admins) => {
-        // admins 컬렉션이 비어있으면 모든 인증 사용자 허용 (초기 설정용)
-        if (admins.length === 0) {
-          setAdminCheck("authorized");
-          return;
-        }
-        const found = admins.find((a) => a.email === user.email && a.isActive !== false);
-        setAdminCheck(found ? "authorized" : "denied");
-      })
-      .catch(() => {
-        // Firestore 접근 실패 시 허용 (규칙 미배포 등)
-        setAdminCheck("authorized");
-      });
-  }, [user]);
-
-  if (loading || (user && adminCheck === "loading")) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -53,11 +26,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) {
+  if (!user || !profile) {
     return null;
   }
 
-  if (adminCheck === "denied") {
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-sm">

@@ -20,8 +20,7 @@
 | 호스팅 | Firebase Hosting (`out/` 디렉토리) | |
 | DB | Firestore (클라이언트 SDK) | 구글 생태계 외 DB 사용 금지 |
 | 인증 | Firebase Auth (Google 로그인) | |
-| 파일 저장 | Firebase Storage | |
-| 서버리스 | Cloud Functions (Node 20, `functions/`) | Server Actions 대체 |
+| 이미지 | URL 직접 입력 (Google Drive 공유 링크 등) | Storage/Functions는 Blaze 필요하여 사용 불가 |
 | 스타일 | Tailwind CSS v4 + `cn()` 유틸 | 문자열 className 직접 쓰지 않기 |
 | 아이콘 | lucide-react | |
 | 상태관리 | React Context (AuthContext 등) | 필요 시 Zustand 허용 |
@@ -35,6 +34,11 @@
 - Firestore 데이터 없으면 데모 데이터 폴백
 - `COLLECTIONS` 상수로 컬렉션명 관리 (`src/lib/firestore.ts`)
 - CRUD 헬퍼: `getCollection`, `createDoc`, `upsertDoc`, `updateDocFields`, `removeDoc`
+- 관리자 데이터 로딩: `useFirestoreCollection` SWR 훅 + 인메모리 캐시 (30s TTL)
+- 관리자 공통 UI: `AdminLoading`, `AdminError` 컴포넌트
+- 사용자 역할 체계: `users` 컬렉션 기반 (superadmin/admin/member/user/premium)
+- 슈퍼관리자: `aismartworkhub@gmail.com` (하드코딩, 변경 불가)
+- 관리자 권한: `users` 컬렉션 `role` 필드 기반 AuthGuard 체크 (superadmin, admin만 접근)
 - 관리자 레이아웃: 왼쪽 사이드바 + 상단 헤더
 - 타입: type alias 선호, Zod 스키마 적극 활용
 - `use client`는 Firestore/Auth 등 클라이언트 API가 필요한 컴포넌트에만 사용
@@ -50,7 +54,7 @@
 ## 배포 규칙
 
 - `main` 브랜치 push 시 자동 배포
-- Firestore Rules / Cloud Functions 배포 실패해도 Hosting 배포 진행 (`continue-on-error: true`)
+- Firestore Rules 배포 실패해도 Hosting 배포 진행 (`continue-on-error: true`)
 - 프로젝트 ID: `aish-web-v2`
 - 커밋 메시지: Conventional Commits 스타일 (`feat:`, `fix:`, `refactor:` 등)
 
@@ -140,6 +144,7 @@
 ## 금지 사항 요약
 
 - 구글 생태계 외 서비스 사용 (Vercel, AWS, Supabase 등)
+- Firebase Blaze(유료) 전용 기능 사용 (Cloud Functions, Firebase Storage, Cloud Run 등)
 - `output: "export"`에서 불가능한 기능 (SSR, 미들웨어, Server Actions, Route Handlers, `loading.tsx`)
 - 문자열 className 직접 사용 (`cn()` 유틸 사용)
 - 불필요한 useEffect, console.log (디버그 외)

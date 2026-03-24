@@ -109,4 +109,5 @@ export const COLLECTIONS = {
   INSTRUCTORS: "instructors",
   HISTORY: "history",
   ADMINS: "admins",
+  USERS: "users",
 } as const;

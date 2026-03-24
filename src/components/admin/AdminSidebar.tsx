@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SITE_NAME } from "@/lib/constants";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ICON_MAP: Record<string, React.ElementType> = {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
@@ -63,6 +64,7 @@ const NAV_ITEMS: NavItem[] = [
  { label: "연혁", href: "/admin/history", icon: "Clock" },
  { label: "수료증", href: "/admin/certificates", icon: "Award" },
  { label: "관리자", href: "/admin/admins", icon: "Shield" },
+ { label: "회원관리", href: "/admin/users", icon: "Users" },
 ];
 
 function SidebarItem({ item }: { item: NavItem }) {
@@ -123,6 +125,7 @@ function SidebarItem({ item }: { item: NavItem }) {
 
 export default function AdminSidebar() {
  const [isCollapsed, setIsCollapsed] = useState(false);
+ const { profile } = useAuth();
 
  return (
    <aside
@@ -156,15 +159,19 @@ export default function AdminSidebar() {
        </nav>
      )}
 
-     {!isCollapsed && (
+     {!isCollapsed && profile && (
        <div className="p-4 border-t border-gray-100">
          <div className="flex items-center gap-3">
-           <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-             <span className="text-primary-700 text-xs font-bold">A</span>
-           </div>
+           {profile.photoURL ? (
+             <img src={profile.photoURL} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
+           ) : (
+             <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
+               <span className="text-primary-700 text-xs font-bold">{(profile.displayName || profile.email)[0]}</span>
+             </div>
+           )}
            <div className="flex-1 min-w-0">
-             <p className="text-sm font-medium text-gray-900 truncate">관리자</p>
-             <p className="text-xs text-gray-500 truncate">admin@aish.co.kr</p>
+             <p className="text-sm font-medium text-gray-900 truncate">{profile.displayName || "관리자"}</p>
+             <p className="text-xs text-gray-500 truncate">{profile.email}</p>
            </div>
          </div>
        </div>
