@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Save, ArrowLeft, CheckCircle } from "lucide-react";
+import { Save, ArrowLeft, CheckCircle, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { COLLECTIONS, updateDocFields } from "@/lib/firestore";
 import { COHORT_OPTIONS } from "@/lib/constants";
@@ -11,10 +11,13 @@ import { cn } from "@/lib/utils";
 const INPUT_CLASS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600/20 focus:border-primary-600 transition-colors";
 
 export default function ProfilePage() {
-  const { user, profile, loading, isProfileComplete, refreshProfile } = useAuth();
+  const { user, profile, loading, isProfileComplete, refreshProfile, deleteAccount } = useAuth();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -234,6 +237,72 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
+      {/* 회원 탈퇴 */}
+      <div className="mt-8 bg-white rounded-2xl border border-red-200 shadow-sm">
+        <div className="px-6 py-5 flex items-start gap-3">
+          <AlertTriangle size={20} className="text-red-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h2 className="text-base font-semibold text-gray-900">회원 탈퇴</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              탈퇴 시 모든 회원 정보가 삭제되며 복구할 수 없습니다.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="px-4 py-2 text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+          >
+            탈퇴하기
+          </button>
+        </div>
+      </div>
+
+      {/* 탈퇴 확인 모달 */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6 shadow-xl">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle size={20} className="text-red-500" />
+              <h3 className="text-lg font-semibold text-gray-900">회원 탈퇴 확인</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              정말로 탈퇴하시겠습니까? 모든 회원 정보가 영구적으로 삭제됩니다.
+              <br />확인을 위해 이메일 주소를 입력해 주세요.
+            </p>
+            <input
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder={profile?.email ?? "이메일 입력"}
+              className={INPUT_CLASS}
+            />
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirm(""); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    await deleteAccount();
+                    router.replace("/");
+                  } catch (e) {
+                    console.error(e);
+                    alert("탈퇴 처리에 실패했습니다. 다시 로그인 후 시도해 주세요.");
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                disabled={deleteConfirm !== profile?.email || deleting}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {deleting ? "처리 중..." : "탈퇴하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

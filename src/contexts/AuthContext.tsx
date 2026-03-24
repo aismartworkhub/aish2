@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
-import { User, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { User, onAuthStateChanged, signOut as firebaseSignOut, deleteUser } from "firebase/auth";
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { SUPER_ADMIN_EMAIL, ADMIN_ROLES, type UserRole } from "@/lib/constants";
 
@@ -38,6 +38,7 @@ interface AuthContextType {
   isProfileComplete: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -49,6 +50,7 @@ const AuthContext = createContext<AuthContextType>({
   isProfileComplete: false,
   signOut: async () => {},
   refreshProfile: async () => {},
+  deleteAccount: async () => {},
 });
 
 /** 로그인 시 users 컬렉션에 프로필 생성/업데이트 */
@@ -161,12 +163,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
+  const deleteAccount = async () => {
+    if (!user) throw new Error("로그인되지 않았습니다.");
+    // Firestore 프로필 삭제
+    await deleteDoc(doc(db, "users", user.uid));
+    // Firebase Auth 계정 삭제 (본인만 가능)
+    await deleteUser(user);
+    setProfile(null);
+  };
+
   const isAdmin = profile ? ADMIN_ROLES.includes(profile.role) : false;
   const isSuperAdmin = profile?.role === "superadmin";
   const isProfileComplete = profile ? checkProfileComplete(profile) : false;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isSuperAdmin, isProfileComplete, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isSuperAdmin, isProfileComplete, signOut, refreshProfile, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

@@ -34,7 +34,7 @@ service cloud.firestore {
         // 슈퍼관리자는 모든 사용자의 모든 필드 수정 가능
         || isSuperAdmin()
       );
-      allow delete: if isSuperAdmin();
+      allow delete: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
     }
 
     // 공개 읽기, 관리자만 쓰기 가능한 컬렉션들

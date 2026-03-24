@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Shield, ShieldCheck, Crown, X, CheckCircle, AlertCircle } from "lucide-react";
-import { COLLECTIONS, updateDocFields } from "@/lib/firestore";
+import { Search, Shield, ShieldCheck, Crown, X, CheckCircle, AlertCircle, Trash2, AlertTriangle } from "lucide-react";
+import { COLLECTIONS, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { useAuth } from "@/contexts/AuthContext";
@@ -105,6 +105,19 @@ export default function UsersPage() {
       alert("저장에 실패했습니다.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (u: UserRecord) => {
+    if (u.email === SUPER_ADMIN_EMAIL) return;
+    if (!confirm(`"${u.displayName || u.email}" 회원을 삭제하시겠습니까?\n\nFirestore 프로필이 삭제됩니다. (Firebase Auth 계정은 유지)`)) return;
+    try {
+      await removeDoc(COLLECTIONS.USERS, u.id);
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+      setEditUser(null);
+    } catch (e) {
+      console.error(e);
+      alert("삭제에 실패했습니다.");
     }
   };
 
@@ -409,20 +422,33 @@ export default function UsersPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
-              <button
-                onClick={() => setEditUser(null)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleEditSave}
-                disabled={saving}
-                className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
-              >
-                {saving ? "저장 중..." : "저장"}
-              </button>
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+              {editUser.email !== SUPER_ADMIN_EMAIL ? (
+                <button
+                  onClick={() => handleDelete(editUser)}
+                  className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 transition-colors"
+                >
+                  <Trash2 size={14} />
+                  회원 삭제
+                </button>
+              ) : (
+                <div />
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditUser(null)}
+                  className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleEditSave}
+                  disabled={saving}
+                  className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                >
+                  {saving ? "저장 중..." : "저장"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
