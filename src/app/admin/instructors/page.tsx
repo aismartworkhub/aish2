@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, GripVertical, ImageIcon } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { toDirectImageUrl } from "@/lib/utils";
 
 interface Instructor {
   id: string;
@@ -42,13 +43,14 @@ export default function AdminInstructorsPage() {
   const handleSave = async () => {
     if (!form.name.trim()) return;
     setSaving(true);
+    const saveData = { ...form, imageUrl: toDirectImageUrl(form.imageUrl) };
     try {
       if (editId) {
-        await upsertDoc(COLLECTIONS.INSTRUCTORS, editId, form);
-        setItems((prev) => prev.map((i) => i.id === editId ? { ...i, ...form } : i));
+        await upsertDoc(COLLECTIONS.INSTRUCTORS, editId, saveData);
+        setItems((prev) => prev.map((i) => i.id === editId ? { ...i, ...saveData } : i));
       } else {
-        const id = await createDoc(COLLECTIONS.INSTRUCTORS, { ...form, displayOrder: items.length });
-        setItems((prev) => [...prev, { id, ...form, displayOrder: items.length }]);
+        const id = await createDoc(COLLECTIONS.INSTRUCTORS, { ...saveData, displayOrder: items.length });
+        setItems((prev) => [...prev, { id, ...saveData, displayOrder: items.length }]);
       }
       setShowModal(false);
     } catch (e) { console.error(e); alert("저장에 실패했습니다."); } finally { setSaving(false); }
@@ -102,7 +104,7 @@ export default function AdminInstructorsPage() {
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-lg font-bold overflow-hidden">
-                  {item.imageUrl ? <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" /> : item.name[0]}
+                  {item.imageUrl ? <img src={toDirectImageUrl(item.imageUrl)} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : item.name[0]}
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">{item.name}</h3>
@@ -147,7 +149,25 @@ export default function AdminInstructorsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">프로필 이미지 URL</label>
                 <input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="https://..." />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="https://... 또는 Google Drive 공유 링크" />
+                {form.imageUrl.trim() && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                      <img
+                        src={toDirectImageUrl(form.imageUrl)}
+                        alt="미리보기"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; e.currentTarget.parentElement!.querySelector(".fallback")?.classList.remove("hidden"); }}
+                        onLoad={(e) => { (e.target as HTMLImageElement).style.display = "block"; e.currentTarget.parentElement!.querySelector(".fallback")?.classList.add("hidden"); }}
+                      />
+                      <div className="fallback flex flex-col items-center">
+                        <ImageIcon size={20} className="text-gray-300" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400">미리보기 — Google Drive 링크는 자동 변환됩니다.</p>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">소개</label>

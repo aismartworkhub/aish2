@@ -4,12 +4,15 @@ import { useState, useEffect } from "react";
 import { DEMO_INSTRUCTORS } from "@/lib/demo-data";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
 import { Linkedin, Youtube, Instagram, Github, Globe } from "lucide-react";
+import { toDirectImageUrl } from "@/lib/utils";
+
+type InstructorItem = typeof DEMO_INSTRUCTORS[0] & { imageUrl?: string };
 
 export default function InstructorsPage() {
-  const [instructors, setInstructors] = useState(DEMO_INSTRUCTORS);
+  const [instructors, setInstructors] = useState<InstructorItem[]>(DEMO_INSTRUCTORS);
 
   useEffect(() => {
-    getCollection<typeof DEMO_INSTRUCTORS[0]>(COLLECTIONS.INSTRUCTORS)
+    getCollection<InstructorItem>(COLLECTIONS.INSTRUCTORS)
       .then((data) => { if (data.length > 0) setInstructors(data); })
       .catch(console.error);
   }, []);
@@ -31,10 +34,14 @@ export default function InstructorsPage() {
               className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
             >
               <div className="h-48 bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center">
-                <div className="w-24 h-24 rounded-full bg-white shadow-md flex items-center justify-center">
-                  <span className="text-3xl font-bold text-primary-600">
-                    {inst.name.charAt(0)}
-                  </span>
+                <div className="w-24 h-24 rounded-full bg-white shadow-md flex items-center justify-center overflow-hidden">
+                  {(inst.imageUrl || inst.profileImageUrl) ? (
+                    <img src={toDirectImageUrl(inst.imageUrl || inst.profileImageUrl)} alt={inst.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span className="text-3xl font-bold text-primary-600">
+                      {inst.name.charAt(0)}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="p-5">

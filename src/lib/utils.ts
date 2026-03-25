@@ -18,6 +18,29 @@ export function truncate(str: string, length: number): string {
   return str.slice(0, length) + "...";
 }
 
+/**
+ * Google Drive 공유 링크를 직접 접근 가능한 이미지 URL로 변환한다.
+ * 일반 URL은 그대로 반환한다.
+ */
+export function toDirectImageUrl(url: string): string {
+  if (!url) return url;
+  const trimmed = url.trim();
+
+  // drive.google.com/file/d/FILE_ID/... 형식
+  const fileMatch = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) return `https://lh3.googleusercontent.com/d/${fileMatch[1]}`;
+
+  // drive.google.com/open?id=FILE_ID 형식
+  const openMatch = trimmed.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if (openMatch) return `https://lh3.googleusercontent.com/d/${openMatch[1]}`;
+
+  // drive.google.com/uc?id=FILE_ID 또는 export=view&id=FILE_ID
+  const ucMatch = trimmed.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/);
+  if (ucMatch) return `https://lh3.googleusercontent.com/d/${ucMatch[1]}`;
+
+  return trimmed;
+}
+
 export function calculateDDay(dateStr: string): string {
   const target = new Date(dateStr);
   const today = new Date();
