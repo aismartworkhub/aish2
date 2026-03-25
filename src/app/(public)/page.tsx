@@ -10,7 +10,7 @@ import {
 import { CTA_URL, CTA_TEXT, PROGRAM_CATEGORY_LABELS } from "@/lib/constants";
 import { DEMO_STATS, DEMO_PROGRAMS, DEMO_REVIEWS, DEMO_WORKATHON } from "@/lib/demo-data";
 import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
-import { calculateDDay } from "@/lib/utils";
+import { calculateDDay, toDateString } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 
 function extractYoutubeId(url: string): string | null {
@@ -139,7 +139,7 @@ export default function HomePage() {
           const recentNotices = firestorePosts
             .filter((p) => (p.type || p.boardType) === "NOTICE")
             .slice(0, 4)
-            .map((p) => ({ tag: p.category || "공지", title: p.title, date: p.createdAt || p.date || "" }));
+            .map((p) => ({ tag: p.category || "공지", title: p.title, date: toDateString(p.createdAt || p.date) }));
           if (recentNotices.length > 0) setNotices(recentNotices);
         }
       } catch (e) {

@@ -41,6 +41,20 @@ export function toDirectImageUrl(url: string): string {
   return trimmed;
 }
 
+/**
+ * Firestore Timestamp 또는 문자열을 안전한 날짜 문자열로 변환한다.
+ * Timestamp 객체({seconds, nanoseconds})를 React에서 직접 렌더링하면 에러 발생.
+ */
+export function toDateString(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null && "seconds" in value) {
+    const ts = value as { seconds: number };
+    return new Date(ts.seconds * 1000).toISOString().slice(0, 10).replace(/-/g, ".");
+  }
+  return String(value);
+}
+
 export function calculateDDay(dateStr: string): string {
   const target = new Date(dateStr);
   const today = new Date();

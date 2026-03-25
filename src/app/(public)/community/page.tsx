@@ -8,7 +8,7 @@ import {
   ChevronDown, ChevronUp, ExternalLink, Mail, Phone, Building,
   Star, Download, Eye, Pin, Search,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, toDateString } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
 import { getCollection, createDoc, COLLECTIONS } from "@/lib/firestore";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
@@ -86,10 +86,10 @@ function CommunityContent() {
       if (posts.length > 0) {
         const getType = (p: { type?: string; boardType?: string }) => p.type || p.boardType || "";
         const n = posts.filter((p) => getType(p) === "NOTICE").map((p) => ({
-          id: p.id, title: p.title, date: p.createdAt || p.date || "", views: p.views || 0, pinned: p.pinned || p.isPinned || false,
+          id: p.id, title: p.title, date: toDateString(p.createdAt || p.date), views: p.views || 0, pinned: p.pinned || p.isPinned || false,
         }));
         const r = posts.filter((p) => getType(p) === "RESOURCE").map((p) => ({
-          id: p.id, title: p.title, author: p.author || "", date: p.createdAt || p.date || "", downloads: p.downloads || 0, type: p.fileType || "PDF",
+          id: p.id, title: p.title, author: p.author || "", date: toDateString(p.createdAt || p.date), downloads: p.downloads || 0, type: p.fileType || "PDF",
         }));
         if (n.length > 0) setNoticeList(n);
         if (r.length > 0) setResourceList(r);
@@ -100,7 +100,7 @@ function CommunityContent() {
           setCustomBoards(customTypes.map((bt) => ({
             boardType: bt,
             posts: posts.filter((p) => getType(p) === bt).map((p) => ({
-              id: p.id, title: p.title, date: p.createdAt || p.date || "", views: p.views || 0, pinned: p.pinned || p.isPinned || false,
+              id: p.id, title: p.title, date: toDateString(p.createdAt || p.date), views: p.views || 0, pinned: p.pinned || p.isPinned || false,
             })),
           })));
         }
