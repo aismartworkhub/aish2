@@ -25,11 +25,11 @@ function getYoutubeThumbnail(video: VideoItem): string {
   return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
 }
 
-const FALLBACK_VIDEOS = [
-  { id: "v1", title: "AI 기초 정규과정 OT", category: "LECTURE", youtubeUrl: "https://youtube.com/watch?v=example1", thumbnailUrl: "", publishedAt: "2026-03-01" },
-  { id: "v2", title: "제3회 스마트워크톤 하이라이트", category: "WORKATHON", youtubeUrl: "https://youtube.com/watch?v=example2", thumbnailUrl: "", publishedAt: "2025-12-15" },
-  { id: "v3", title: "김상용 강사 인터뷰", category: "INTERVIEW", youtubeUrl: "https://youtube.com/watch?v=example3", thumbnailUrl: "", publishedAt: "2026-01-10" },
-  { id: "v4", title: "AISH 홍보 영상", category: "PROMO", youtubeUrl: "https://youtube.com/watch?v=example4", thumbnailUrl: "", publishedAt: "2025-09-01" },
+const FALLBACK_VIDEOS: VideoItem[] = [
+  { id: "v1", title: "AI 기초 정규과정 OT", category: "LECTURE", youtubeUrl: "", publishedAt: "2026-03-01" },
+  { id: "v2", title: "제3회 스마트워크톤 하이라이트", category: "WORKATHON", youtubeUrl: "", publishedAt: "2025-12-15" },
+  { id: "v3", title: "김상용 강사 인터뷰", category: "INTERVIEW", youtubeUrl: "", publishedAt: "2026-01-10" },
+  { id: "v4", title: "AISH 홍보 영상", category: "PROMO", youtubeUrl: "", publishedAt: "2025-09-01" },
 ];
 
 interface VideoItem {
@@ -99,6 +99,7 @@ export default function VideosPage() {
                     src={getYoutubeThumbnail(video)}
                     alt={video.title}
                     className="w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
                   />
                 )}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
