@@ -1,9 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Play, ExternalLink } from "lucide-react";
+import { Play } from "lucide-react";
 import { VIDEO_CATEGORY_LABELS } from "@/lib/constants";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
+
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /[?&]v=([^&#]+)/,
+    /youtu\.be\/([^?&#]+)/,
+    /youtube\.com\/embed\/([^?&#]+)/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function getYoutubeThumbnail(video: VideoItem): string {
+  if (video.thumbnailUrl) return video.thumbnailUrl;
+  const id = extractYouTubeId(video.youtubeUrl);
+  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
+}
 
 const FALLBACK_VIDEOS = [
   { id: "v1", title: "AI 기초 정규과정 OT", category: "LECTURE", youtubeUrl: "https://youtube.com/watch?v=example1", thumbnailUrl: "", publishedAt: "2026-03-01" },
@@ -72,9 +91,19 @@ export default function VideosPage() {
               rel="noopener noreferrer"
               className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
             >
-              <div className="aspect-video bg-gray-100 flex items-center justify-center relative">
-                <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Play className="text-primary-600 ml-1" size={28} />
+              <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                {getYoutubeThumbnail(video) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={getYoutubeThumbnail(video)}
+                    alt={video.title}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+                  <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Play className="text-primary-600 ml-1" size={28} />
+                  </div>
                 </div>
               </div>
               <div className="p-4">
