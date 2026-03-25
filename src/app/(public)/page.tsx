@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight, Search, SlidersHorizontal, ChevronRight,
-  Users, GraduationCap, UserCheck, Building, Star,
+  Users, GraduationCap, UserCheck, Building, Star, Play,
   BookOpen, Trophy, Bell, FolderOpen, Award, HelpCircle, Handshake, Images,
 } from "lucide-react";
 import { CTA_URL, CTA_TEXT, PROGRAM_CATEGORY_LABELS } from "@/lib/constants";
@@ -12,6 +12,17 @@ import { DEMO_STATS, DEMO_PROGRAMS, DEMO_REVIEWS, DEMO_WORKATHON } from "@/lib/d
 import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
 import { calculateDDay } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
+
+function extractYoutubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+  return null;
+}
 
 const STAT_ICONS: Record<string, React.ElementType> = {
   Users, GraduationCap, UserCheck, Building,
@@ -98,6 +109,7 @@ export default function HomePage() {
   const [reviews, setReviews] = useState(DEMO_REVIEWS);
   const [workathon, setWorkathon] = useState(DEMO_WORKATHON);
   const [notices, setNotices] = useState(RECENT_NOTICES);
+  const [featuredVideos, setFeaturedVideos] = useState<{ id: string; title: string; youtubeUrl: string; category?: string }[]>([]);
 
   const dDay = calculateDDay(workathon.eventDate);
   const revealRefs = useRef<HTMLElement[]>([]);
@@ -106,22 +118,28 @@ export default function HomePage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [firestorePrograms, firestoreReviews, firestoreEvents, firestorePosts, statDoc] = await Promise.all([
+        const [firestorePrograms, firestoreReviews, firestoreEvents, firestorePosts, statDoc, firestoreVideos] = await Promise.all([
           getCollection<typeof DEMO_PROGRAMS[0]>(COLLECTIONS.PROGRAMS),
           getCollection<typeof DEMO_REVIEWS[0]>(COLLECTIONS.REVIEWS),
           getCollection<typeof DEMO_WORKATHON>(COLLECTIONS.EVENTS),
-          getCollection<{ id: string; type: string; title: string; category?: string; createdAt?: string }>(COLLECTIONS.POSTS),
+          getCollection<{ id: string; type?: string; boardType?: string; title: string; category?: string; createdAt?: string; date?: string }>(COLLECTIONS.POSTS),
           getSingletonDoc<{ items: typeof DEMO_STATS }>(COLLECTIONS.SETTINGS, "stats"),
+          getCollection<{ id: string; title: string; youtubeUrl: string; category?: string; featured?: boolean }>(COLLECTIONS.VIDEOS),
         ]);
         if (firestorePrograms.length > 0) setPrograms(firestorePrograms);
         if (firestoreReviews.length > 0) setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false));
         if (firestoreEvents.length > 0) setWorkathon(firestoreEvents[0]);
         if (statDoc?.items && statDoc.items.length > 0) setStats(statDoc.items);
+        if (firestoreVideos.length > 0) {
+          const featured = firestoreVideos.filter((v) => v.featured).slice(0, 4);
+          if (featured.length > 0) setFeaturedVideos(featured);
+          else setFeaturedVideos(firestoreVideos.slice(0, 4));
+        }
         if (firestorePosts.length > 0) {
           const recentNotices = firestorePosts
-            .filter((p) => p.type === "NOTICE")
+            .filter((p) => (p.type || p.boardType) === "NOTICE")
             .slice(0, 4)
-            .map((p) => ({ tag: p.category || "공지", title: p.title, date: p.createdAt || "" }));
+            .map((p) => ({ tag: p.category || "공지", title: p.title, date: p.createdAt || p.date || "" }));
           if (recentNotices.length > 0) setNotices(recentNotices);
         }
       } catch (e) {
@@ -338,11 +356,12 @@ export default function HomePage() {
         <div className="flex-1 relative flex items-center px-[6%] md:px-[8%] py-16 text-white overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/images/defaults/workathon-bg.jpg"
+            src={(workathon as Record<string, unknown>).posterUrl as string || "/images/defaults/workathon-bg.jpg"}
             alt="Smart Workathon"
             className="absolute inset-0 w-full h-full object-cover"
+            referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-primary-700/75" />
+          <div className="absolute inset-0 bg-primary-700/60" />
           <div className="relative z-10">
             <p className="text-primary-300 text-xs font-semibold tracking-widest uppercase mb-3">
               Smart Workathon
@@ -465,6 +484,53 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── S7.5: Featured Videos ── */}
+      {featuredVideos.length > 0 && (
+        <section className="py-24 md:py-28">
+          <div className="container-custom">
+            <div className="flex items-end justify-between mb-12">
+              <div>
+                <h2 className="text-[42px] font-bold text-primary-700 tracking-tight">Video</h2>
+                <p className="mt-2 text-gray-500 text-lg">주요 교육 영상</p>
+              </div>
+              <Link href="/videos" className="hidden md:inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary-600 transition-colors font-medium">
+                전체 보기 <ChevronRight size={16} />
+              </Link>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+              {featuredVideos.map((video) => {
+                const ytId = extractYoutubeId(video.youtubeUrl);
+                return (
+                  <a key={video.id} href={video.youtubeUrl} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
+                    className="group bg-white rounded overflow-hidden border border-gray-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                    <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                      {ytId ? (
+                        <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={video.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center"><Play size={36} className="text-gray-300" /></div>
+                      )}
+                      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+                          <Play size={20} className="text-primary-600 ml-0.5" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary-600 transition-colors line-clamp-2">{video.title}</h3>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+            <div className="text-center mt-10 md:hidden">
+              <Link href="/videos" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary-600 transition-colors font-medium">
+                전체 보기 <ChevronRight size={16} />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── S8: 수강생 후기 ── */}
       <section className="py-24 md:py-28">

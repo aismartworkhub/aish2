@@ -37,9 +37,12 @@ export default function QuickBannerDisplay() {
 
   if (activeBanners.length === 0) return null;
 
+  // 상단 공간 충돌 방지: 최대 1개만 표시 (우선순위: 최신 배너)
+  const visibleBanners = activeBanners.slice(0, 1);
+
   return (
     <div className="space-y-0">
-      {activeBanners.map((banner) => {
+      {visibleBanners.map((banner) => {
         const colors = STYLE_COLORS[banner.style] || STYLE_COLORS.INFO;
         const customBg = banner.backgroundColor
           ? { backgroundColor: banner.backgroundColor }

@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Bell, FolderOpen, Award, HelpCircle, Handshake, Images,
+  Bell, FolderOpen, Award, HelpCircle, Handshake, Images, FileText,
   ChevronDown, ChevronUp, ExternalLink, Mail, Phone, Building,
   Star, Download, Eye, Pin, Search,
 } from "lucide-react";
@@ -14,9 +14,9 @@ import { getCollection, createDoc, COLLECTIONS } from "@/lib/firestore";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
 
-type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery";
+type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery" | string;
 
-const TABS: { key: TabKey; label: string; icon: React.ElementType; color: string }[] = [
+const FIXED_TABS: { key: TabKey; label: string; icon: React.ElementType; color: string }[] = [
   { key: "notice", label: "공지사항", icon: Bell, color: "text-blue-600 bg-blue-50" },
   { key: "resource", label: "자료실", icon: FolderOpen, color: "text-green-600 bg-green-50" },
   { key: "certificate", label: "수료증 발급", icon: Award, color: "text-purple-600 bg-purple-50" },
@@ -66,11 +66,12 @@ function CommunityContent() {
   const [noticeList, setNoticeList] = useState(NOTICES);
   const [resourceList, setResourceList] = useState(RESOURCES);
   const [galleryList, setGalleryList] = useState(GALLERY_IMAGES);
+  const [customBoards, setCustomBoards] = useState<{ boardType: string; posts: { id: string; title: string; date: string; views: number; pinned: boolean }[] }[]>([]);
 
   const { user, showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
 
   useEffect(() => {
-    if (tabParam && TABS.some((t) => t.key === tabParam)) {
+    if (tabParam && FIXED_TABS.some((t) => t.key === tabParam)) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -78,19 +79,31 @@ function CommunityContent() {
   useEffect(() => {
     Promise.all([
       getCollection<typeof DEMO_FAQ[0]>(COLLECTIONS.FAQ),
-      getCollection<{ id: string; type: string; title: string; category?: string; createdAt?: string; views?: number; pinned?: boolean; author?: string; downloads?: number; fileType?: string }>(COLLECTIONS.POSTS),
+      getCollection<{ id: string; type?: string; boardType?: string; title: string; category?: string; createdAt?: string; date?: string; views?: number; pinned?: boolean; isPinned?: boolean; author?: string; downloads?: number; fileType?: string }>(COLLECTIONS.POSTS),
       getCollection<{ id: number | string; title: string; category: string; imageUrl: string }>(COLLECTIONS.GALLERY),
     ]).then(([faq, posts, gallery]) => {
       if (faq.length > 0) setFaqList(faq);
       if (posts.length > 0) {
-        const n = posts.filter((p) => p.type === "NOTICE").map((p) => ({
-          id: p.id, title: p.title, date: p.createdAt || "", views: p.views || 0, pinned: p.pinned || false,
+        const getType = (p: { type?: string; boardType?: string }) => p.type || p.boardType || "";
+        const n = posts.filter((p) => getType(p) === "NOTICE").map((p) => ({
+          id: p.id, title: p.title, date: p.createdAt || p.date || "", views: p.views || 0, pinned: p.pinned || p.isPinned || false,
         }));
-        const r = posts.filter((p) => p.type === "RESOURCE").map((p) => ({
-          id: p.id, title: p.title, author: p.author || "", date: p.createdAt || "", downloads: p.downloads || 0, type: p.fileType || "PDF",
+        const r = posts.filter((p) => getType(p) === "RESOURCE").map((p) => ({
+          id: p.id, title: p.title, author: p.author || "", date: p.createdAt || p.date || "", downloads: p.downloads || 0, type: p.fileType || "PDF",
         }));
         if (n.length > 0) setNoticeList(n);
         if (r.length > 0) setResourceList(r);
+        // 커스텀 게시판 수집
+        const knownTypes = ["NOTICE", "RESOURCE"];
+        const customTypes = [...new Set(posts.map((p) => getType(p)).filter((t) => t && !knownTypes.includes(t)))];
+        if (customTypes.length > 0) {
+          setCustomBoards(customTypes.map((bt) => ({
+            boardType: bt,
+            posts: posts.filter((p) => getType(p) === bt).map((p) => ({
+              id: p.id, title: p.title, date: p.createdAt || p.date || "", views: p.views || 0, pinned: p.pinned || p.isPinned || false,
+            })),
+          })));
+        }
       }
       if (gallery.length > 0) setGalleryList(gallery);
     }).catch(console.error);
@@ -174,7 +187,12 @@ function CommunityContent() {
 
         {/* 탭 네비게이션 */}
         <div className="flex flex-wrap justify-center gap-2 mb-10">
-          {TABS.map((tab) => (
+          {[...FIXED_TABS, ...customBoards.map((cb) => ({
+            key: cb.boardType.toLowerCase(),
+            label: cb.boardType,
+            icon: FileText,
+            color: "text-gray-600 bg-gray-50",
+          }))].map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -436,6 +454,32 @@ function CommunityContent() {
             </div>
           </div>
         )}
+        {/* 커스텀 게시판 */}
+        {customBoards.map((cb) => (
+          activeTab === cb.boardType.toLowerCase() && (
+            <div key={cb.boardType} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-gray-100">
+                <h2 className="text-xl font-bold text-gray-900">{cb.boardType}</h2>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {cb.posts.length === 0 ? (
+                  <div className="px-6 py-12 text-center text-gray-400 text-sm">게시물이 없습니다.</div>
+                ) : cb.posts.map((post) => (
+                  <div key={post.id} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                    {post.pinned && <Pin size={14} className="text-primary-500 mr-2 shrink-0" />}
+                    <span className={cn("text-sm flex-1", post.pinned ? "font-semibold text-gray-900" : "text-gray-700")}>
+                      {post.title}
+                    </span>
+                    <div className="flex items-center gap-4 shrink-0 ml-4">
+                      <span className="text-xs text-gray-400 flex items-center gap-1"><Eye size={12} />{post.views}</span>
+                      <span className="text-xs text-gray-400">{post.date}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        ))}
       </div>
       <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>

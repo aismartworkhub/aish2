@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ImageIcon, Plus, Trash2, Edit, X, Save, Search, FolderOpen, ExternalLink, Grid, Upload } from "lucide-react";
+import { ImageIcon, Plus, Trash2, Edit, X, Save, Search, FolderOpen, ExternalLink, Grid, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { toDirectImageUrl } from "@/lib/utils";
+import { COLLECTIONS, createDoc, upsertDoc, removeDoc, getSingletonDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
@@ -45,7 +46,11 @@ export default function AdminGalleryPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [driveFolderId, setDriveFolderId] = useState("");
+  const [driveApiKey, setDriveApiKey] = useState("");
+  const [driveCategory, setDriveCategory] = useState<PhotoCategory>("기타");
   const [showDriveSection, setShowDriveSection] = useState(false);
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveResult, setDriveResult] = useState<{ success: number; failed: number } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const filtered = photos.filter((p) => {
@@ -116,6 +121,56 @@ export default function AdminGalleryPage() {
     }
   };
 
+  const importFromDrive = async () => {
+    if (!driveFolderId.trim()) return;
+    let apiKey = driveApiKey.trim();
+    if (!apiKey) {
+      // 설정에서 API 키 가져오기 시도
+      try {
+        const settings = await getSingletonDoc<{ googleDriveApiKey?: string }>(COLLECTIONS.SETTINGS, "general");
+        apiKey = settings?.googleDriveApiKey || "";
+      } catch { /* ignore */ }
+    }
+    if (!apiKey) {
+      alert("Google API 키를 입력하거나 설정 페이지에서 등록해 주세요.");
+      return;
+    }
+    setDriveLoading(true);
+    setDriveResult(null);
+    try {
+      const url = `https://www.googleapis.com/drive/v3/files?q='${driveFolderId.trim()}'+in+parents+and+mimeType+contains+'image/'&fields=files(id,name)&key=${apiKey}&pageSize=50`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`API 오류: ${res.status}`);
+      const data = await res.json();
+      const files: { id: string; name: string }[] = data.files || [];
+      if (files.length === 0) { alert("폴더에 이미지가 없습니다."); setDriveLoading(false); return; }
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
+      let success = 0;
+      for (const file of files) {
+        try {
+          const imageUrl = `https://lh3.googleusercontent.com/d/${file.id}`;
+          const newPhoto: Omit<Photo, "id"> = {
+            title: file.name.replace(/\.[^/.]+$/, ""),
+            description: "",
+            imageUrl,
+            category: driveCategory,
+            date: today,
+            googleDriveId: file.id,
+          };
+          const id = await createDoc(COLLECTIONS.GALLERY, newPhoto);
+          setPhotos((prev) => [{ id, ...newPhoto } as Photo, ...prev]);
+          success++;
+        } catch { /* skip */ }
+      }
+      setDriveResult({ success, failed: files.length - success });
+    } catch (e) {
+      console.error(e);
+      alert("Google Drive 연동에 실패했습니다. API 키와 폴더 ID를 확인해 주세요.");
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
   if (loading) return <AdminLoading />;
   if (error) return <AdminError message={error} onRetry={refresh} />;
 
@@ -142,21 +197,41 @@ export default function AdminGalleryPage() {
         <div className="mb-6 bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-lg bg-blue-50"><FolderOpen size={24} className="text-blue-600" /></div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900">Google Drive 폴더 연동</h3>
-              <p className="text-sm text-gray-500 mt-1">Google Drive 폴더 ID를 입력하면 해당 폴더의 이미지를 자동으로 가져올 수 있습니다.</p>
-              <div className="flex gap-3 mt-4">
-                <input type="text" placeholder="Google Drive 폴더 ID를 입력하세요" value={driveFolderId} onChange={(e) => setDriveFolderId(e.target.value)}
-                  className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
-                <button disabled={!driveFolderId.trim()}
+            <div className="flex-1 space-y-3">
+              <h3 className="font-semibold text-gray-900">Google Drive 폴더 일괄 가져오기</h3>
+              <p className="text-sm text-gray-500">Google Drive 폴더의 이미지를 한번에 갤러리로 가져옵니다. 폴더는 &quot;링크가 있는 모든 사용자&quot;로 공유해야 합니다.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">폴더 ID *</label>
+                  <input type="text" placeholder="Google Drive 폴더 URL 또는 ID" value={driveFolderId} onChange={(e) => {
+                    const val = e.target.value.trim();
+                    const match = val.match(/folders\/([a-zA-Z0-9_-]+)/);
+                    setDriveFolderId(match ? match[1] : val);
+                  }}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Google API 키 (설정에 저장 시 생략 가능)</label>
+                  <input type="text" placeholder="AIza..." value={driveApiKey} onChange={(e) => setDriveApiKey(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <select value={driveCategory} onChange={(e) => setDriveCategory(e.target.value as PhotoCategory)}
+                  className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none">
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <button onClick={importFromDrive} disabled={!driveFolderId.trim() || driveLoading}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50">
-                  <ExternalLink size={16} />연동
+                  {driveLoading ? <><Loader2 size={16} className="animate-spin" />가져오는 중...</> : <><Upload size={16} />일괄 가져오기</>}
                 </button>
               </div>
-              <p className="text-xs text-amber-600 mt-3 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
-                설정 페이지에서 Google API 키를 먼저 등록해야 동기화가 작동합니다.
-              </p>
+              {driveResult && (
+                <div className="text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg">
+                  {driveResult.success}장 가져오기 완료{driveResult.failed > 0 && ` (${driveResult.failed}장 실패)`}
+                </div>
+              )}
+              <p className="text-xs text-gray-400">폴더 URL 예: https://drive.google.com/drive/folders/1ABC... → 폴더 ID: 1ABC...</p>
             </div>
           </div>
         </div>
@@ -203,7 +278,7 @@ export default function AdminGalleryPage() {
             <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
               {photo.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo.imageUrl} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <img src={toDirectImageUrl(photo.imageUrl)} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center"><ImageIcon size={32} className="text-gray-300" /></div>
               )}
@@ -262,7 +337,7 @@ export default function AdminGalleryPage() {
               {editingPhoto.imageUrl && (
                 <div className="rounded-lg overflow-hidden border border-gray-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={editingPhoto.imageUrl} alt="미리보기" className="w-full h-40 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <img src={toDirectImageUrl(editingPhoto.imageUrl)} alt="미리보기" className="w-full h-40 object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 </div>
               )}
               <div>

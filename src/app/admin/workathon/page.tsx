@@ -41,6 +41,7 @@ interface EventData {
   venue: string;
   maxParticipants: number;
   status: EventStatus;
+  posterUrl: string;
   schedule: ScheduleItem[];
   registrations: Registration[];
 }
@@ -110,6 +111,7 @@ export default function AdminWorkathonPage() {
       venue: "",
       maxParticipants: 50,
       status: "DRAFT",
+      posterUrl: "",
       schedule: [],
       registrations: [],
     };
@@ -541,6 +543,16 @@ export default function AdminWorkathonPage() {
                   onChange={(e) =>
                     updateEvent(selectedEvent.id, { maxParticipants: parseInt(e.target.value, 10) || 0 })
                   }
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-medium text-gray-500 mb-1">포스터 이미지 URL</label>
+                <input
+                  type="text"
+                  value={selectedEvent.posterUrl || ""}
+                  onChange={(e) => updateEvent(selectedEvent.id, { posterUrl: e.target.value })}
+                  placeholder="https://... 또는 Google Drive 공유 링크"
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
               </div>

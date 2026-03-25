@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2, GripVertical, ImageIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, ImageIcon } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
@@ -71,6 +71,27 @@ export default function AdminInstructorsPage() {
     } catch (e) { console.error(e); }
   };
 
+  const moveOrder = async (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= items.length) return;
+    const sorted = [...items].sort(instructorSort);
+    const a = sorted[index];
+    const b = sorted[newIndex];
+    const aOrder = a.displayOrder ?? index;
+    const bOrder = b.displayOrder ?? newIndex;
+    try {
+      await Promise.all([
+        upsertDoc(COLLECTIONS.INSTRUCTORS, a.id, { ...a, displayOrder: bOrder }),
+        upsertDoc(COLLECTIONS.INSTRUCTORS, b.id, { ...b, displayOrder: aOrder }),
+      ]);
+      setItems((prev) => prev.map((i) => {
+        if (i.id === a.id) return { ...i, displayOrder: bOrder };
+        if (i.id === b.id) return { ...i, displayOrder: aOrder };
+        return i;
+      }));
+    } catch (e) { console.error(e); }
+  };
+
   const addSpecialty = () => {
     if (specInput.trim() && !form.specialties.includes(specInput.trim())) {
       setForm({ ...form, specialties: [...form.specialties, specInput.trim()] });
@@ -111,7 +132,15 @@ export default function AdminInstructorsPage() {
                   <p className="text-sm text-gray-500">{item.title}</p>
                 </div>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-0.5">
+                <div className="flex flex-col">
+                  <button onClick={() => moveOrder([...items].sort(instructorSort).indexOf(item), -1)}
+                    disabled={[...items].sort(instructorSort).indexOf(item) === 0}
+                    className="p-0.5 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30"><ChevronUp size={14} /></button>
+                  <button onClick={() => moveOrder([...items].sort(instructorSort).indexOf(item), 1)}
+                    disabled={[...items].sort(instructorSort).indexOf(item) === items.length - 1}
+                    className="p-0.5 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30"><ChevronDown size={14} /></button>
+                </div>
                 <button onClick={() => openEdit(item)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><Pencil size={14} /></button>
                 <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
               </div>

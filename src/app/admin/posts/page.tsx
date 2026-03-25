@@ -2,14 +2,14 @@
 
 import { useState, useRef } from "react";
 import {
-  Plus, Search, Edit, Trash2, Pin, Eye, FileText, X, Save, Link, Paperclip, ExternalLink, Upload, Image as ImageIcon, File,
+  Plus, Search, Edit, Trash2, Pin, Eye, FileText, X, Save, Link, Paperclip, ExternalLink, Upload, Image as ImageIcon, File, PlusCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 
-type BoardType = "NOTICE" | "RESOURCE";
+type BoardType = "NOTICE" | "RESOURCE" | string;
 
 interface Attachment {
   name: string;
@@ -32,6 +32,11 @@ interface Post {
   slackLink?: string;
   attachments?: Attachment[];
 }
+
+const DEFAULT_BOARD_TYPES: Record<string, string> = {
+  NOTICE: "공지사항",
+  RESOURCE: "자료실",
+};
 
 const MAX_ATTACHMENTS = 3;
 const MAX_FILE_SIZE_MB = 10;
@@ -67,7 +72,7 @@ function getAttachmentIcon(type: string) {
 
 export default function AdminPostsPage() {
   const { data: posts, setData: setPosts, loading, error, refresh } = useFirestoreCollection<Post>(COLLECTIONS.POSTS);
-  const [boardFilter, setBoardFilter] = useState<"ALL" | BoardType>("ALL");
+  const [boardFilter, setBoardFilter] = useState<"ALL" | string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingPost, setEditingPost] = useState<(Omit<Post, "id"> & { id?: string }) | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -76,6 +81,17 @@ export default function AdminPostsPage() {
   const [attachmentLinkUrl, setAttachmentLinkUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [customBoardMode, setCustomBoardMode] = useState(false);
+  const [customBoardInput, setCustomBoardInput] = useState("");
+
+  // 기존 게시물에서 사용된 커스텀 게시판 타입 수집
+  const customBoardTypes = [...new Set(
+    posts.map((p) => p.boardType).filter((t) => !(t in DEFAULT_BOARD_TYPES))
+  )];
+  const allBoardTypes: Record<string, string> = {
+    ...DEFAULT_BOARD_TYPES,
+    ...Object.fromEntries(customBoardTypes.map((t) => [t, t])),
+  };
 
   const filtered = posts
     .filter((p) => boardFilter === "ALL" || p.boardType === boardFilter)
@@ -224,8 +240,8 @@ export default function AdminPostsPage() {
       </div>
 
       <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-2">
-          {([{ key: "ALL", label: "전체" }, { key: "NOTICE", label: "공지사항" }, { key: "RESOURCE", label: "자료실" }] as const).map((tab) => (
+        <div className="flex flex-wrap gap-2">
+          {[{ key: "ALL", label: "전체" }, ...Object.entries(allBoardTypes).map(([key, label]) => ({ key, label }))].map((tab) => (
             <button key={tab.key} onClick={() => setBoardFilter(tab.key)}
               className={cn("px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                 boardFilter === tab.key ? "bg-primary-600 text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50")}>
@@ -268,8 +284,11 @@ export default function AdminPostsPage() {
               <tr key={post.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                 <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.includes(post.id)} onChange={() => toggleSelect(post.id)} className="rounded border-gray-300" /></td>
                 <td className="px-4 py-3">
-                  <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", post.boardType === "NOTICE" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700")}>
-                    {post.boardType === "NOTICE" ? "공지" : "자료"}
+                  <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium",
+                    post.boardType === "NOTICE" ? "bg-blue-100 text-blue-700"
+                    : post.boardType === "RESOURCE" ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-700")}>
+                    {allBoardTypes[post.boardType] || post.boardType}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -325,11 +344,34 @@ export default function AdminPostsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1.5 block">구분</label>
-                  <select value={editingPost.boardType} onChange={(e) => setEditingPost({ ...editingPost, boardType: e.target.value as BoardType })}
-                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none">
-                    <option value="NOTICE">공지사항</option>
-                    <option value="RESOURCE">자료실</option>
-                  </select>
+                  {customBoardMode ? (
+                    <div className="flex gap-2">
+                      <input type="text" value={customBoardInput} onChange={(e) => setCustomBoardInput(e.target.value)}
+                        className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        placeholder="새 게시판 이름 (예: 활동보고)" autoFocus />
+                      <button type="button" onClick={() => {
+                        if (customBoardInput.trim()) {
+                          setEditingPost({ ...editingPost, boardType: customBoardInput.trim() });
+                          setCustomBoardMode(false);
+                        }
+                      }} className="px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">확인</button>
+                      <button type="button" onClick={() => { setCustomBoardMode(false); setCustomBoardInput(""); }}
+                        className="px-2 py-2 text-gray-400 hover:text-gray-600"><X size={16} /></button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <select value={editingPost.boardType} onChange={(e) => setEditingPost({ ...editingPost, boardType: e.target.value as BoardType })}
+                        className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none">
+                        {Object.entries(allBoardTypes).map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
+                      </select>
+                      <button type="button" onClick={() => setCustomBoardMode(true)}
+                        className="px-2 py-2 text-gray-400 hover:text-primary-600 transition-colors" title="새 게시판 추가">
+                        <PlusCircle size={18} />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1.5 block">작성자</label>

@@ -153,7 +153,8 @@ export default function Header() {
                 className="inline-flex items-center gap-2 px-3 md:px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
               >
                 <User size={16} />
-                <span className="hidden md:inline">로그인</span>
+                <span className="hidden md:inline">로그인 / 회원가입</span>
+                <span className="md:hidden">로그인</span>
               </button>
             )}
 
@@ -196,7 +197,15 @@ export default function Header() {
                   <ChevronRight size={16} className="text-gray-300" />
                 </Link>
               ))}
-              <div className="pt-4 px-4 pb-2">
+              <div className="pt-4 px-4 pb-2 space-y-2">
+                {!user && (
+                  <button
+                    onClick={() => { handleGoogleLogin(); setIsMobileMenuOpen(false); }}
+                    className="block w-full py-3.5 rounded-lg border-2 border-primary-500 text-primary-600 text-center text-base font-semibold hover:bg-primary-50 transition-colors"
+                  >
+                    Google로 로그인 / 회원가입
+                  </button>
+                )}
                 <a
                   href={CTA_URL}
                   target="_blank"
