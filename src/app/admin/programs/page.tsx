@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Edit, Trash2, Filter, X } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Filter, X, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { PROGRAM_CATEGORY_LABELS, PROGRAM_STATUS_LABELS } from "@/lib/constants";
@@ -72,6 +72,8 @@ export default function AdminProgramsPage() {
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [formData, setFormData] = useState<ProgramFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [customCategoryMode, setCustomCategoryMode] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState("");
 
   const filteredPrograms = programs.filter((p) => {
     const matchSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -89,10 +91,17 @@ export default function AdminProgramsPage() {
     else setSelectedIds(filteredPrograms.map((p) => p.id));
   };
 
+  // 기존 프로그램에서 사용된 커스텀 카테고리 수집
+  const customCategories = [...new Set(
+    programs.map((p) => p.category).filter((c) => !(c in PROGRAM_CATEGORY_LABELS))
+  )];
+
   const openCreateModal = () => {
     setIsCreating(true);
     setEditingProgram(null);
     setFormData(emptyForm);
+    setCustomCategoryMode(false);
+    setCustomCategoryInput("");
     setIsModalOpen(true);
   };
 
@@ -100,6 +109,9 @@ export default function AdminProgramsPage() {
     setIsCreating(false);
     setEditingProgram(program);
     setFormData(formFromProgram(program));
+    const isCustom = !(program.category in PROGRAM_CATEGORY_LABELS);
+    setCustomCategoryMode(isCustom);
+    setCustomCategoryInput(isCustom ? program.category : "");
     setIsModalOpen(true);
   };
 
@@ -108,16 +120,20 @@ export default function AdminProgramsPage() {
     setEditingProgram(null);
     setIsCreating(false);
     setFormData(emptyForm);
+    setCustomCategoryMode(false);
+    setCustomCategoryInput("");
   };
 
   const handleSave = async () => {
     const instructorsArray = formData.instructors.split(",").map((s) => s.trim()).filter(Boolean);
+    const finalCategory = customCategoryMode ? customCategoryInput.trim() : formData.category;
+    if (!finalCategory) { alert("카테고리를 입력해 주세요."); return; }
     setSaving(true);
     try {
       if (isCreating) {
         const newProgram: Omit<Program, "id"> = {
           title: formData.title,
-          category: formData.category,
+          category: finalCategory,
           status: formData.status,
           cohort: formData.cohort,
           summary: formData.summary,
@@ -132,7 +148,7 @@ export default function AdminProgramsPage() {
       } else if (editingProgram) {
         const updated: Partial<Program> = {
           title: formData.title,
-          category: formData.category,
+          category: finalCategory,
           status: formData.status,
           cohort: formData.cohort,
           summary: formData.summary,
@@ -220,6 +236,9 @@ export default function AdminProgramsPage() {
               {Object.entries(PROGRAM_CATEGORY_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
+              {customCategories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
             </select>
             <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
               className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none">
@@ -267,7 +286,7 @@ export default function AdminProgramsPage() {
                       {program.cohort && <div className="text-xs text-gray-400 mt-0.5">{program.cohort}</div>}
                     </td>
                     <td className="px-4 py-4">
-                      <span className="text-sm text-gray-600">{PROGRAM_CATEGORY_LABELS[program.category]}</span>
+                      <span className="text-sm text-gray-600">{PROGRAM_CATEGORY_LABELS[program.category] ?? program.category}</span>
                     </td>
                     <td className="px-4 py-4"><StatusBadge status={program.status} /></td>
                     <td className="px-4 py-4">
@@ -321,12 +340,46 @@ export default function AdminProgramsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
-                  <select value={formData.category} onChange={(e) => updateField("category", e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none">
-                    {Object.entries(PROGRAM_CATEGORY_LABELS).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
-                    ))}
-                  </select>
+                  {customCategoryMode ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={customCategoryInput}
+                        onChange={(e) => setCustomCategoryInput(e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        placeholder="새 카테고리명 입력"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { setCustomCategoryMode(false); setCustomCategoryInput(""); }}
+                        className="px-2 py-2 text-gray-400 hover:text-gray-600 transition-colors"
+                        title="기존 카테고리 선택"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <select value={formData.category} onChange={(e) => updateField("category", e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none">
+                        {Object.entries(PROGRAM_CATEGORY_LABELS).map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
+                        {customCategories.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setCustomCategoryMode(true)}
+                        className="px-2 py-2 text-gray-400 hover:text-primary-600 transition-colors"
+                        title="새 카테고리 추가"
+                      >
+                        <PlusCircle size={18} />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>

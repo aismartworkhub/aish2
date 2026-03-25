@@ -79,7 +79,7 @@ export default function ProgramsPage() {
                     {PROGRAM_STATUS_LABELS[program.status]}
                   </span>
                   <span className="text-xs text-gray-400">
-                    {PROGRAM_CATEGORY_LABELS[program.category]}
+                    {PROGRAM_CATEGORY_LABELS[program.category] ?? program.category}
                   </span>
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{program.title}</h3>

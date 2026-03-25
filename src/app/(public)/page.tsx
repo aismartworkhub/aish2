@@ -443,7 +443,7 @@ export default function HomePage() {
                 </div>
                 <div className="p-5">
                   <p className="text-xs text-gray-400 mb-1">
-                    {PROGRAM_CATEGORY_LABELS[program.category]}
+                    {PROGRAM_CATEGORY_LABELS[program.category] ?? program.category}
                   </p>
                   <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary-600 transition-colors line-clamp-1">
                     {program.title}
