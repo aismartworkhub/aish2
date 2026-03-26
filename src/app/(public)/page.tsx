@@ -107,7 +107,7 @@ export default function HomePage() {
   const [stats, setStats] = useState(DEMO_STATS);
   const [programs, setPrograms] = useState(DEMO_PROGRAMS);
   const [reviews, setReviews] = useState(DEMO_REVIEWS);
-  const [workathon, setWorkathon] = useState(DEMO_WORKATHON);
+  const [workathon, setWorkathon] = useState<typeof DEMO_WORKATHON & { posterUrl?: string }>(DEMO_WORKATHON);
   const [notices, setNotices] = useState(RECENT_NOTICES);
   const [featuredVideos, setFeaturedVideos] = useState<{ id: string; title: string; youtubeUrl: string; category?: string }[]>([]);
 
@@ -121,23 +121,28 @@ export default function HomePage() {
         const [firestorePrograms, firestoreReviews, firestoreEvents, firestorePosts, statDoc, firestoreVideos] = await Promise.all([
           getCollection<typeof DEMO_PROGRAMS[0]>(COLLECTIONS.PROGRAMS),
           getCollection<typeof DEMO_REVIEWS[0]>(COLLECTIONS.REVIEWS),
-          getCollection<typeof DEMO_WORKATHON>(COLLECTIONS.EVENTS),
+          getCollection<typeof DEMO_WORKATHON & { posterUrl?: string }>(COLLECTIONS.EVENTS),
           getCollection<{ id: string; type?: string; boardType?: string; title: string; category?: string; createdAt?: string; date?: string }>(COLLECTIONS.POSTS),
           getSingletonDoc<{ items: typeof DEMO_STATS }>(COLLECTIONS.SETTINGS, "stats"),
-          getCollection<{ id: string; title: string; youtubeUrl: string; category?: string; featured?: boolean }>(COLLECTIONS.VIDEOS),
+          getCollection<{ id: string; title: string; youtubeUrl: string; category?: string; featured?: boolean; isFeatured?: boolean }>(COLLECTIONS.VIDEOS),
         ]);
         if (firestorePrograms.length > 0) setPrograms(firestorePrograms);
         if (firestoreReviews.length > 0) setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false));
         if (firestoreEvents.length > 0) setWorkathon(firestoreEvents[0]);
         if (statDoc?.items && statDoc.items.length > 0) setStats(statDoc.items);
         if (firestoreVideos.length > 0) {
-          const featured = firestoreVideos.filter((v) => v.featured).slice(0, 4);
+          const featured = firestoreVideos.filter((v) => v.featured || v.isFeatured).slice(0, 4);
           if (featured.length > 0) setFeaturedVideos(featured);
           else setFeaturedVideos(firestoreVideos.slice(0, 4));
         }
         if (firestorePosts.length > 0) {
           const recentNotices = firestorePosts
             .filter((p) => (p.type || p.boardType) === "NOTICE")
+            .sort((a, b) => {
+              const da = a.createdAt || a.date || "";
+              const db = b.createdAt || b.date || "";
+              return db > da ? 1 : db < da ? -1 : 0;
+            })
             .slice(0, 4)
             .map((p) => ({ tag: p.category || "공지", title: p.title, date: toDateString(p.createdAt || p.date) }));
           if (recentNotices.length > 0) setNotices(recentNotices);
@@ -356,7 +361,7 @@ export default function HomePage() {
         <div className="flex-1 relative flex items-center px-[6%] md:px-[8%] py-16 text-white overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={(workathon as Record<string, unknown>).posterUrl as string || "/images/defaults/workathon-bg.jpg"}
+            src={workathon.posterUrl || "/images/defaults/workathon-bg.jpg"}
             alt="Smart Workathon"
             className="absolute inset-0 w-full h-full object-cover"
             referrerPolicy="no-referrer"
@@ -506,6 +511,7 @@ export default function HomePage() {
                     className="group bg-white rounded overflow-hidden border border-gray-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                     <div className="aspect-video bg-gray-100 relative overflow-hidden">
                       {ytId ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={video.title} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center"><Play size={36} className="text-gray-300" /></div>

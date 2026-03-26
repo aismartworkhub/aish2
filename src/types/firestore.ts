@@ -125,5 +125,6 @@ export interface WorkathonEvent {
   description: string;
   maxParticipants: number;
   currentParticipantCount: number;
+  posterUrl?: string;
   schedule: { time: string; title: string; speaker: string | null }[];
 }

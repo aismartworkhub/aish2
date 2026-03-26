@@ -12,7 +12,7 @@ export default function PublicLayout({
  return (
    <>
      <Header />
-     <div className="pt-16 lg:pt-[72px]">
+     <div className="pt-20">
        <QuickBannerDisplay />
        <ProfileCompletionBanner />
        <main className="min-h-screen">{children}</main>

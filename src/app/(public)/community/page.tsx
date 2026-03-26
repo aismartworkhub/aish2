@@ -71,7 +71,7 @@ function CommunityContent() {
   const { user, showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
 
   useEffect(() => {
-    if (tabParam && FIXED_TABS.some((t) => t.key === tabParam)) {
+    if (tabParam) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
