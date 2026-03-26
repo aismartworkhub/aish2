@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 type BoardType = "NOTICE" | "RESOURCE" | string;
 
@@ -71,6 +72,7 @@ function getAttachmentIcon(type: string) {
 }
 
 export default function AdminPostsPage() {
+  const { toast } = useToast();
   const { data: posts, setData: setPosts, loading, error, refresh } = useFirestoreCollection<Post>(COLLECTIONS.POSTS);
   const [boardFilter, setBoardFilter] = useState<"ALL" | string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -132,7 +134,7 @@ export default function AdminPostsPage() {
       setEditingPost(null);
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -146,7 +148,7 @@ export default function AdminPostsPage() {
       setSelectedIds((prev) => prev.filter((x) => x !== id));
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -179,7 +181,7 @@ export default function AdminPostsPage() {
       setSelectedIds([]);
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -192,11 +194,11 @@ export default function AdminPostsPage() {
     const newAttachments: Attachment[] = [];
     for (const file of files) {
       if (currentAttachments.length + newAttachments.length >= MAX_ATTACHMENTS) {
-        alert(`첨부파일은 최대 ${MAX_ATTACHMENTS}개까지 가능합니다.`);
+        toast(`첨부파일은 최대 ${MAX_ATTACHMENTS}개까지 가능합니다.`, "info");
         break;
       }
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        alert(`"${file.name}" 파일이 ${MAX_FILE_SIZE_MB}MB를 초과합니다.`);
+        toast(`"${file.name}" 파일이 ${MAX_FILE_SIZE_MB}MB를 초과합니다.`, "error");
         continue;
       }
       const isImage = file.type.startsWith("image/");
@@ -209,7 +211,7 @@ export default function AdminPostsPage() {
   const addLinkAttachment = () => {
     if (!editingPost || !attachmentLinkUrl.trim()) return;
     const currentAttachments = editingPost.attachments ?? [];
-    if (currentAttachments.length >= MAX_ATTACHMENTS) { alert(`첨부는 최대 ${MAX_ATTACHMENTS}개까지 가능합니다.`); return; }
+    if (currentAttachments.length >= MAX_ATTACHMENTS) { toast(`첨부는 최대 ${MAX_ATTACHMENTS}개까지 가능합니다.`, "info"); return; }
     setEditingPost({ ...editingPost, attachments: [...currentAttachments, { name: attachmentLinkName.trim() || attachmentLinkUrl.trim(), url: attachmentLinkUrl.trim(), size: "-", type: "link" }] });
     setAttachmentLinkName("");
     setAttachmentLinkUrl("");

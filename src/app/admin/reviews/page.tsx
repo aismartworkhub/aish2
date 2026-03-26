@@ -5,6 +5,7 @@ import { Star, Trash2, CheckCircle, XCircle, Award, Plus, Pencil, Upload, Search
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 interface Review {
   id: string;
@@ -45,6 +46,7 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
 }
 
 export default function AdminReviewsPage() {
+  const { toast } = useToast();
   const { data: reviews, setData: setReviews, loading, error, refresh } = useFirestoreCollection<Review>(COLLECTIONS.REVIEWS);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [formData, setFormData] = useState<Omit<Review, "id">>(emptyReview);
@@ -94,7 +96,7 @@ export default function AdminReviewsPage() {
     try {
       await removeDoc(COLLECTIONS.REVIEWS, id);
       setReviews((prev) => prev.filter((r) => r.id !== id));
-    } catch (e) { console.error(e); alert("삭제에 실패했습니다."); }
+    } catch (e) { console.error(e); toast("삭제에 실패했습니다.", "error"); }
   };
 
   const openCreate = () => {
@@ -128,7 +130,7 @@ export default function AdminReviewsPage() {
       closeModal();
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }

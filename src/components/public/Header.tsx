@@ -53,7 +53,7 @@ export default function Header() {
         <div className="w-[90%] max-w-[1400px] mx-auto flex items-center justify-between">
           {/* 로고 */}
           <Link href="/" className="shrink-0 flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img
               src="/images/logo-aish-transparent.png"
               alt="AISH - AI Smart Work Hub"
@@ -68,7 +68,7 @@ export default function Header() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "px-5 py-2 text-[15px] font-medium transition-colors",
+                  "px-5 py-2 text-[15px] font-medium transition-colors rounded focus:outline-none focus:ring-2 focus:ring-primary-500/30",
                   pathname === item.href
                     ? "text-primary-600"
                     : "text-gray-700 hover:text-primary-600"
@@ -96,12 +96,15 @@ export default function Header() {
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                  aria-expanded={userMenuOpen}
+                  aria-haspopup="true"
+                  aria-label="사용자 메뉴"
                 >
                   <div className="relative w-8 h-8">
                     <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
                       {user.photoURL ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                         
                         <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
                       ) : (
                         <span className="text-sm font-bold text-primary-600">

@@ -6,6 +6,7 @@ import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { toDirectImageUrl } from "@/lib/utils";
+import { useToast } from "@/components/ui/Toast";
 
 interface Instructor {
   id: string;
@@ -25,6 +26,7 @@ const EMPTY_FORM: Omit<Instructor, "id"> = {
 const instructorSort = (a: Instructor, b: Instructor) => (a.displayOrder || 0) - (b.displayOrder || 0);
 
 export default function AdminInstructorsPage() {
+  const { toast } = useToast();
   const { data: items, setData: setItems, loading, error, refresh } = useFirestoreCollection<Instructor>(COLLECTIONS.INSTRUCTORS, instructorSort);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export default function AdminInstructorsPage() {
         setItems((prev) => [...prev, { id, ...saveData, displayOrder: items.length }]);
       }
       setShowModal(false);
-    } catch (e) { console.error(e); alert("저장에 실패했습니다."); } finally { setSaving(false); }
+    } catch (e) { console.error(e); toast("저장에 실패했습니다.", "error"); } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string) => {
@@ -61,7 +63,7 @@ export default function AdminInstructorsPage() {
     try {
       await removeDoc(COLLECTIONS.INSTRUCTORS, id);
       setItems((prev) => prev.filter((i) => i.id !== id));
-    } catch (e) { console.error(e); alert("삭제에 실패했습니다."); }
+    } catch (e) { console.error(e); toast("삭제에 실패했습니다.", "error"); }
   };
 
   const toggleActive = async (item: Instructor) => {

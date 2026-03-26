@@ -7,6 +7,7 @@ import { INQUIRY_STATUS_LABELS } from "@/lib/constants";
 import { COLLECTIONS, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 type InquiryStatus = "NEW" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
@@ -37,6 +38,7 @@ const STATUS_ICONS: Record<string, React.ElementType> = { NEW: Mail, IN_PROGRESS
 const STATUS_COLORS: Record<string, string> = { NEW: "bg-red-100 text-red-700", IN_PROGRESS: "bg-yellow-100 text-yellow-700", RESOLVED: "bg-green-100 text-green-700", CLOSED: "bg-gray-100 text-gray-700" };
 
 export default function AdminInquiriesPage() {
+  const { toast } = useToast();
   const { data: rawInquiries, loading, error, refresh } = useFirestoreCollection<Inquiry & { createdAt?: { seconds: number }; message?: string }>(COLLECTIONS.INQUIRIES);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,7 +129,7 @@ export default function AdminInquiriesPage() {
       if (selectedId === id) setSelectedId(null);
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 

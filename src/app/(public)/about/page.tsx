@@ -14,6 +14,7 @@ const VALUES = [
 export default function AboutPage() {
   const [history, setHistory] = useState(DEMO_HISTORY);
   const [partners, setPartners] = useState(DEMO_PARTNERS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -25,7 +26,8 @@ export default function AboutPage() {
         p.filter((partner) => (partner as { isActive?: boolean }).isActive !== false)
          .sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 999) - ((b as { displayOrder?: number }).displayOrder ?? 999))
       );
-    }).catch(console.error);
+    }).catch(() => {})
+    .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -56,6 +58,12 @@ export default function AboutPage() {
           ))}
         </div>
       </section>
+
+      {loading && (
+        <div className="flex justify-center py-12">
+          <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+        </div>
+      )}
 
       {/* History */}
       <section className="max-w-3xl mx-auto px-4 mb-20">

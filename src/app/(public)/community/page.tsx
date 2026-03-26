@@ -8,11 +8,12 @@ import {
   ChevronDown, ChevronUp, ExternalLink, Mail, Phone, Building,
   Star, Download, Eye, Pin, Search,
 } from "lucide-react";
-import { cn, toDateString } from "@/lib/utils";
+import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
 import { getCollection, createDoc, COLLECTIONS } from "@/lib/firestore";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
+import { useToast } from "@/components/ui/Toast";
 
 type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery" | string;
 
@@ -50,6 +51,7 @@ const GALLERY_IMAGES: { id: string | number; title: string; category: string; im
 ];
 
 function CommunityContent() {
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as TabKey | null;
   const [activeTab, setActiveTab] = useState<TabKey>(tabParam || "notice");
@@ -109,12 +111,35 @@ function CommunityContent() {
     }).catch(console.error);
   }, []);
 
+  const [inquiryError, setInquiryError] = useState("");
+
   const handleInquirySubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setInquiryError("");
+
+    const { name, email, phone, subject, message } = inquiryForm;
+    if (!name.trim() || !email.trim() || !subject.trim() || !message.trim()) {
+      setInquiryError("필수 항목을 모두 입력해주세요.");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setInquiryError("올바른 이메일 형식을 입력해주세요.");
+      return;
+    }
+    if (phone && !isValidPhone(phone)) {
+      setInquiryError("올바른 전화번호 형식을 입력해주세요. (예: 010-0000-0000)");
+      return;
+    }
+
     requireLogin(async () => {
       try {
         await createDoc(COLLECTIONS.INQUIRIES, {
-          ...inquiryForm,
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          company: inquiryForm.company.trim(),
+          subject: subject.trim(),
+          message: message.trim(),
           status: "NEW",
           type: "PARTNERSHIP",
           userId: user?.uid,
@@ -124,19 +149,19 @@ function CommunityContent() {
           replyContent: "",
           emailSent: false,
           category: "PARTNERSHIP",
-          content: inquiryForm.message,
+          content: message.trim(),
         });
-      } catch (err) {
-        console.error(err);
+        setInquirySubmitted(true);
+      } catch {
+        setInquiryError("문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.");
       }
-      setInquirySubmitted(true);
     }, "협력 문의를 보내려면 로그인이 필요합니다.");
   };
 
   const handleDownload = (resTitle: string) => {
     requireLogin(() => {
       // TODO: 실제 파일 다운로드 로직
-      alert(`"${resTitle}" 다운로드를 시작합니다.`);
+      toast(`"${resTitle}" 다운로드를 시작합니다.`, "info");
     }, "자료를 다운로드하려면 로그인이 필요합니다.");
   };
 
@@ -422,6 +447,9 @@ function CommunityContent() {
                       placeholder="문의 내용을 입력해 주세요..."
                       className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
                   </div>
+                  {inquiryError && (
+                    <p className="text-sm text-red-600 bg-red-50 px-4 py-2.5 rounded-lg">{inquiryError}</p>
+                  )}
                   <button type="submit"
                     className="w-full py-3 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors">
                     문의 보내기
@@ -442,7 +470,7 @@ function CommunityContent() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {galleryList.map((img) => (
                 <div key={img.id} className="group relative rounded-xl overflow-hidden aspect-[4/3] cursor-pointer">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  { }
                   <img src={img.imageUrl} alt={img.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <div className="absolute bottom-0 left-0 w-full p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">

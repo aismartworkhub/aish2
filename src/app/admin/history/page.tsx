@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 interface HistoryItem {
   id: string;
@@ -21,6 +22,7 @@ const CATEGORIES = ["일반", "설립", "프로그램", "수상", "협약", "기
 const historySort = (a: HistoryItem, b: HistoryItem) => `${b.year}${b.month}`.localeCompare(`${a.year}${a.month}`);
 
 export default function AdminHistoryPage() {
+  const { toast } = useToast();
   const { data: items, setData: setItems, loading, error, refresh } = useFirestoreCollection<HistoryItem>(COLLECTIONS.HISTORY, historySort);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -46,7 +48,7 @@ export default function AdminHistoryPage() {
       }
       setItems((prev) => [...prev].sort((a, b) => `${b.year}${b.month}`.localeCompare(`${a.year}${a.month}`)));
       setShowModal(false);
-    } catch (e) { console.error(e); alert("저장에 실패했습니다."); } finally { setSaving(false); }
+    } catch (e) { console.error(e); toast("저장에 실패했습니다.", "error"); } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string) => {
@@ -54,7 +56,7 @@ export default function AdminHistoryPage() {
     try {
       await removeDoc(COLLECTIONS.HISTORY, id);
       setItems((prev) => prev.filter((i) => i.id !== id));
-    } catch (e) { console.error(e); alert("삭제에 실패했습니다."); }
+    } catch (e) { console.error(e); toast("삭제에 실패했습니다.", "error"); }
   };
 
   if (loading) return <AdminLoading />;

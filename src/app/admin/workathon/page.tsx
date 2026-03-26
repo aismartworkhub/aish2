@@ -10,6 +10,7 @@ import { cn, calculateDDay } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,7 @@ const REG_STATUS_COLORS: Record<RegStatus, string> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AdminWorkathonPage() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("list");
   const { data: events, setData: setEvents, loading, error, refresh } = useFirestoreCollection<EventData>(COLLECTIONS.EVENTS);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export default function AdminWorkathonPage() {
       selectEvent(id, "detail");
     } catch (e) {
       console.error(e);
-      alert("이벤트 생성에 실패했습니다.");
+      toast("이벤트 생성에 실패했습니다.", "error");
     }
   };
 
@@ -137,7 +139,7 @@ export default function AdminWorkathonPage() {
       }
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -182,7 +184,7 @@ export default function AdminWorkathonPage() {
       setTimeout(() => setSaveMessage(""), 2000);
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     }
   };
 
@@ -220,7 +222,7 @@ export default function AdminWorkathonPage() {
       );
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -244,7 +246,7 @@ export default function AdminWorkathonPage() {
       setSelectedIds([]);
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     }
   };
 

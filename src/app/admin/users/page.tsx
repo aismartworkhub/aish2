@@ -14,6 +14,7 @@ import {
   type UserRole,
 } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/Toast";
 
 interface UserRecord {
   id: string;
@@ -40,6 +41,7 @@ function isComplete(u: UserRecord): boolean {
 }
 
 export default function UsersPage() {
+  const { toast } = useToast();
   const { isSuperAdmin } = useAuth();
   const { data: users, setData: setUsers, loading, error, refresh } =
     useFirestoreCollection<UserRecord>(COLLECTIONS.USERS);
@@ -102,7 +104,7 @@ export default function UsersPage() {
       setEditUser(null);
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -117,7 +119,7 @@ export default function UsersPage() {
       setEditUser(null);
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -232,7 +234,7 @@ export default function UsersPage() {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     {u.photoURL ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img src={u.photoURL} alt="" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
@@ -304,7 +306,7 @@ export default function UsersPage() {
               {/* 계정 정보 */}
               <div className="bg-gray-50 rounded-lg p-3 flex items-center gap-3">
                 {editUser.photoURL ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img src={editUser.photoURL} alt="" className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">

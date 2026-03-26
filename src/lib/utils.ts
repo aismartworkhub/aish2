@@ -55,6 +55,33 @@ export function toDateString(value: unknown): string {
   return String(value);
 }
 
+// ── 유효성 검증 유틸 ──
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(email.trim());
+}
+
+export function isValidUrl(url: string): boolean {
+  if (!url.trim()) return false;
+  try {
+    const parsed = new URL(url.trim());
+    return ["http:", "https:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
+export function isValidDateRange(start: string, end: string): boolean {
+  if (!start || !end) return true;
+  return new Date(start) <= new Date(end);
+}
+
+export function isValidPhone(phone: string): boolean {
+  return /^[\d-]{9,15}$/.test(phone.replace(/\s/g, ""));
+}
+
 export function calculateDDay(dateStr: string): string {
   const target = new Date(dateStr);
   const today = new Date();

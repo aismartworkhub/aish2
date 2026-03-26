@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
+import { useToast } from "@/components/ui/Toast";
 
 type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations";
 
@@ -21,6 +22,18 @@ interface GoogleApiConfig { clientId: string; clientSecret: string; apiKey: stri
 interface EmailConfig { adminEmail: string; smtpServer: string; senderName: string; }
 interface DriveConfig { folderId: string; autoSyncEnabled: boolean; }
 interface CalendarConfig { calendarId: string; autoRegisterEnabled: boolean; }
+
+const MASKED_VALUE = "••••••••";
+const SENSITIVE_FIELDS = ["clientSecret", "apiKey"] as const;
+
+function maskSensitive(value: string): string {
+  if (!value) return "";
+  return MASKED_VALUE;
+}
+
+function isMasked(value: string): boolean {
+  return value === MASKED_VALUE;
+}
 
 const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "hero", label: "히어로 섹션", icon: ImageIcon },
@@ -44,6 +57,7 @@ function AdminSettingsInner() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(tabParam || "hero");
   const [saveMessage, setSaveMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (tabParam && ["hero", "stats", "cta", "banner", "integrations"].includes(tabParam)) {
@@ -88,7 +102,11 @@ function AdminSettingsInner() {
       if (ctaDoc) setCta({ buttonText: ctaDoc.buttonText ?? "", buttonUrl: ctaDoc.buttonUrl ?? "", floatingEnabled: ctaDoc.floatingEnabled ?? true });
       if (bannerDoc) setBanner({ enabled: bannerDoc.enabled ?? true, title: bannerDoc.title ?? "", dDayDate: bannerDoc.dDayDate ?? "", link: bannerDoc.link ?? "" });
       if (intDoc) {
-        if (intDoc.googleApi) setGoogleApi(intDoc.googleApi);
+        if (intDoc.googleApi) setGoogleApi({
+          ...intDoc.googleApi,
+          clientSecret: maskSensitive(intDoc.googleApi.clientSecret),
+          apiKey: maskSensitive(intDoc.googleApi.apiKey),
+        });
         if (intDoc.emailConfig) setEmailConfig(intDoc.emailConfig);
         if (intDoc.driveConfig) setDriveConfig(intDoc.driveConfig);
         if (intDoc.calendarConfig) setCalendarConfig(intDoc.calendarConfig);
@@ -108,13 +126,19 @@ function AdminSettingsInner() {
       } else if (activeTab === "banner") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "banner", banner);
       } else if (activeTab === "integrations") {
-        await setSingletonDoc(COLLECTIONS.SETTINGS, "integrations", { googleApi, emailConfig, driveConfig, calendarConfig });
+        const safeGoogleApi = { ...googleApi };
+        for (const field of SENSITIVE_FIELDS) {
+          if (isMasked(safeGoogleApi[field])) {
+            delete (safeGoogleApi as Record<string, unknown>)[field];
+          }
+        }
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "integrations", { googleApi: safeGoogleApi, emailConfig, driveConfig, calendarConfig });
       }
       setSaveMessage("저장되었습니다");
+      toast("저장되었습니다", "success");
       setTimeout(() => setSaveMessage(""), 2000);
-    } catch (e) {
-      console.error(e);
-      alert("저장에 실패했습니다.");
+    } catch {
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -164,7 +188,7 @@ function AdminSettingsInner() {
                 <div key={index} className="p-4 rounded-xl border border-gray-200 hover:border-primary-200 transition-colors">
                   <div className="flex items-center gap-4 mb-4">
                     <GripVertical size={18} className="text-gray-300 cursor-grab" />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img src={slide.imageUrl} alt={`슬라이드 ${index + 1}`} className="w-24 h-14 rounded-lg object-cover shrink-0" />
                     <div className="flex-1">
                       <p className="font-medium text-gray-900 text-sm">슬라이드 {index + 1}</p>
@@ -200,7 +224,7 @@ function AdminSettingsInner() {
             <div className="space-y-3">
               {Object.entries(eduImages).map(([label, url]) => (
                 <div key={label} className="flex items-center gap-4 p-3 rounded-lg border border-gray-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  { }
                   <img src={url} alt={label} className="w-16 h-10 rounded object-cover shrink-0" />
                   <span className="text-sm font-medium text-gray-700 w-24 shrink-0">{label}</span>
                   <input type="text" value={url} onChange={(e) => setEduImages((prev) => ({ ...prev, [label]: e.target.value }))}
@@ -219,7 +243,7 @@ function AdminSettingsInner() {
             <div className="space-y-3">
               {Object.entries(specImages).map(([label, url]) => (
                 <div key={label} className="flex items-center gap-4 p-3 rounded-lg border border-gray-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  { }
                   <img src={url} alt={label} className="w-16 h-10 rounded object-cover shrink-0" />
                   <span className="text-sm font-medium text-gray-700 w-24 shrink-0">{label}</span>
                   <input type="text" value={url} onChange={(e) => setSpecImages((prev) => ({ ...prev, [label]: e.target.value }))}
@@ -326,7 +350,7 @@ function AdminSettingsInner() {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
             <div className="flex items-center gap-2">
               <Shield size={16} className="text-amber-600" />
-              <p className="text-sm text-amber-800 font-medium">설정된 API 키는 서버 측에서 안전하게 관리됩니다.</p>
+              <p className="text-sm text-amber-800 font-medium">민감 정보는 마스킹 처리됩니다. 변경이 필요한 경우에만 새 값을 입력하세요.</p>
             </div>
           </div>
 

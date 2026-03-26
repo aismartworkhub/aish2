@@ -10,11 +10,13 @@ type InstructorItem = typeof DEMO_INSTRUCTORS[0] & { imageUrl?: string };
 
 export default function InstructorsPage() {
   const [instructors, setInstructors] = useState<InstructorItem[]>(DEMO_INSTRUCTORS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCollection<InstructorItem>(COLLECTIONS.INSTRUCTORS)
       .then((data) => { if (data.length > 0) setInstructors(data); })
-      .catch(console.error);
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -27,8 +29,14 @@ export default function InstructorsPage() {
           </p>
         </div>
 
+        {loading && (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {instructors.map((inst) => (
+          {!loading && instructors.map((inst) => (
             <div
               key={inst.id}
               className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
@@ -61,22 +69,22 @@ export default function InstructorsPage() {
                 {inst.socialLinks && (
                   <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-50">
                     {inst.socialLinks.linkedin && (
-                      <a href={inst.socialLinks.linkedin} className="text-gray-400 hover:text-blue-600">
+                      <a href={inst.socialLinks.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${inst.name} LinkedIn`} className="text-gray-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 rounded">
                         <Linkedin size={16} />
                       </a>
                     )}
                     {inst.socialLinks.youtube && (
-                      <a href={inst.socialLinks.youtube} className="text-gray-400 hover:text-red-600">
+                      <a href={inst.socialLinks.youtube} target="_blank" rel="noopener noreferrer" aria-label={`${inst.name} YouTube`} className="text-gray-400 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/30 rounded">
                         <Youtube size={16} />
                       </a>
                     )}
                     {inst.socialLinks.instagram && (
-                      <a href={inst.socialLinks.instagram} className="text-gray-400 hover:text-pink-600">
+                      <a href={inst.socialLinks.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${inst.name} Instagram`} className="text-gray-400 hover:text-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500/30 rounded">
                         <Instagram size={16} />
                       </a>
                     )}
                     {inst.socialLinks.github && (
-                      <a href={inst.socialLinks.github} className="text-gray-400 hover:text-gray-800">
+                      <a href={inst.socialLinks.github} target="_blank" rel="noopener noreferrer" aria-label={`${inst.name} GitHub`} className="text-gray-400 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500/30 rounded">
                         <Github size={16} />
                       </a>
                     )}

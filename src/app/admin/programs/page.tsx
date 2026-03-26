@@ -8,6 +8,7 @@ import { PROGRAM_CATEGORY_LABELS, PROGRAM_STATUS_LABELS } from "@/lib/constants"
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 interface Program {
   id: string;
@@ -62,6 +63,7 @@ function formFromProgram(p: Program): ProgramFormData {
 }
 
 export default function AdminProgramsPage() {
+  const { toast } = useToast();
   const { data: programs, setData: setPrograms, loading, error, refresh } = useFirestoreCollection<Program>(COLLECTIONS.PROGRAMS);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
@@ -127,7 +129,7 @@ export default function AdminProgramsPage() {
   const handleSave = async () => {
     const instructorsArray = formData.instructors.split(",").map((s) => s.trim()).filter(Boolean);
     const finalCategory = customCategoryMode ? customCategoryInput.trim() : formData.category;
-    if (!finalCategory) { alert("카테고리를 입력해 주세요."); return; }
+    if (!finalCategory) { toast("카테고리를 입력해 주세요.", "info"); return; }
     setSaving(true);
     try {
       if (isCreating) {
@@ -163,7 +165,7 @@ export default function AdminProgramsPage() {
       closeModal();
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -177,7 +179,7 @@ export default function AdminProgramsPage() {
       setSelectedIds((prev) => prev.filter((x) => x !== id));
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -190,7 +192,7 @@ export default function AdminProgramsPage() {
       setSelectedIds([]);
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 

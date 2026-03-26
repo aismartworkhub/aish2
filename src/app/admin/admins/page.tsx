@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Shield, ShieldCheck } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 interface AdminUser {
   id: string;
@@ -25,6 +26,7 @@ const ROLE_COLORS: Record<string, string> = {
 const EMPTY_FORM: Omit<AdminUser, "id"> = { name: "", email: "", role: "editor", isActive: true };
 
 export default function AdminUsersPage() {
+  const { toast } = useToast();
   const { data: items, setData: setItems, loading, error, refresh } = useFirestoreCollection<AdminUser>(COLLECTIONS.ADMINS);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export default function AdminUsersPage() {
         setItems((prev) => [...prev, { id, ...form }]);
       }
       setShowModal(false);
-    } catch (e) { console.error(e); alert("저장에 실패했습니다."); } finally { setSaving(false); }
+    } catch (e) { console.error(e); toast("저장에 실패했습니다.", "error"); } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string) => {
@@ -57,14 +59,14 @@ export default function AdminUsersPage() {
     try {
       await removeDoc(COLLECTIONS.ADMINS, id);
       setItems((prev) => prev.filter((i) => i.id !== id));
-    } catch (e) { console.error(e); alert("삭제에 실패했습니다."); }
+    } catch (e) { console.error(e); toast("삭제에 실패했습니다.", "error"); }
   };
 
   const toggleActive = async (item: AdminUser) => {
     try {
       await updateDocFields(COLLECTIONS.ADMINS, item.id, { isActive: !item.isActive });
       setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, isActive: !i.isActive } : i));
-    } catch (e) { console.error(e); alert("상태 변경에 실패했습니다."); }
+    } catch (e) { console.error(e); toast("상태 변경에 실패했습니다.", "error"); }
   };
 
   if (loading) return <AdminLoading />;

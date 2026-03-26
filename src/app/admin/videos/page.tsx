@@ -7,6 +7,7 @@ import { VIDEO_CATEGORY_LABELS } from "@/lib/constants";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 type VideoCategory = "LECTURE" | "WORKATHON" | "INTERVIEW" | "PROMO";
 
@@ -53,6 +54,7 @@ const emptyVideo = (): Omit<Video, "id"> => ({
 });
 
 export default function AdminVideosPage() {
+  const { toast } = useToast();
   const { data: videos, setData: setVideos, loading, error, refresh } = useFirestoreCollection<Video>(COLLECTIONS.VIDEOS);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"ALL" | VideoCategory>("ALL");
@@ -85,7 +87,7 @@ export default function AdminVideosPage() {
       setEditingVideo(null);
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -98,7 +100,7 @@ export default function AdminVideosPage() {
       setVideos((prev) => prev.filter((v) => v.id !== id));
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -140,7 +142,7 @@ export default function AdminVideosPage() {
       setBulkMode(false);
     } catch (e) {
       console.error(e);
-      alert("대량 등록에 실패했습니다.");
+      toast("대량 등록에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -210,7 +212,7 @@ export default function AdminVideosPage() {
               <div className="relative aspect-video bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center overflow-hidden">
                 {thumbnail ? (
                   <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img src={thumbnail} alt={video.title} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-12 h-12 rounded-full bg-red-600/90 flex items-center justify-center">
@@ -312,7 +314,7 @@ export default function AdminVideosPage() {
                 </div>
                 {editingVideo.youtubeUrl && getYoutubeThumbnail(editingVideo.youtubeUrl) && (
                   <div className="mt-3 relative w-48 aspect-video rounded-lg overflow-hidden border border-gray-200">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img src={getYoutubeThumbnail(editingVideo.youtubeUrl)!} alt="썸네일" className="w-full h-full object-cover" />
                   </div>
                 )}

@@ -101,7 +101,7 @@ export default function ProfilePage() {
             <p className="text-xs font-medium text-gray-500 uppercase">계정 정보</p>
             <div className="flex items-center gap-3">
               {profile?.photoURL ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={profile.photoURL} alt="" className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">

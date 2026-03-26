@@ -7,6 +7,7 @@ import { toDirectImageUrl } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc, getSingletonDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 type PhotoCategory = "교육" | "워크톤" | "행사" | "기타";
 
@@ -39,6 +40,7 @@ const emptyPhoto = (): Omit<Photo, "id"> => ({
 });
 
 export default function AdminGalleryPage() {
+  const { toast } = useToast();
   const { data: photos, setData: setPhotos, loading, error, refresh } = useFirestoreCollection<Photo>(COLLECTIONS.GALLERY);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<PhotoCategory | "전체">("전체");
@@ -77,7 +79,7 @@ export default function AdminGalleryPage() {
       setEditingPhoto(null);
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -90,7 +92,7 @@ export default function AdminGalleryPage() {
       setPhotos((prev) => prev.filter((p) => p.id !== id));
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -117,7 +119,7 @@ export default function AdminGalleryPage() {
       setSelectedIds(new Set());
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -132,7 +134,7 @@ export default function AdminGalleryPage() {
       } catch { /* ignore */ }
     }
     if (!apiKey) {
-      alert("Google API 키를 입력하거나 설정 페이지에서 등록해 주세요.");
+      toast("Google API 키를 입력하거나 설정 페이지에서 등록해 주세요.", "info");
       return;
     }
     setDriveLoading(true);
@@ -143,7 +145,7 @@ export default function AdminGalleryPage() {
       if (!res.ok) throw new Error(`API 오류: ${res.status}`);
       const data = await res.json();
       const files: { id: string; name: string }[] = data.files || [];
-      if (files.length === 0) { alert("폴더에 이미지가 없습니다."); setDriveLoading(false); return; }
+      if (files.length === 0) { toast("폴더에 이미지가 없습니다.", "info"); setDriveLoading(false); return; }
       const today = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
       let success = 0;
       for (const file of files) {
@@ -165,7 +167,7 @@ export default function AdminGalleryPage() {
       setDriveResult({ success, failed: files.length - success });
     } catch (e) {
       console.error(e);
-      alert("Google Drive 연동에 실패했습니다. API 키와 폴더 ID를 확인해 주세요.");
+      toast("Google Drive 연동에 실패했습니다. API 키와 폴더 ID를 확인해 주세요.", "error");
     } finally {
       setDriveLoading(false);
     }
@@ -277,7 +279,7 @@ export default function AdminGalleryPage() {
             selectedIds.has(photo.id) ? "border-primary-400 ring-2 ring-primary-100" : "border-gray-100")}>
             <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
               {photo.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={toDirectImageUrl(photo.imageUrl)} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center"><ImageIcon size={32} className="text-gray-300" /></div>
@@ -336,7 +338,7 @@ export default function AdminGalleryPage() {
               </div>
               {editingPhoto.imageUrl && (
                 <div className="rounded-lg overflow-hidden border border-gray-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  { }
                   <img src={toDirectImageUrl(editingPhoto.imageUrl)} alt="미리보기" className="w-full h-40 object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 </div>
               )}

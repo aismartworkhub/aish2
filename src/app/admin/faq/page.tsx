@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 interface FAQItem {
   id: string;
@@ -15,6 +16,7 @@ interface FAQItem {
 }
 
 export default function AdminFAQPage() {
+  const { toast } = useToast();
   const { data: items, setData: setItems, loading, error, refresh } = useFirestoreCollection<FAQItem>(COLLECTIONS.FAQ);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -48,7 +50,7 @@ export default function AdminFAQPage() {
       setShowModal(false);
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -61,7 +63,7 @@ export default function AdminFAQPage() {
       setItems((prev) => prev.filter((item) => item.id !== id));
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 

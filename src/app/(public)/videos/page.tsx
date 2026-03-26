@@ -44,11 +44,13 @@ interface VideoItem {
 export default function VideosPage() {
   const [filter, setFilter] = useState("ALL");
   const [videos, setVideos] = useState<VideoItem[]>(FALLBACK_VIDEOS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCollection<VideoItem>(COLLECTIONS.VIDEOS)
       .then((data) => { if (data.length > 0) setVideos(data); })
-      .catch(console.error);
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = filter === "ALL" ? videos : videos.filter((v) => v.category === filter);
@@ -83,8 +85,14 @@ export default function VideosPage() {
           ))}
         </div>
 
+        {loading && (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filtered.map((video) => (
+          {!loading && filtered.map((video) => (
             <a
               key={video.id}
               href={video.youtubeUrl}
@@ -94,7 +102,7 @@ export default function VideosPage() {
             >
               <div className="aspect-video bg-gray-100 relative overflow-hidden">
                 {getYoutubeThumbnail(video) && (
-                  // eslint-disable-next-line @next/next/no-img-element
+                   
                   <img
                     src={getYoutubeThumbnail(video)}
                     alt={video.title}

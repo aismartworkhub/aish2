@@ -25,12 +25,12 @@ service cloud.firestore {
     match /users/{userId} {
       // 본인 프로필 읽기 허용, 관리자는 전체 읽기 가능
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      // 본인 프로필 생성/업데이트 허용 (단, role 필드 변경은 슈퍼관리자만)
+      // 본인 프로필 생성 시 role은 반드시 'user'만 허용 (권한 상승 방지)
       allow create: if isAuthenticated() && request.auth.uid == userId
-                    && request.resource.data.role in ['user', 'superadmin'];
+                    && request.resource.data.role == 'user';
       allow update: if isAuthenticated() && (
-        // 본인이 role 외 필드 수정
-        (request.auth.uid == userId && !('role' in request.resource.data) || request.resource.data.role == resource.data.role)
+        // 본인이 role 외 필드 수정 (role 필드는 기존 값 유지 강제)
+        (request.auth.uid == userId && request.resource.data.role == resource.data.role)
         // 슈퍼관리자는 모든 사용자의 모든 필드 수정 가능
         || isSuperAdmin()
       );
@@ -103,9 +103,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 사이트 설정 (공개 읽기 필요: 히어로, 배너 등)
+    // 사이트 설정 (공개 읽기: 히어로, 배너 등 / integrations는 관리자만)
     match /siteSettings/{docId} {
-      allow read: if true;
+      allow read: if docId != 'integrations' || isAdmin();
       allow write: if isAdmin();
     }
 

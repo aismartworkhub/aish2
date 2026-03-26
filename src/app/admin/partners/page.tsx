@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,7 @@ const EMPTY_PARTNER: Omit<Partner, "id"> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AdminPartnersPage() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"partners" | "applications">("partners");
   const [saving, setSaving] = useState(false);
 
@@ -150,7 +152,7 @@ export default function AdminPartnersPage() {
       setIsModalOpen(false);
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -163,7 +165,7 @@ export default function AdminPartnersPage() {
       setPartners((prev) => prev.filter((p) => p.id !== id));
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 
@@ -198,7 +200,7 @@ export default function AdminPartnersPage() {
       setApplications((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
     } catch (e) {
       console.error(e);
-      alert("상태 변경에 실패했습니다.");
+      toast("상태 변경에 실패했습니다.", "error");
     }
   };
 
@@ -210,7 +212,7 @@ export default function AdminPartnersPage() {
       if (selectedAppId === id) setSelectedAppId(null);
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 

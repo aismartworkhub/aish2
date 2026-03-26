@@ -7,10 +7,12 @@ import { BANNER_STYLE_LABELS, BANNER_POSITION_LABELS, TARGET_PAGE_OPTIONS } from
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { useToast } from "@/components/ui/Toast";
 
 const bannerSort = (a: QuickBannerDemo, b: QuickBannerDemo) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0);
 
 export default function AdminBannersPage() {
+  const { toast } = useToast();
   const { data: banners, setData: setBanners, loading, error, refresh } = useFirestoreCollection<QuickBannerDemo>(COLLECTIONS.BANNERS, bannerSort);
   const [showModal, setShowModal] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -63,7 +65,7 @@ export default function AdminBannersPage() {
       setShowModal(false);
     } catch (e) {
       console.error(e);
-      alert("저장에 실패했습니다.");
+      toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
     }
@@ -89,7 +91,7 @@ export default function AdminBannersPage() {
       setBanners((prev) => prev.filter((_, i) => i !== idx));
     } catch (e) {
       console.error(e);
-      alert("삭제에 실패했습니다.");
+      toast("삭제에 실패했습니다.", "error");
     }
   };
 

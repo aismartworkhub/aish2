@@ -1,28 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { ExternalLink, Search, Filter } from "lucide-react";
+import { ExternalLink, Search } from "lucide-react";
 import { DEMO_PROGRAMS } from "@/lib/demo-data";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
 import { CTA_URL, CTA_TEXT, PROGRAM_CATEGORY_LABELS, PROGRAM_STATUS_LABELS, PROGRAM_STATUS_COLORS } from "@/lib/constants";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function ProgramsPage() {
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
   const [programs, setPrograms] = useState(DEMO_PROGRAMS);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCollection<typeof DEMO_PROGRAMS[0]>(COLLECTIONS.PROGRAMS)
       .then((data) => { if (data.length > 0) setPrograms(data); })
-      .catch(console.error);
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const filtered = programs.filter((p) => {
+  const filtered = useMemo(() => programs.filter((p) => {
     if (filter !== "ALL" && p.category !== filter) return false;
-    if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (debouncedSearch && !p.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
     return true;
-  });
+  }), [programs, filter, debouncedSearch]);
 
   return (
     <div className="py-16">
@@ -66,9 +70,15 @@ export default function ProgramsPage() {
           </div>
         </div>
 
+        {loading && (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+          </div>
+        )}
+
         {/* Program Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((program) => (
+          {!loading && filtered.map((program) => (
             <div key={program.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
               <div className="h-40 bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
                 <span className="text-4xl">📚</span>
