@@ -5,8 +5,23 @@ import Link from "next/link";
 import { ExternalLink, Search } from "lucide-react";
 import { DEMO_PROGRAMS } from "@/lib/demo-data";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
-import { CTA_URL, CTA_TEXT, PROGRAM_CATEGORY_LABELS, PROGRAM_STATUS_LABELS, PROGRAM_STATUS_COLORS } from "@/lib/constants";
+import { CTA_TEXT, PROGRAM_CATEGORY_LABELS, PROGRAM_STATUS_LABELS, PROGRAM_STATUS_COLORS } from "@/lib/constants";
+import { isExternalHref } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
+
+function ProgramCtaButton({ href, label }: { href: string; label: string }) {
+  const className =
+    "mt-auto w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors";
+  if (isExternalHref(href)) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+        {label}
+        <ExternalLink size={16} />
+      </a>
+    );
+  }
+  return <Link href={href} className={className}>{label}</Link>;
+}
 
 export default function ProgramsPage() {
   const [filter, setFilter] = useState("ALL");
@@ -100,16 +115,11 @@ export default function ProgramsPage() {
                   <p>강사: {(program.instructors || []).join(", ")}</p>
                 </div>
 
-                {program.status !== "CLOSED" && (
-                  <Link
-                    href={CTA_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-auto w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
-                  >
-                    {CTA_TEXT}
-                    <ExternalLink size={16} />
-                  </Link>
+                {program.status !== "CLOSED" && program.ctaLink?.trim() && (
+                  <ProgramCtaButton
+                    href={program.ctaLink.trim()}
+                    label={program.ctaText?.trim() || CTA_TEXT}
+                  />
                 )}
               </div>
             </div>

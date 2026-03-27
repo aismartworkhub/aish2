@@ -21,6 +21,10 @@ export interface Program {
   endDate: string;
   instructors: string[];
   thumbnailUrl: string;
+  /** 카드 하단 CTA 버튼 문구 (비우면 공통 기본 문구 사용) */
+  ctaText?: string;
+  /** 카드 하단 CTA 링크 — 외부(https://) 또는 사이트 내 경로(/path). 비우면 버튼 미표시 */
+  ctaLink?: string;
 }
 
 export interface Instructor {

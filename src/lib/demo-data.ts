@@ -125,6 +125,8 @@ export const DEMO_PROGRAMS = [
    endDate: "2026-06-30",
    instructors: ["김상용"],
    thumbnailUrl: "/images/placeholder-program.jpg",
+   ctaText: "무료 과정 신청",
+   ctaLink: "/about",
  },
  {
    id: "prog-2",
@@ -138,6 +140,8 @@ export const DEMO_PROGRAMS = [
    endDate: "2026-06-15",
    instructors: ["김학태"],
    thumbnailUrl: "/images/placeholder-program.jpg",
+   ctaText: "유료 과정 안내",
+   ctaLink: "/community",
  },
  {
    id: "prog-3",
@@ -151,6 +155,8 @@ export const DEMO_PROGRAMS = [
    endDate: "2026-06-30",
    instructors: ["제갈정"],
    thumbnailUrl: "/images/placeholder-program.jpg",
+   ctaText: "오픈 알림 받기",
+   ctaLink: "/community",
  },
  {
    id: "prog-4",
@@ -164,6 +170,8 @@ export const DEMO_PROGRAMS = [
    endDate: "2026-12-31",
    instructors: ["김상용", "박준혁"],
    thumbnailUrl: "/images/placeholder-program.jpg",
+   ctaText: "과제 상세 보기",
+   ctaLink: "/about",
  },
  {
    id: "prog-5",

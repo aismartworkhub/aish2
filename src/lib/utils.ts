@@ -18,6 +18,11 @@ export function truncate(str: string, length: number): string {
   return str.slice(0, length) + "...";
 }
 
+/** http(s) 외부 URL이면 true (새 탭 / noopener 처리용) */
+export function isExternalHref(href: string): boolean {
+  return /^https?:\/\//i.test(href.trim());
+}
+
 /**
  * Google Drive 공유 링크를 직접 접근 가능한 이미지 URL로 변환한다.
  * 일반 URL은 그대로 반환한다.

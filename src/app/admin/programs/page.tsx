@@ -5,24 +5,15 @@ import { Plus, Search, Edit, Trash2, Filter, X, PlusCircle } from "lucide-react"
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { PROGRAM_CATEGORY_LABELS, PROGRAM_STATUS_LABELS } from "@/lib/constants";
+import { deleteField } from "firebase/firestore";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { useToast } from "@/components/ui/Toast";
+import type { Program as ProgramDoc } from "@/types/firestore";
+import { CTA_TEXT } from "@/lib/constants";
 
-interface Program {
-  id: string;
-  title: string;
-  category: string;
-  status: string;
-  cohort: string;
-  summary: string;
-  schedule: string;
-  startDate: string;
-  endDate: string;
-  instructors: string[];
-  thumbnailUrl?: string;
-}
+type Program = ProgramDoc & { id: string };
 
 interface ProgramFormData {
   title: string;
@@ -34,6 +25,8 @@ interface ProgramFormData {
   startDate: string;
   endDate: string;
   instructors: string;
+  ctaText: string;
+  ctaLink: string;
 }
 
 const emptyForm: ProgramFormData = {
@@ -46,6 +39,8 @@ const emptyForm: ProgramFormData = {
   startDate: "",
   endDate: "",
   instructors: "",
+  ctaText: CTA_TEXT,
+  ctaLink: "",
 };
 
 function formFromProgram(p: Program): ProgramFormData {
@@ -59,6 +54,8 @@ function formFromProgram(p: Program): ProgramFormData {
     startDate: p.startDate,
     endDate: p.endDate,
     instructors: p.instructors.join(", "),
+    ctaText: p.ctaText?.trim() || CTA_TEXT,
+    ctaLink: p.ctaLink?.trim() ?? "",
   };
 }
 
@@ -132,6 +129,8 @@ export default function AdminProgramsPage() {
     if (!finalCategory) { toast("카테고리를 입력해 주세요.", "info"); return; }
     setSaving(true);
     try {
+      const ctaLinkTrimmed = formData.ctaLink.trim();
+      const ctaTextTrimmed = formData.ctaText.trim();
       if (isCreating) {
         const newProgram: Omit<Program, "id"> = {
           title: formData.title,
@@ -144,11 +143,13 @@ export default function AdminProgramsPage() {
           endDate: formData.endDate,
           instructors: instructorsArray,
           thumbnailUrl: "/images/placeholder-program.jpg",
+          ...(ctaLinkTrimmed ? { ctaLink: ctaLinkTrimmed } : {}),
+          ...(ctaTextTrimmed ? { ctaText: ctaTextTrimmed } : {}),
         };
         const id = await createDoc(COLLECTIONS.PROGRAMS, newProgram);
         setPrograms((prev) => [{ id, ...newProgram }, ...prev]);
       } else if (editingProgram) {
-        const updated: Partial<Program> = {
+        const updated = {
           title: formData.title,
           category: finalCategory,
           status: formData.status,
@@ -158,9 +159,24 @@ export default function AdminProgramsPage() {
           startDate: formData.startDate,
           endDate: formData.endDate,
           instructors: instructorsArray,
+          ctaLink: ctaLinkTrimmed ? ctaLinkTrimmed : deleteField(),
+          ctaText: ctaTextTrimmed ? ctaTextTrimmed : deleteField(),
         };
         await upsertDoc(COLLECTIONS.PROGRAMS, editingProgram.id, updated);
-        setPrograms((prev) => prev.map((p) => p.id === editingProgram.id ? { ...p, ...updated } : p));
+        setPrograms((prev) => prev.map((p) => p.id === editingProgram.id ? {
+          ...editingProgram,
+          title: formData.title,
+          category: finalCategory,
+          status: formData.status,
+          cohort: formData.cohort,
+          summary: formData.summary,
+          schedule: formData.schedule,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          instructors: instructorsArray,
+          ctaLink: ctaLinkTrimmed || undefined,
+          ctaText: ctaTextTrimmed || undefined,
+        } : p));
       }
       closeModal();
     } catch (e) {
@@ -428,6 +444,21 @@ export default function AdminProgramsPage() {
                 <input type="text" value={formData.instructors} onChange={(e) => updateField("instructors", e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                   placeholder="예: 김상용, 박준혁" />
+              </div>
+              <div className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2 text-xs text-amber-900 mb-1">
+                공개 프로그램 페이지 카드의 버튼입니다. 링크를 비우면 버튼이 표시되지 않습니다.
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">CTA 버튼 문구</label>
+                <input type="text" value={formData.ctaText} onChange={(e) => updateField("ctaText", e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  placeholder={CTA_TEXT} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">CTA 링크 URL</label>
+                <input type="text" value={formData.ctaLink} onChange={(e) => updateField("ctaLink", e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  placeholder="https://… 또는 /community 등 사이트 내 경로" />
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
