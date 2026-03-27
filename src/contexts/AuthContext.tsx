@@ -91,18 +91,24 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     };
   }
 
-  // 신규 사용자 생성
+  // 신규 사용자 생성 (Firestore Rules에서 role='user'만 허용)
   const newProfile: Omit<UserProfile, "uid"> = {
     email: user.email ?? "",
     displayName: user.displayName ?? "",
     photoURL: user.photoURL ?? null,
-    role: isSuperAdmin ? "superadmin" : "user",
+    role: "user",
     isActive: true,
     createdAt: serverTimestamp(),
     lastLoginAt: serverTimestamp(),
   };
 
   await setDoc(ref, newProfile);
+
+  // 슈퍼관리자인 경우 생성 후 role 업데이트 (update 규칙에서 isSuperAdmin()으로 허용됨)
+  if (isSuperAdmin) {
+    await setDoc(ref, { role: "superadmin" }, { merge: true });
+    return { uid: user.uid, ...newProfile, role: "superadmin" as UserRole };
+  }
 
   return { uid: user.uid, ...newProfile };
 }

@@ -140,7 +140,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
+          &copy; 2026 {SITE_NAME}. All rights reserved.
         </p>
       </div>
     </div>
