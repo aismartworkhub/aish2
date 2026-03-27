@@ -53,7 +53,6 @@ export default function Header() {
         <div className="w-[90%] max-w-[1400px] mx-auto flex items-center justify-between">
           {/* 로고 */}
           <Link href="/" className="shrink-0 flex items-center gap-2">
-            { }
             <img
               src="/images/logo-aish-transparent.png"
               alt="AISH - AI Smart Work Hub"

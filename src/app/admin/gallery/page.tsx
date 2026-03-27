@@ -338,7 +338,6 @@ export default function AdminGalleryPage() {
               </div>
               {editingPhoto.imageUrl && (
                 <div className="rounded-lg overflow-hidden border border-gray-100">
-                  { }
                   <img src={toDirectImageUrl(editingPhoto.imageUrl)} alt="미리보기" className="w-full h-40 object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 </div>
               )}

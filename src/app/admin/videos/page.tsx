@@ -212,7 +212,6 @@ export default function AdminVideosPage() {
               <div className="relative aspect-video bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center overflow-hidden">
                 {thumbnail ? (
                   <>
-                    { }
                     <img src={thumbnail} alt={video.title} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-12 h-12 rounded-full bg-red-600/90 flex items-center justify-center">
@@ -314,7 +313,6 @@ export default function AdminVideosPage() {
                 </div>
                 {editingVideo.youtubeUrl && getYoutubeThumbnail(editingVideo.youtubeUrl) && (
                   <div className="mt-3 relative w-48 aspect-video rounded-lg overflow-hidden border border-gray-200">
-                    { }
                     <img src={getYoutubeThumbnail(editingVideo.youtubeUrl)!} alt="썸네일" className="w-full h-full object-cover" />
                   </div>
                 )}

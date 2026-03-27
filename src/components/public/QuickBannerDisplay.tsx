@@ -17,13 +17,17 @@ const STYLE_COLORS: Record<string, { bg: string; text: string; border: string }>
 export default function QuickBannerDisplay() {
   const currentPath = usePathname() || "/";
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const [banners, setBanners] = useState<QuickBannerDemo[]>(DEMO_QUICK_BANNERS);
+  const [banners, setBanners] = useState<QuickBannerDemo[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     getCollection<QuickBannerDemo>(COLLECTIONS.BANNERS)
-      .then((data) => { if (data.length > 0) setBanners(data); })
-      .catch(console.error);
+      .then((data) => setBanners(data.length > 0 ? data : DEMO_QUICK_BANNERS))
+      .catch(() => setBanners(DEMO_QUICK_BANNERS));
   }, []);
+
+  if (!mounted) return null;
 
   const now = new Date().toISOString().slice(0, 10);
   const activeBanners = banners.filter((b) => {

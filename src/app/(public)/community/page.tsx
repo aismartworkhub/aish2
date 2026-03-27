@@ -470,7 +470,6 @@ function CommunityContent() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {galleryList.map((img) => (
                 <div key={img.id} className="group relative rounded-xl overflow-hidden aspect-[4/3] cursor-pointer">
-                  { }
                   <img src={img.imageUrl} alt={img.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <div className="absolute bottom-0 left-0 w-full p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">

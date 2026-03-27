@@ -188,7 +188,6 @@ function AdminSettingsInner() {
                 <div key={index} className="p-4 rounded-xl border border-gray-200 hover:border-primary-200 transition-colors">
                   <div className="flex items-center gap-4 mb-4">
                     <GripVertical size={18} className="text-gray-300 cursor-grab" />
-                    { }
                     <img src={slide.imageUrl} alt={`슬라이드 ${index + 1}`} className="w-24 h-14 rounded-lg object-cover shrink-0" />
                     <div className="flex-1">
                       <p className="font-medium text-gray-900 text-sm">슬라이드 {index + 1}</p>
@@ -224,7 +223,6 @@ function AdminSettingsInner() {
             <div className="space-y-3">
               {Object.entries(eduImages).map(([label, url]) => (
                 <div key={label} className="flex items-center gap-4 p-3 rounded-lg border border-gray-200">
-                  { }
                   <img src={url} alt={label} className="w-16 h-10 rounded object-cover shrink-0" />
                   <span className="text-sm font-medium text-gray-700 w-24 shrink-0">{label}</span>
                   <input type="text" value={url} onChange={(e) => setEduImages((prev) => ({ ...prev, [label]: e.target.value }))}
@@ -243,7 +241,6 @@ function AdminSettingsInner() {
             <div className="space-y-3">
               {Object.entries(specImages).map(([label, url]) => (
                 <div key={label} className="flex items-center gap-4 p-3 rounded-lg border border-gray-200">
-                  { }
                   <img src={url} alt={label} className="w-16 h-10 rounded object-cover shrink-0" />
                   <span className="text-sm font-medium text-gray-700 w-24 shrink-0">{label}</span>
                   <input type="text" value={url} onChange={(e) => setSpecImages((prev) => ({ ...prev, [label]: e.target.value }))}

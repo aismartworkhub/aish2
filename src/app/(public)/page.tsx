@@ -189,7 +189,6 @@ export default function HomePage() {
     <>
       {/* ── S1: 히어로 (EDU-TECH 스타일) ── */}
       <section className="relative h-[85vh] min-h-[600px] overflow-hidden">
-        { }
         <img
           src="/images/defaults/hero-main.jpg"
           alt="AISH Hero"
@@ -283,7 +282,6 @@ export default function HomePage() {
                 cat.span === "big" ? "col-span-2 row-span-2" : ""
               }`}
             >
-              { }
               <img
                 src={cat.image}
                 alt={cat.title}
@@ -318,7 +316,6 @@ export default function HomePage() {
               className="flex-1 rounded overflow-hidden bg-white border border-gray-200/80 shadow-[0_10px_30px_rgba(0,0,0,0.05)]"
             >
               <div className="h-[220px] overflow-hidden">
-                { }
                 <img
                   src={card.image}
                   alt={card.title}
@@ -359,7 +356,6 @@ export default function HomePage() {
       <section className="flex flex-col md:flex-row min-h-[550px]">
         {/* 쇼룸 패널 */}
         <div className="flex-1 relative flex items-center px-[6%] md:px-[8%] py-16 text-white overflow-hidden">
-          { }
           <img
             src={workathon.posterUrl || "/images/defaults/workathon-bg.jpg"}
             alt="Smart Workathon"
