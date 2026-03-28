@@ -40,11 +40,44 @@ export function toDirectImageUrl(url: string): string {
   if (openMatch) return `https://lh3.googleusercontent.com/d/${openMatch[1]}`;
 
   // drive.google.com/uc?id=FILE_ID 또는 export=view&id=FILE_ID
-  const ucMatch = trimmed.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/);
+  const ucMatch = trimmed.match(/drive\.google\.com\/uc\?[^#]*id=([a-zA-Z0-9_-]+)/);
   if (ucMatch) return `https://lh3.googleusercontent.com/d/${ucMatch[1]}`;
+
+  // /drive/u/0/file/d/FILE_ID/ 등
+  const driveFileMatch = trimmed.match(/drive\.google\.com\/(?:drive\/[^/]+\/)?file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveFileMatch) return `https://lh3.googleusercontent.com/d/${driveFileMatch[1]}`;
 
   return trimmed;
 }
+
+/** 공유 링크·uc·usercontent에서 Google Drive 파일 ID 추출 (없으면 null) */
+export function extractGoogleDriveFileId(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  const mFile = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (mFile) return mFile[1];
+
+  const mOpen = trimmed.match(/drive\.google\.com\/open\?[^#]*id=([a-zA-Z0-9_-]+)/);
+  if (mOpen) return mOpen[1];
+
+  const mUc = trimmed.match(/drive\.google\.com\/uc\?[^#]*id=([a-zA-Z0-9_-]+)/);
+  if (mUc) return mUc[1];
+
+  const mThumb = trimmed.match(/drive\.google\.com\/thumbnail\?[^#]*id=([a-zA-Z0-9_-]+)/);
+  if (mThumb) return mThumb[1];
+
+  const mLh = trimmed.match(/googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
+  if (mLh) return mLh[1];
+
+  return null;
+}
+
+/** 브라우저에서 미리보기가 잘 되는 Drive 썸네일 엔드포인트 (공개 링크일 때) */
+export function googleDriveThumbnailUrl(fileId: string, width = 1200): string {
+  return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${width}`;
+}
+
 
 /**
  * Firestore Timestamp 또는 문자열을 안전한 날짜 문자열로 변환한다.

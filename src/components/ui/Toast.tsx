@@ -10,10 +10,11 @@ interface ToastItem {
   id: number;
   message: string;
   type: ToastType;
+  durationMs?: number;
 }
 
 interface ToastContextValue {
-  toast: (message: string, type?: ToastType) => void;
+  toast: (message: string, type?: ToastType, durationMs?: number) => void;
 }
 
 const ToastContext = createContext<ToastContextValue>({ toast: () => {} });
@@ -41,14 +42,15 @@ const ICON_STYLE_MAP = {
 } as const;
 
 let toastId = 0;
-const TOAST_DURATION = 3000;
+const TOAST_DURATION = 3200;
+const TOAST_DURATION_LONG = 5200;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const toast = useCallback((message: string, type: ToastType = "success") => {
+  const toast = useCallback((message: string, type: ToastType = "success", durationMs?: number) => {
     const id = ++toastId;
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type, durationMs }]);
   }, []);
 
   const dismiss = useCallback((id: number) => {
@@ -71,9 +73,12 @@ function ToastMessage({ item, onDismiss }: { item: ToastItem; onDismiss: (id: nu
   const Icon = ICON_MAP[item.type];
 
   useEffect(() => {
-    const timer = setTimeout(() => onDismiss(item.id), TOAST_DURATION);
+    const ms =
+      item.durationMs ??
+      (item.message.includes("\n") ? TOAST_DURATION_LONG : TOAST_DURATION);
+    const timer = setTimeout(() => onDismiss(item.id), ms);
     return () => clearTimeout(timer);
-  }, [item.id, onDismiss]);
+  }, [item.id, item.durationMs, item.message, onDismiss]);
 
   return (
     <div
@@ -84,7 +89,7 @@ function ToastMessage({ item, onDismiss }: { item: ToastItem; onDismiss: (id: nu
       role="alert"
     >
       <Icon size={18} className={ICON_STYLE_MAP[item.type]} />
-      <p className="text-sm font-medium flex-1">{item.message}</p>
+      <p className="text-sm font-medium flex-1 whitespace-pre-line">{item.message}</p>
       <button
         onClick={() => onDismiss(item.id)}
         className="p-0.5 rounded hover:bg-black/5 transition-colors"

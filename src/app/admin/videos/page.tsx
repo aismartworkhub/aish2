@@ -8,6 +8,7 @@ import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { useToast } from "@/components/ui/Toast";
+import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
 
 type VideoCategory = "LECTURE" | "WORKATHON" | "INTERVIEW" | "PROMO";
 
@@ -21,25 +22,6 @@ interface Video {
   featured: boolean;
   youtubeUrl: string;
   description: string;
-}
-
-function extractYoutubeId(url: string): string | null {
-  const patterns = [
-    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-    /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
-    /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
-
-function getYoutubeThumbnail(url: string): string | null {
-  const id = extractYoutubeId(url);
-  return id ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : null;
 }
 
 const emptyVideo = (): Omit<Video, "id"> => ({
@@ -205,25 +187,23 @@ export default function AdminVideosPage() {
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((video) => {
-          const thumbnail = getYoutubeThumbnail(video.youtubeUrl);
-          return (
+        {filtered.map((video) => (
             <div key={video.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
               <div className="relative aspect-video bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center overflow-hidden">
-                {thumbnail ? (
-                  <>
-                    <img src={thumbnail} alt={video.title} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-12 h-12 rounded-full bg-red-600/90 flex items-center justify-center">
-                        <Play size={20} className="text-white ml-0.5" fill="white" />
-                      </div>
+                <>
+                  <YouTubeThumbnailImage
+                    videoUrl={video.youtubeUrl}
+                    alt={video.title}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-12 h-12 rounded-full bg-red-600/90 flex items-center justify-center">
+                      <Play size={20} className="text-white ml-0.5" fill="white" />
                     </div>
-                  </>
-                ) : (
-                  <Play size={32} className="text-white/50" />
-                )}
-                <span className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/70 text-white text-xs font-mono">{video.duration}</span>
-                {video.featured && <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-yellow-500 text-white text-xs font-medium">추천</span>}
+                  </div>
+                </>
+                <span className="absolute bottom-2 right-2 z-10 px-2 py-0.5 rounded bg-black/70 text-white text-xs font-mono">{video.duration}</span>
+                {video.featured && <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded bg-yellow-500 text-white text-xs font-medium">추천</span>}
               </div>
               <div className="p-4">
                 <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full",
@@ -254,8 +234,7 @@ export default function AdminVideosPage() {
                 </div>
               </div>
             </div>
-          );
-        })}
+        ))}
       </div>
 
       {filtered.length === 0 && !loading && (
@@ -300,9 +279,9 @@ export default function AdminVideosPage() {
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1.5 block">YouTube URL</label>
                 <div className="flex gap-3">
-                  <input type="url" value={editingVideo.youtubeUrl}
+                  <input type="text" inputMode="url" value={editingVideo.youtubeUrl}
                     onChange={(e) => setEditingVideo({ ...editingVideo, youtubeUrl: e.target.value })}
-                    placeholder="https://youtu.be/... 또는 https://youtube.com/watch?v=..."
+                    placeholder="https://youtu.be/... 또는 watch?v=... (뒤에 다른 파라미터 있어도 됨)"
                     className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
                   {editingVideo.youtubeUrl && (
                     <a href={editingVideo.youtubeUrl} target="_blank" rel="noopener noreferrer"
@@ -311,9 +290,13 @@ export default function AdminVideosPage() {
                     </a>
                   )}
                 </div>
-                {editingVideo.youtubeUrl && getYoutubeThumbnail(editingVideo.youtubeUrl) && (
-                  <div className="mt-3 relative w-48 aspect-video rounded-lg overflow-hidden border border-gray-200">
-                    <img src={getYoutubeThumbnail(editingVideo.youtubeUrl)!} alt="썸네일" className="w-full h-full object-cover" />
+                {editingVideo.youtubeUrl.trim() && (
+                  <div className="mt-3 relative w-48 aspect-video rounded-lg overflow-hidden border border-gray-200 bg-gray-900">
+                    <YouTubeThumbnailImage
+                      videoUrl={editingVideo.youtubeUrl}
+                      alt="썸네일 미리보기"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 )}
               </div>

@@ -1,0 +1,88 @@
+"use client";
+
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+export type AdminSettingsHintTab = "hero" | "stats" | "cta" | "banner" | "integrations";
+
+const COPY: Record<
+  AdminSettingsHintTab,
+  { title: string; lines: string[]; publicPath: string; publicLabel: string }
+> = {
+  hero: {
+    title: "공개 페이지에 어떻게 반영되나요?",
+    lines: [
+      "활성화된 히어로 슬라이드 → 메인(/) 최상단 히어로 영역",
+      "Education / Specialty 이미지 → 메인 페이지 해당 섹션 카드 배경",
+    ],
+    publicPath: "/",
+    publicLabel: "메인 페이지 열기",
+  },
+  stats: {
+    title: "공개 페이지에 어떻게 반영되나요?",
+    lines: ["실적 수치 → 메인(/) 숫자 실적(S5) 그리드"],
+    publicPath: "/",
+    publicLabel: "메인 페이지 열기",
+  },
+  cta: {
+    title: "공개 페이지에 어떻게 반영되나요?",
+    lines: [
+      "버튼 문구·URL → 상단 헤더 CTA, 모바일 플로팅 버튼(옵션), 메인 히어로·하단 CTA",
+      "연결 URL은 https://… 또는 사이트 내 경로(/programs 등) 형식을 권장합니다.",
+    ],
+    publicPath: "/",
+    publicLabel: "메인에서 확인",
+  },
+  banner: {
+    title: "공개 페이지에 어떻게 반영되나요?",
+    lines: ["D-Day 배너 → 메인(/) 상단(퀵배너 아래) 얇은 안내 바"],
+    publicPath: "/",
+    publicLabel: "메인에서 확인",
+  },
+  integrations: {
+    title: "보안 안내",
+    lines: [
+      "이 탭의 값은 Firestore 규칙상 일반 방문자가 읽을 수 없습니다.",
+      "공개 사이트에는 절대 노출되지 않도록 유지됩니다.",
+    ],
+    publicPath: "/",
+    publicLabel: "공개 홈",
+  },
+};
+
+export default function AdminSettingsPublicHint({ tab }: { tab: AdminSettingsHintTab }) {
+  const c = COPY[tab];
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-4 mb-6 text-sm",
+        tab === "integrations"
+          ? "bg-amber-50/80 border-amber-200 text-amber-900"
+          : "bg-blue-50/80 border-blue-200 text-blue-900"
+      )}
+    >
+      <p className="font-semibold mb-2">{c.title}</p>
+      <ul className="list-disc list-inside space-y-1 opacity-95">
+        {c.lines.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <a
+          href={c.publicPath}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-primary-700 font-medium hover:underline"
+        >
+          {c.publicLabel}
+          <ExternalLink size={14} />
+        </a>
+        <span className="text-gray-400">|</span>
+        <Link href="/admin" className="text-gray-600 hover:text-primary-600 transition-colors">
+          대시보드로
+        </Link>
+      </div>
+    </div>
+  );
+}

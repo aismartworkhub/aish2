@@ -10,6 +10,12 @@ import {
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
 import { useToast } from "@/components/ui/Toast";
+import AdminSettingsPublicHint from "@/components/admin/AdminSettingsPublicHint";
+import {
+  ADMIN_SETTINGS_SAVED_PUBLIC_HINT,
+  isValidNonEmptyImageSource,
+  isValidOptionalHttpOrPath,
+} from "@/lib/admin-validation";
 
 type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations";
 
@@ -114,7 +120,47 @@ function AdminSettingsInner() {
     }).catch(console.error);
   }, []);
 
+  const validateBeforeSave = (): string | null => {
+    if (activeTab === "hero") {
+      for (let i = 0; i < heroSlides.length; i++) {
+        const s = heroSlides[i];
+        if (!isValidNonEmptyImageSource(s.imageUrl)) {
+          return `슬라이드 ${i + 1}: 이미지 URL을 입력하세요. (/로 시작하는 경로 또는 https:// URL)`;
+        }
+        if (!isValidOptionalHttpOrPath(s.ctaLink)) {
+          return `슬라이드 ${i + 1}: CTA 링크는 https:// 또는 / 로 시작해야 합니다. (비우면 사이트 공통 CTA URL 사용)`;
+        }
+      }
+      for (const url of Object.values(eduImages)) {
+        if (url.trim() && !isValidNonEmptyImageSource(url)) {
+          return "Education 이미지 URL 형식을 확인하세요.";
+        }
+      }
+      for (const url of Object.values(specImages)) {
+        if (url.trim() && !isValidNonEmptyImageSource(url)) {
+          return "Specialty 이미지 URL 형식을 확인하세요.";
+        }
+      }
+    }
+    if (activeTab === "cta") {
+      if (!isValidOptionalHttpOrPath(cta.buttonUrl)) {
+        return "연결 URL은 https:// 또는 / 로 시작하는 경로여야 합니다. (비우면 기본 교육과정 URL이 사용됩니다.)";
+      }
+    }
+    if (activeTab === "banner") {
+      if (banner.link.trim() && !isValidOptionalHttpOrPath(banner.link)) {
+        return "배너 연결 URL 형식을 확인하세요. (https:// 또는 / 경로)";
+      }
+    }
+    return null;
+  };
+
   const showSave = async () => {
+    const err = validateBeforeSave();
+    if (err) {
+      toast(err, "error");
+      return;
+    }
     setSaving(true);
     try {
       if (activeTab === "hero") {
@@ -135,7 +181,7 @@ function AdminSettingsInner() {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "integrations", { googleApi: safeGoogleApi, emailConfig, driveConfig, calendarConfig });
       }
       setSaveMessage("저장되었습니다");
-      toast("저장되었습니다", "success");
+      toast(`저장되었습니다.\n${ADMIN_SETTINGS_SAVED_PUBLIC_HINT}`, "success");
       setTimeout(() => setSaveMessage(""), 2000);
     } catch {
       toast("저장에 실패했습니다.", "error");
@@ -154,7 +200,10 @@ function AdminSettingsInner() {
     setStats((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
   const addStat = () => setStats((prev) => [...prev, { label: "", value: 0, unit: "", icon: "Users" }]);
-  const deleteStat = (index: number) => setStats((prev) => prev.filter((_, i) => i !== index));
+  const deleteStat = (index: number) => {
+    if (!confirm("이 실적 항목을 삭제하시겠습니까?")) return;
+    setStats((prev) => prev.filter((_, i) => i !== index));
+  };
 
   return (
     <div>
@@ -172,6 +221,8 @@ function AdminSettingsInner() {
           </button>
         ))}
       </div>
+
+      <AdminSettingsPublicHint tab={activeTab} />
 
       {/* 히어로 */}
       {activeTab === "hero" && (
@@ -295,7 +346,8 @@ function AdminSettingsInner() {
               <input type="text" value={cta.buttonText} onChange={(e) => setCta({ ...cta, buttonText: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" /></div>
             <div><label className="text-sm font-medium text-gray-700 mb-2 block">연결 URL</label>
-              <input type="url" value={cta.buttonUrl} onChange={(e) => setCta({ ...cta, buttonUrl: e.target.value })}
+              <input type="text" inputMode="url" placeholder="https://… 또는 /programs"
+                value={cta.buttonUrl} onChange={(e) => setCta({ ...cta, buttonUrl: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" /></div>
             <div className="flex items-center gap-3">
               <label className="relative inline-flex items-center cursor-pointer">
@@ -331,7 +383,8 @@ function AdminSettingsInner() {
               <input type="date" value={banner.dDayDate} onChange={(e) => setBanner({ ...banner, dDayDate: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" /></div>
             <div><label className="text-sm font-medium text-gray-700 mb-2 block">연결 URL</label>
-              <input type="url" value={banner.link} onChange={(e) => setBanner({ ...banner, link: e.target.value })}
+              <input type="text" inputMode="url" placeholder="https://… 또는 /workathon"
+                value={banner.link} onChange={(e) => setBanner({ ...banner, link: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" /></div>
           </div>
           <div className="flex items-center gap-3 mt-6">

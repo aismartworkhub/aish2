@@ -4,26 +4,7 @@ import { useState, useEffect } from "react";
 import { Play } from "lucide-react";
 import { VIDEO_CATEGORY_LABELS } from "@/lib/constants";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
-
-function extractYouTubeId(url: string): string | null {
-  const patterns = [
-    /[?&]v=([^&#]+)/,
-    /youtu\.be\/([^?&#]+)/,
-    /youtube\.com\/embed\/([^?&#]+)/,
-    /youtube\.com\/shorts\/([^?&#]+)/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
-
-function getYoutubeThumbnail(video: VideoItem): string {
-  if (video.thumbnailUrl) return video.thumbnailUrl;
-  const id = extractYouTubeId(video.youtubeUrl);
-  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
-}
+import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
 
 const FALLBACK_VIDEOS: VideoItem[] = [
   { id: "v1", title: "AI 기초 정규과정 OT", category: "LECTURE", youtubeUrl: "", publishedAt: "2026-03-01" },
@@ -39,6 +20,8 @@ interface VideoItem {
   youtubeUrl: string;
   thumbnailUrl?: string;
   publishedAt: string;
+  /** 관리자 영상 목록의 날짜 필드와 호환 */
+  date?: string;
 }
 
 export default function VideosPage() {
@@ -48,7 +31,17 @@ export default function VideosPage() {
 
   useEffect(() => {
     getCollection<VideoItem>(COLLECTIONS.VIDEOS)
-      .then((data) => { if (data.length > 0) setVideos(data); })
+      .then((data) => {
+        if (data.length === 0) return;
+        const withUrl = data.filter((v) => v.youtubeUrl?.trim());
+        const list = withUrl.length > 0 ? withUrl : data;
+        const sorted = [...list].sort((a, b) => {
+          const da = a.publishedAt || a.date || "";
+          const db = b.publishedAt || b.date || "";
+          return db.localeCompare(da);
+        });
+        setVideos(sorted);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -101,15 +94,12 @@ export default function VideosPage() {
               className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
             >
               <div className="aspect-video bg-gray-100 relative overflow-hidden">
-                {getYoutubeThumbnail(video) && (
-                   
-                  <img
-                    src={getYoutubeThumbnail(video)}
-                    alt={video.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.currentTarget.style.display = "none"; }}
-                  />
-                )}
+                <YouTubeThumbnailImage
+                  videoUrl={video.youtubeUrl}
+                  alt={video.title}
+                  preferredThumbnailUrl={video.thumbnailUrl}
+                  className="w-full h-full object-cover"
+                />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
                   <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Play className="text-primary-600 ml-1" size={28} />
@@ -123,7 +113,7 @@ export default function VideosPage() {
                 <h3 className="font-semibold text-gray-900 mt-2 group-hover:text-primary-600 transition-colors">
                   {video.title}
                 </h3>
-                <p className="text-xs text-gray-400 mt-1">{video.publishedAt}</p>
+                <p className="text-xs text-gray-400 mt-1">{video.publishedAt || video.date}</p>
               </div>
             </a>
           ))}

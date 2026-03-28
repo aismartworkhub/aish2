@@ -5,15 +5,21 @@ import Link from "next/link";
 import { Calendar, MapPin, Users, Clock, ArrowRight } from "lucide-react";
 import { DEMO_WORKATHON } from "@/lib/demo-data";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
-import { CTA_URL } from "@/lib/constants";
+import { useSiteCta } from "@/hooks/useSiteCta";
+import { isExternalHref } from "@/lib/utils";
 
 export default function WorkathonPage() {
   const [w, setW] = useState(DEMO_WORKATHON);
+  const { buttonUrl, buttonText } = useSiteCta();
 
   useEffect(() => {
-    getCollection<typeof DEMO_WORKATHON>(COLLECTIONS.EVENTS)
-      .then((data) => { if (data.length > 0) setW(data[0]); })
-      .catch(console.error);
+    getCollection<typeof DEMO_WORKATHON & { id?: string; eventDate?: string }>(COLLECTIONS.EVENTS)
+      .then((data) => {
+        if (data.length === 0) return;
+        const sorted = [...data].sort((a, b) => (b.eventDate || "").localeCompare(a.eventDate || ""));
+        setW(sorted[0]);
+      })
+      .catch(() => {});
   }, []);
 
   const progress = Math.round((w.currentParticipantCount / w.maxParticipants) * 100);
@@ -89,11 +95,12 @@ export default function WorkathonPage() {
         {/* CTA */}
         <div className="text-center">
           <Link
-            href={CTA_URL}
-            target="_blank"
+            href={buttonUrl}
+            target={isExternalHref(buttonUrl) ? "_blank" : undefined}
+            rel={isExternalHref(buttonUrl) ? "noopener noreferrer" : undefined}
             className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-600 to-purple-600 text-white rounded-xl font-semibold text-lg hover:shadow-lg transition-shadow"
           >
-            참가 신청하기 <ArrowRight size={20} />
+            {buttonText} <ArrowRight size={20} />
           </Link>
         </div>
       </div>

@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowUp } from "lucide-react";
-import { CTA_URL, CTA_TEXT } from "@/lib/constants";
+import { useSiteCta } from "@/hooks/useSiteCta";
 
 export default function FloatingCta() {
+ const { buttonUrl, buttonText, floatingEnabled } = useSiteCta();
  const [isVisible, setIsVisible] = useState(false);
 
  useEffect(() => {
@@ -28,14 +29,16 @@ export default function FloatingCta() {
        </button>
      )}
 
-     <Link
-       href={CTA_URL}
-       target="_blank"
-       rel="noopener noreferrer"
-       className="md:hidden flex items-center gap-2 px-6 py-3.5 rounded-full bg-primary-600 text-white text-sm font-semibold shadow-2xl shadow-primary-600/30 hover:bg-primary-700 transition-all"
-     >
-       {CTA_TEXT}
-     </Link>
+     {floatingEnabled && (
+       <Link
+         href={buttonUrl}
+         target="_blank"
+         rel="noopener noreferrer"
+         className="md:hidden flex items-center gap-2 px-6 py-3.5 rounded-full bg-primary-600 text-white text-sm font-semibold shadow-2xl shadow-primary-600/30 hover:bg-primary-700 transition-all"
+       >
+         {buttonText}
+       </Link>
+     )}
    </div>
  );
 }

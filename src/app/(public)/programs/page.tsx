@@ -38,6 +38,7 @@ export default function ProgramsPage() {
   }, []);
 
   const filtered = useMemo(() => programs.filter((p) => {
+    if (p.status === "CLOSED") return false;
     if (filter !== "ALL" && p.category !== filter) return false;
     if (debouncedSearch && !p.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
     return true;

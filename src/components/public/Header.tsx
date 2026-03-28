@@ -5,8 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronRight, Search, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS, CTA_URL, CTA_TEXT } from "@/lib/constants";
+import { NAV_ITEMS } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSiteCta } from "@/hooks/useSiteCta";
+import { isExternalHref } from "@/lib/utils";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -16,6 +18,7 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
   const { user, isProfileComplete, signOut } = useAuth();
+  const { buttonUrl, buttonText } = useSiteCta();
 
   const handleGoogleLogin = async () => {
     try {
@@ -81,12 +84,12 @@ export default function Header() {
           {/* 우측 CTA + 로그인 + 햄버거 */}
           <div className="flex items-center gap-3">
             <a
-              href={CTA_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={buttonUrl}
+              target={isExternalHref(buttonUrl) ? "_blank" : undefined}
+              rel={isExternalHref(buttonUrl) ? "noopener noreferrer" : undefined}
               className="hidden md:inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white text-sm font-medium rounded hover:bg-primary-600 transition-colors"
             >
-              교육과정
+              {buttonText}
               <Search size={16} />
             </a>
 
@@ -209,13 +212,13 @@ export default function Header() {
                   </button>
                 )}
                 <a
-                  href={CTA_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={buttonUrl}
+                  target={isExternalHref(buttonUrl) ? "_blank" : undefined}
+                  rel={isExternalHref(buttonUrl) ? "noopener noreferrer" : undefined}
                   className="block w-full py-3.5 rounded-lg bg-primary-500 text-white text-center text-base font-semibold hover:bg-primary-600 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  {CTA_TEXT}
+                  {buttonText}
                 </a>
               </div>
             </nav>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ImageIcon, Plus, Trash2, Edit, X, Save, Search, FolderOpen, ExternalLink, Grid, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toDirectImageUrl } from "@/lib/utils";
+import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc, getSingletonDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
@@ -279,8 +279,12 @@ export default function AdminGalleryPage() {
             selectedIds.has(photo.id) ? "border-primary-400 ring-2 ring-primary-100" : "border-gray-100")}>
             <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
               {photo.imageUrl ? (
-                 
-                <img src={toDirectImageUrl(photo.imageUrl)} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
+                <DriveOrExternalImage
+                  src={photo.imageUrl}
+                  alt={photo.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  quiet
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center"><ImageIcon size={32} className="text-gray-300" /></div>
               )}
@@ -326,19 +330,25 @@ export default function AdminGalleryPage() {
             <div className="p-6 space-y-4">
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1.5 block">이미지 URL</label>
-                <input type="url" value={editingPhoto.imageUrl} onChange={(e) => setEditingPhoto({ ...editingPhoto, imageUrl: e.target.value })}
-                  placeholder="https://example.com/image.jpg"
+                <input type="text" inputMode="url" value={editingPhoto.imageUrl} onChange={(e) => setEditingPhoto({ ...editingPhoto, imageUrl: e.target.value })}
+                  placeholder="https://… 또는 Drive 공유 링크"
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
               </div>
               <div>
                 <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 bg-gray-50">
                   <p className="text-xs text-gray-500">이미지 URL을 위 필드에 입력하세요.</p>
-                  <p className="text-xs text-gray-400 mt-1">Google Drive: 파일 공유 → &quot;링크가 있는 모든 사용자&quot; 설정 후 ID를 복사하여<br/>https://drive.google.com/uc?id=파일ID 형식으로 입력</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Google Drive: &quot;링크가 있는 모든 사용자&quot; 공개 후, 파일 공유 링크 전체를 붙여넣어도 됩니다. 미리보기가 안 되면 공개 범위를 확인하세요.
+                  </p>
                 </div>
               </div>
-              {editingPhoto.imageUrl && (
-                <div className="rounded-lg overflow-hidden border border-gray-100">
-                  <img src={toDirectImageUrl(editingPhoto.imageUrl)} alt="미리보기" className="w-full h-40 object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              {editingPhoto.imageUrl.trim() && (
+                <div className="rounded-lg overflow-hidden border border-gray-100 min-h-[160px]">
+                  <DriveOrExternalImage
+                    src={editingPhoto.imageUrl}
+                    alt="미리보기"
+                    className="w-full h-40 object-cover"
+                  />
                 </div>
               )}
               <div>

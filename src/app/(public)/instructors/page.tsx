@@ -14,7 +14,17 @@ export default function InstructorsPage() {
 
   useEffect(() => {
     getCollection<InstructorItem>(COLLECTIONS.INSTRUCTORS)
-      .then((data) => { if (data.length > 0) setInstructors(data); })
+      .then((data) => {
+        if (data.length === 0) return;
+        const active = data
+          .filter((i) => (i as InstructorItem & { isActive?: boolean }).isActive !== false)
+          .sort(
+            (a, b) =>
+              ((a as InstructorItem & { displayOrder?: number }).displayOrder ?? 999) -
+              ((b as InstructorItem & { displayOrder?: number }).displayOrder ?? 999)
+          );
+        if (active.length > 0) setInstructors(active);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

@@ -1,28 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight, Search, SlidersHorizontal, ChevronRight,
   Users, GraduationCap, UserCheck, Building, Star, Play,
   BookOpen, Trophy, Bell, FolderOpen, Award, HelpCircle, Handshake, Images,
 } from "lucide-react";
-import { CTA_URL, CTA_TEXT, PROGRAM_CATEGORY_LABELS } from "@/lib/constants";
+import { PROGRAM_CATEGORY_LABELS } from "@/lib/constants";
 import { DEMO_STATS, DEMO_PROGRAMS, DEMO_REVIEWS, DEMO_WORKATHON } from "@/lib/demo-data";
 import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
-import { calculateDDay, toDateString } from "@/lib/utils";
+import {
+  loadSiteCta,
+  pickActiveHeroSlides,
+  resolveHeroCtaLink,
+  resolveHeroCtaText,
+  DEFAULT_SITE_CTA,
+  type HeroSlidePublic,
+  type SiteBannerConfig,
+} from "@/lib/site-settings-public";
+import { calculateDDay, cn, isExternalHref, toDateString } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
-
-function extractYoutubeId(url: string): string | null {
-  const patterns = [
-    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
-    /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
-    /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
-    /(?:youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
-  ];
-  for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
-  return null;
-}
+import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
 
 const STAT_ICONS: Record<string, React.ElementType> = {
   Users, GraduationCap, UserCheck, Building,
@@ -110,15 +109,70 @@ export default function HomePage() {
   const [workathon, setWorkathon] = useState<typeof DEMO_WORKATHON & { posterUrl?: string }>(DEMO_WORKATHON);
   const [notices, setNotices] = useState(RECENT_NOTICES);
   const [featuredVideos, setFeaturedVideos] = useState<{ id: string; title: string; youtubeUrl: string; category?: string }[]>([]);
+  const [heroSlides, setHeroSlides] = useState<HeroSlidePublic[]>(() => pickActiveHeroSlides(undefined));
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [eduImages, setEduImages] = useState<Record<string, string>>({});
+  const [specImages, setSpecImages] = useState<Record<string, string>>({});
+  const [siteBanner, setSiteBanner] = useState<SiteBannerConfig | null>(null);
+  const [ctaCfg, setCtaCfg] = useState(DEFAULT_SITE_CTA);
 
   const dDay = calculateDDay(workathon.eventDate);
   const revealRefs = useRef<HTMLElement[]>([]);
+
+  const educationCategoriesResolved = useMemo(
+    () =>
+      EDUCATION_CATEGORIES.map((cat) => ({
+        ...cat,
+        image: eduImages[cat.title] || cat.image,
+      })),
+    [eduImages]
+  );
+
+  const specialtyCardsResolved = useMemo(
+    () =>
+      SPECIALTY_CARDS.map((card) => ({
+        ...card,
+        image: specImages[card.title] || card.image,
+      })),
+    [specImages]
+  );
+
+  const currentHero = heroSlides[heroIndex] ?? heroSlides[0];
+
+  useEffect(() => {
+    setHeroIndex(0);
+  }, [heroSlides]);
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) return;
+    const id = window.setInterval(() => {
+      setHeroIndex((i) => (i + 1) % heroSlides.length);
+    }, 6500);
+    return () => window.clearInterval(id);
+  }, [heroSlides]);
 
   // Load real data from Firestore, fallback to demo data
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [firestorePrograms, firestoreReviews, firestoreEvents, firestorePosts, statDoc, firestoreVideos] = await Promise.all([
+        const [
+          ctaLoaded,
+          heroDoc,
+          bannerDoc,
+          firestorePrograms,
+          firestoreReviews,
+          firestoreEvents,
+          firestorePosts,
+          statDoc,
+          firestoreVideos,
+        ] = await Promise.all([
+          loadSiteCta(),
+          getSingletonDoc<{
+            slides?: HeroSlidePublic[];
+            educationImages?: Record<string, string>;
+            specialtyImages?: Record<string, string>;
+          }>(COLLECTIONS.SETTINGS, "hero"),
+          getSingletonDoc<SiteBannerConfig>(COLLECTIONS.SETTINGS, "banner"),
           getCollection<typeof DEMO_PROGRAMS[0]>(COLLECTIONS.PROGRAMS),
           getCollection<typeof DEMO_REVIEWS[0]>(COLLECTIONS.REVIEWS),
           getCollection<typeof DEMO_WORKATHON & { posterUrl?: string }>(COLLECTIONS.EVENTS),
@@ -126,14 +180,30 @@ export default function HomePage() {
           getSingletonDoc<{ items: typeof DEMO_STATS }>(COLLECTIONS.SETTINGS, "stats"),
           getCollection<{ id: string; title: string; youtubeUrl: string; category?: string; featured?: boolean; isFeatured?: boolean }>(COLLECTIONS.VIDEOS),
         ]);
+        setCtaCfg(ctaLoaded);
+        setHeroSlides(pickActiveHeroSlides(heroDoc?.slides));
+        if (heroDoc?.educationImages && Object.keys(heroDoc.educationImages).length > 0) {
+          setEduImages(heroDoc.educationImages);
+        }
+        if (heroDoc?.specialtyImages && Object.keys(heroDoc.specialtyImages).length > 0) {
+          setSpecImages(heroDoc.specialtyImages);
+        }
+        if (bannerDoc) setSiteBanner(bannerDoc);
         if (firestorePrograms.length > 0) setPrograms(firestorePrograms);
         if (firestoreReviews.length > 0) setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false));
-        if (firestoreEvents.length > 0) setWorkathon(firestoreEvents[0]);
+        if (firestoreEvents.length > 0) {
+          const sortedEv = [...firestoreEvents].sort((a, b) =>
+            (b.eventDate || "").localeCompare(a.eventDate || "")
+          );
+          setWorkathon(sortedEv[0]);
+        }
         if (statDoc?.items && statDoc.items.length > 0) setStats(statDoc.items);
         if (firestoreVideos.length > 0) {
-          const featured = firestoreVideos.filter((v) => v.featured || v.isFeatured).slice(0, 4);
+          const withUrl = firestoreVideos.filter((v) => v.youtubeUrl?.trim());
+          const pool = withUrl.length > 0 ? withUrl : firestoreVideos;
+          const featured = pool.filter((v) => v.featured || v.isFeatured).slice(0, 4);
           if (featured.length > 0) setFeaturedVideos(featured);
-          else setFeaturedVideos(firestoreVideos.slice(0, 4));
+          else setFeaturedVideos(pool.slice(0, 4));
         }
         if (firestorePosts.length > 0) {
           const recentNotices = firestorePosts
@@ -185,14 +255,36 @@ export default function HomePage() {
     }
   };
 
+  const primaryCtaHref = currentHero
+    ? resolveHeroCtaLink(currentHero, ctaCfg.buttonUrl)
+    : ctaCfg.buttonUrl;
+  const primaryCtaLabel = currentHero
+    ? resolveHeroCtaText(currentHero, ctaCfg.buttonText)
+    : ctaCfg.buttonText;
+
   return (
     <>
-      {/* ── S1: 히어로 (EDU-TECH 스타일) ── */}
+      {siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (
+        <div className="bg-primary-800 text-white text-center py-2.5 px-4 text-sm">
+          <a
+            href={siteBanner.link?.trim() || "/workathon"}
+            className="inline-flex flex-wrap items-center justify-center gap-1 hover:underline font-medium"
+            target={siteBanner.link && isExternalHref(siteBanner.link) ? "_blank" : undefined}
+            rel={siteBanner.link && isExternalHref(siteBanner.link) ? "noopener noreferrer" : undefined}
+          >
+            <span>{siteBanner.title}</span>
+            <span className="opacity-80">·</span>
+            <span>D-{calculateDDay(siteBanner.dDayDate)}</span>
+          </a>
+        </div>
+      )}
+
+      {/* ── S1: 히어로 (EDU-TECH 스타일) — siteSettings/hero ── */}
       <section className="relative h-[85vh] min-h-[600px] overflow-hidden">
         <img
-          src="/images/defaults/hero-main.jpg"
-          alt="AISH Hero"
-          className="absolute inset-0 w-full h-full object-cover"
+          src={currentHero?.imageUrl || "/images/defaults/hero-main.jpg"}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[rgba(0,58,120,0.85)] to-transparent" />
 
@@ -201,24 +293,20 @@ export default function HomePage() {
             <p className="text-primary-300 text-sm font-medium tracking-widest uppercase mb-4">
               AI Smart Work Hub
             </p>
-            <h1 className="text-[clamp(36px,5vw,64px)] font-bold leading-[1.1] tracking-tight">
-              미래를 선도하는
-              <br />
-              AI 교육 플랫폼
+            <h1 className="text-[clamp(36px,5vw,64px)] font-bold leading-[1.1] tracking-tight whitespace-pre-line">
+              {currentHero?.title}
             </h1>
-            <p className="mt-5 text-lg md:text-xl font-light opacity-90 leading-relaxed max-w-[500px]">
-              체계적인 교육과 실무 중심 연구로
-              <br />
-              당신의 AI 역량을 한 단계 끌어올립니다.
+            <p className="mt-5 text-lg md:text-xl font-light opacity-90 leading-relaxed max-w-[500px] whitespace-pre-line">
+              {currentHero?.subtitle}
             </p>
             <div className="mt-9 flex flex-wrap gap-4">
               <a
-                href={CTA_URL}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={primaryCtaHref}
+                target={isExternalHref(primaryCtaHref) ? "_blank" : undefined}
+                rel={isExternalHref(primaryCtaHref) ? "noopener noreferrer" : undefined}
                 className="inline-flex items-center gap-2 px-8 py-3.5 bg-primary-500 text-white text-base font-medium rounded hover:bg-primary-600 transition-colors"
               >
-                {CTA_TEXT}
+                {primaryCtaLabel}
                 <ArrowRight size={18} />
               </a>
               <Link
@@ -228,6 +316,22 @@ export default function HomePage() {
                 교육 과정 보기 +
               </Link>
             </div>
+            {heroSlides.length > 1 && (
+              <div className="mt-8 flex gap-2">
+                {heroSlides.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    aria-label={`슬라이드 ${i + 1}`}
+                    onClick={() => setHeroIndex(i)}
+                    className={cn(
+                      "h-2 rounded-full transition-all",
+                      i === heroIndex ? "w-8 bg-white" : "w-2 bg-white/40 hover:bg-white/60"
+                    )}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -273,7 +377,7 @@ export default function HomePage() {
         </div>
 
         <div className="w-[90%] max-w-[1200px] mx-auto grid grid-cols-2 md:grid-cols-4 auto-rows-[280px] gap-4">
-          {EDUCATION_CATEGORIES.map((cat) => (
+          {educationCategoriesResolved.map((cat) => (
             <Link
               key={cat.title}
               href="/programs"
@@ -309,7 +413,7 @@ export default function HomePage() {
         </div>
 
         <div className="w-[90%] max-w-[1200px] mx-auto flex flex-col md:flex-row justify-center gap-6">
-          {SPECIALTY_CARDS.map((card) => (
+          {specialtyCardsResolved.map((card) => (
             <div
               key={card.subtitle}
               ref={addRevealRef}
@@ -501,17 +605,17 @@ export default function HomePage() {
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
               {featuredVideos.map((video) => {
-                const ytId = extractYoutubeId(video.youtubeUrl);
+                const thumb = (video as { thumbnailUrl?: string }).thumbnailUrl;
                 return (
                   <a key={video.id} href={video.youtubeUrl} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
                     className="group bg-white rounded overflow-hidden border border-gray-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                     <div className="aspect-video bg-gray-100 relative overflow-hidden">
-                      {ytId ? (
-                         
-                        <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={video.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center"><Play size={36} className="text-gray-300" /></div>
-                      )}
+                      <YouTubeThumbnailImage
+                        videoUrl={video.youtubeUrl}
+                        alt={video.title}
+                        preferredThumbnailUrl={thumb}
+                        className="w-full h-full object-cover"
+                      />
                       <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                         <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
                           <Play size={20} className="text-primary-600 ml-0.5" />
@@ -606,9 +710,9 @@ export default function HomePage() {
           </p>
           <div>
             <a
-              href={CTA_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+              href={ctaCfg.buttonUrl}
+              target={isExternalHref(ctaCfg.buttonUrl) ? "_blank" : undefined}
+              rel={isExternalHref(ctaCfg.buttonUrl) ? "noopener noreferrer" : undefined}
               className="inline-flex items-center justify-center w-[60px] h-[60px] rounded-full bg-white text-primary-700 text-2xl font-bold hover:bg-primary-500 hover:text-white hover:-rotate-45 transition-all duration-300"
             >
               &#10148;

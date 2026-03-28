@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Users, BookOpen, Star, MessageSquare } from "lucide-react";
 import { COLLECTIONS, getCollection, getSingletonDoc } from "@/lib/firestore";
 import { DEMO_STATS } from "@/lib/demo-data";
@@ -38,6 +39,17 @@ export default function AdminDashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
         <p className="text-gray-500 mt-1">AISH 관리자 대시보드에 오신 것을 환영합니다.</p>
+      </div>
+
+      <div className="rounded-xl border border-blue-200 bg-blue-50/90 p-4 text-sm text-blue-900">
+        <p className="font-semibold text-blue-950 mb-1">공개 화면과 맞추기</p>
+        <p className="text-blue-900/90 leading-relaxed">
+          메인 히어로·실적·CTA·상단 D-Day 배너는{" "}
+          <Link href="/admin/settings" className="font-medium text-primary-700 underline-offset-2 hover:underline">
+            사이트 설정
+          </Link>
+          에서 저장합니다. 저장 후에는 공개 탭에서 새로고침하면 반영됩니다(캐시로 최대 수십 초 지연될 수 있음).
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

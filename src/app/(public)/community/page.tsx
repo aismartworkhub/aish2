@@ -14,6 +14,7 @@ import { getCollection, createDoc, COLLECTIONS } from "@/lib/firestore";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
 import { useToast } from "@/components/ui/Toast";
+import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 
 type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery" | string;
 
@@ -84,7 +85,14 @@ function CommunityContent() {
       getCollection<{ id: string; type?: string; boardType?: string; title: string; category?: string; createdAt?: string; date?: string; views?: number; pinned?: boolean; isPinned?: boolean; author?: string; downloads?: number; fileType?: string }>(COLLECTIONS.POSTS),
       getCollection<{ id: number | string; title: string; category: string; imageUrl: string }>(COLLECTIONS.GALLERY),
     ]).then(([faq, posts, gallery]) => {
-      if (faq.length > 0) setFaqList(faq);
+      if (faq.length > 0) {
+        const sortedFaq = [...faq].sort(
+          (a, b) =>
+            ((a as { displayOrder?: number }).displayOrder ?? 999) -
+            ((b as { displayOrder?: number }).displayOrder ?? 999)
+        );
+        setFaqList(sortedFaq);
+      }
       if (posts.length > 0) {
         const getType = (p: { type?: string; boardType?: string }) => p.type || p.boardType || "";
         const n = posts.filter((p) => getType(p) === "NOTICE").map((p) => ({
@@ -107,7 +115,14 @@ function CommunityContent() {
           })));
         }
       }
-      if (gallery.length > 0) setGalleryList(gallery);
+      if (gallery.length > 0) {
+        const sortedGallery = [...gallery].sort((a, b) => {
+          const da = String((a as { date?: string }).date || "");
+          const db = String((b as { date?: string }).date || "");
+          return db.localeCompare(da);
+        });
+        setGalleryList(sortedGallery);
+      }
     }).catch(console.error);
   }, []);
 
@@ -469,8 +484,13 @@ function CommunityContent() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {galleryList.map((img) => (
-                <div key={img.id} className="group relative rounded-xl overflow-hidden aspect-[4/3] cursor-pointer">
-                  <img src={img.imageUrl} alt={img.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <div key={img.id} className="group relative rounded-xl overflow-hidden aspect-[4/3] cursor-pointer bg-gray-100">
+                  <DriveOrExternalImage
+                    src={img.imageUrl}
+                    alt={img.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    quiet
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <div className="absolute bottom-0 left-0 w-full p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-xs px-2 py-0.5 rounded bg-white/20 backdrop-blur">{img.category}</span>
