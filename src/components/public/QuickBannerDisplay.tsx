@@ -14,6 +14,27 @@ const STYLE_COLORS: Record<string, { bg: string; text: string; border: string }>
   EVENT: { bg: "bg-purple-50", text: "text-purple-800", border: "border-purple-200" },
 };
 
+const DISMISSED_KEY = "aish_dismissed_banners";
+
+function getDismissed(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(DISMISSED_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function persistDismissed(ids: Set<string>) {
+  try {
+    sessionStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
+  } catch { /* noop */ }
+}
+
+function isExternal(href: string) {
+  return /^https?:\/\//.test(href);
+}
+
 export default function QuickBannerDisplay() {
   const currentPath = usePathname() || "/";
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -22,6 +43,7 @@ export default function QuickBannerDisplay() {
 
   useEffect(() => {
     setMounted(true);
+    setDismissed(getDismissed());
     getCollection<QuickBannerDemo>(COLLECTIONS.BANNERS)
       .then((data) => setBanners(data.length > 0 ? data : DEMO_QUICK_BANNERS))
       .catch(() => setBanners(DEMO_QUICK_BANNERS));
@@ -41,11 +63,16 @@ export default function QuickBannerDisplay() {
 
   if (activeBanners.length === 0) return null;
 
-  // 상단 공간 충돌 방지: 최대 1개만 표시 (우선순위: 최신 배너)
   const visibleBanners = activeBanners.slice(0, 1);
 
+  const handleDismiss = (id: string) => {
+    const next = new Set(dismissed).add(id);
+    setDismissed(next);
+    persistDismissed(next);
+  };
+
   return (
-    <div className="space-y-0">
+    <div>
       {visibleBanners.map((banner) => {
         const colors = STYLE_COLORS[banner.style] || STYLE_COLORS.INFO;
         const customBg = banner.backgroundColor
@@ -53,30 +80,52 @@ export default function QuickBannerDisplay() {
           : undefined;
         const customText = banner.textColor ? { color: banner.textColor } : undefined;
 
+        const linkHref = banner.ctaLink?.trim() || "#";
+        const hasLink = linkHref !== "#";
+        const external = hasLink && isExternal(linkHref);
+
         return (
           <div
             key={banner.id}
-            className={`${customBg ? "" : colors.bg} border-b ${colors.border} px-4 py-3`}
+            role="banner"
+            className={`${customBg ? "" : colors.bg} border-b ${colors.border} px-4 py-0`}
             style={customBg}
           >
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <p
-                  className={`text-sm font-medium ${customText ? "" : colors.text}`}
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 min-h-[44px]">
+              {/* 제목+설명 영역 전체가 링크 */}
+              {hasLink ? (
+                <Link
+                  href={linkHref}
+                  target={external || banner.ctaOpenNewTab ? "_blank" : undefined}
+                  rel={external ? "noopener noreferrer" : undefined}
+                  className={`flex-1 min-w-0 py-2.5 text-sm font-medium hover:underline ${customText ? "" : colors.text}`}
                   style={customText}
                 >
                   <span className="font-bold">{banner.title}</span>
-                  {banner.description && (
+                  {banner.description && banner.description !== banner.title && (
+                    <span className="ml-2 font-normal opacity-80">{banner.description}</span>
+                  )}
+                </Link>
+              ) : (
+                <p
+                  className={`flex-1 min-w-0 py-2.5 text-sm font-medium ${customText ? "" : colors.text}`}
+                  style={customText}
+                >
+                  <span className="font-bold">{banner.title}</span>
+                  {banner.description && banner.description !== banner.title && (
                     <span className="ml-2 font-normal opacity-80">{banner.description}</span>
                   )}
                 </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {banner.ctaText && banner.ctaLink && (
+              )}
+
+              <div className="flex items-center gap-3 shrink-0">
+                {/* CTA 텍스트: 제목과 다를 때만 별도 표시 */}
+                {banner.ctaText && hasLink && banner.ctaText !== banner.title && (
                   <Link
-                    href={banner.ctaLink}
-                    target={banner.ctaOpenNewTab ? "_blank" : undefined}
-                    className={`text-sm font-semibold underline ${customText ? "" : colors.text}`}
+                    href={linkHref}
+                    target={external || banner.ctaOpenNewTab ? "_blank" : undefined}
+                    rel={external ? "noopener noreferrer" : undefined}
+                    className={`text-sm font-semibold underline whitespace-nowrap ${customText ? "" : colors.text}`}
                     style={customText}
                   >
                     {banner.ctaText}
@@ -84,11 +133,16 @@ export default function QuickBannerDisplay() {
                 )}
                 {banner.isDismissible && (
                   <button
-                    onClick={() => setDismissed((prev) => new Set(prev).add(banner.id))}
-                    className={`p-1 rounded hover:bg-black/10 ${customText ? "" : colors.text}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDismiss(banner.id);
+                    }}
+                    className={`p-2.5 -mr-1 rounded-lg hover:bg-black/10 transition-colors ${customText ? "" : colors.text}`}
                     style={customText}
+                    aria-label="닫기"
                   >
-                    <X size={16} />
+                    <X size={18} />
                   </button>
                 )}
               </div>

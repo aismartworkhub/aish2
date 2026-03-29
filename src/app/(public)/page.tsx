@@ -267,20 +267,32 @@ export default function HomePage() {
 
   return (
     <>
-      {siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (
-        <div className="bg-primary-800 text-white text-center py-2.5 px-4 text-sm">
-          <a
-            href={siteBanner.link?.trim() || "/workathon"}
-            className="inline-flex flex-wrap items-center justify-center gap-1 hover:underline font-medium"
-            target={siteBanner.link && isExternalHref(siteBanner.link) ? "_blank" : undefined}
-            rel={siteBanner.link && isExternalHref(siteBanner.link) ? "noopener noreferrer" : undefined}
-          >
-            <span>{siteBanner.title}</span>
-            <span className="opacity-80">·</span>
-            <span>{calculateDDay(siteBanner.dDayDate)}</span>
-          </a>
-        </div>
-      )}
+      {siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (() => {
+        const bannerHref = siteBanner.link?.trim() || "/workathon";
+        const external = isExternalHref(bannerHref);
+        const dDay = calculateDDay(siteBanner.dDayDate);
+        return (
+          <div className="bg-primary-800 text-white text-center text-sm" role="banner">
+            {external ? (
+              <a
+                href={bannerHref}
+                className="block w-full py-3 px-4 hover:bg-primary-900/50 transition-colors font-medium"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {siteBanner.title} · {dDay}
+              </a>
+            ) : (
+              <Link
+                href={bannerHref}
+                className="block w-full py-3 px-4 hover:bg-primary-900/50 transition-colors font-medium"
+              >
+                {siteBanner.title} · {dDay}
+              </Link>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── S1: 히어로 (EDU-TECH 스타일) — siteSettings/hero ── */}
       <section className="relative h-[85vh] min-h-[600px] overflow-hidden">
