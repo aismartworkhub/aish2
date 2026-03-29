@@ -277,7 +277,7 @@ export default function HomePage() {
           >
             <span>{siteBanner.title}</span>
             <span className="opacity-80">·</span>
-            <span>D-{calculateDDay(siteBanner.dDayDate)}</span>
+            <span>{calculateDDay(siteBanner.dDayDate)}</span>
           </a>
         </div>
       )}
@@ -504,7 +504,7 @@ export default function HomePage() {
               {workathon.description}
             </p>
             <div className="mt-5 flex items-center gap-4 text-sm text-white/60">
-              <span className="text-white font-bold text-xl">D-{dDay}</span>
+              <span className="text-white font-bold text-xl">{dDay}</span>
               <span className="w-px h-4 bg-white/30" />
               <span>{workathon.eventDate}</span>
               <span className="w-px h-4 bg-white/30" />
