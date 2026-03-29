@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight, Search, SlidersHorizontal, ChevronRight,
@@ -103,6 +104,8 @@ const RECENT_NOTICES = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState("");
   const [stats, setStats] = useState(DEMO_STATS);
   const [programs, setPrograms] = useState(DEMO_PROGRAMS);
   const [reviews, setReviews] = useState(DEMO_REVIEWS);
@@ -346,8 +349,22 @@ export default function HomePage() {
                 type="text"
                 placeholder="과정명 또는 키워드를 입력하세요."
                 className="flex-1 py-2.5 text-base outline-none bg-transparent placeholder:text-gray-400"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && searchTerm.trim()) {
+                    router.push(`/programs?q=${encodeURIComponent(searchTerm.trim())}`);
+                  }
+                }}
               />
-              <button className="text-gray-500 hover:text-primary-600 transition-colors">
+              <button
+                className="text-gray-500 hover:text-primary-600 transition-colors"
+                onClick={() => {
+                  if (searchTerm.trim()) {
+                    router.push(`/programs?q=${encodeURIComponent(searchTerm.trim())}`);
+                  }
+                }}
+              >
                 <Search size={22} />
               </button>
             </div>
@@ -355,10 +372,19 @@ export default function HomePage() {
           <div className="flex-1 bg-primary-500 p-8 md:p-11 text-white">
             <h3 className="text-lg font-medium mb-5">카테고리 맞춤 검색</h3>
             <div className="flex items-center border-b-2 border-white/40 pb-1">
-              <select className="flex-1 py-2.5 text-base outline-none bg-transparent text-white/90 appearance-none cursor-pointer [&>option]:text-gray-900">
-                <option>전체 카테고리</option>
-                {Object.values(PROGRAM_CATEGORY_LABELS).map((label) => (
-                  <option key={label}>{label}</option>
+              <select
+                className="flex-1 py-2.5 text-base outline-none bg-transparent text-white/90 appearance-none cursor-pointer [&>option]:text-gray-900"
+                onChange={(e) => {
+                  const selected = e.target.value;
+                  if (selected) {
+                    router.push(`/programs?category=${encodeURIComponent(selected)}`);
+                  }
+                }}
+                defaultValue=""
+              >
+                <option value="">전체 카테고리</option>
+                {Object.entries(PROGRAM_CATEGORY_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
                 ))}
               </select>
               <SlidersHorizontal size={22} className="text-white/70" />

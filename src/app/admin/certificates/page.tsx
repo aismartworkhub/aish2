@@ -330,7 +330,7 @@ export default function AdminCertificatesPage() {
       await updateDocFields(COLLECTIONS.CERTIFICATES_REQUESTS, id, { status });
       setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
       if (status === "승인") {
-        toast("수료증이 등록된 이메일로 발송됩니다 (이메일 연동 설정 필요)", "success");
+        toast("수료증이 승인되었습니다. 이메일 발송은 외부 연동 설정 후 활성화됩니다.", "success");
       }
     } catch (e) {
       console.error(e);

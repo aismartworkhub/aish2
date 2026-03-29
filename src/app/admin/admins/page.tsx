@@ -157,6 +157,11 @@ export default function AdminUsersPage() {
                 </select>
               </div>
             </div>
+            {!editId && (
+              <p className="mt-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                * 추가된 관리자는 해당 이메일의 Google 계정으로 로그인할 수 있습니다.
+              </p>
+            )}
             <div className="flex justify-end gap-2 mt-6">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">취소</button>
               <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">

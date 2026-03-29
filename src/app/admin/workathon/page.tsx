@@ -87,6 +87,7 @@ export default function AdminWorkathonPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saveMessage, setSaveMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
 
   const selectedEvent = events.find((e) => e.id === selectedEventId) ?? null;
 
@@ -99,10 +100,19 @@ export default function AdminWorkathonPage() {
 
   // ─── Event CRUD ──────────────────────────────────────────────────────────
 
+  const confirmIfDirty = (): boolean => {
+    if (isDirty) {
+      return window.confirm("저장하지 않은 변경사항이 있습니다. 계속하시겠습니까?");
+    }
+    return true;
+  };
+
   const selectEvent = (id: string, tab: Tab = "detail") => {
+    if (!confirmIfDirty()) return;
     setSelectedEventId(id);
     setSelectedIds([]);
     setActiveTab(tab);
+    setIsDirty(false);
   };
 
   const createEvent = async () => {
@@ -145,6 +155,7 @@ export default function AdminWorkathonPage() {
 
   const updateEvent = (id: string, patch: Partial<EventData>) => {
     setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+    setIsDirty(true);
   };
 
   // ─── Schedule helpers ────────────────────────────────────────────────────
@@ -181,6 +192,7 @@ export default function AdminWorkathonPage() {
       const { id, ...data } = selectedEvent;
       await upsertDoc(COLLECTIONS.EVENTS, id, data);
       setSaveMessage("저장되었습니다");
+      setIsDirty(false);
       setTimeout(() => setSaveMessage(""), 2000);
     } catch (e) {
       console.error(e);
@@ -285,7 +297,7 @@ export default function AdminWorkathonPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setActiveTab("list")}
+            onClick={() => { if (confirmIfDirty()) { setActiveTab("list"); setIsDirty(false); } }}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
               activeTab === "list" ? "bg-primary-600 text-white" : "bg-white text-gray-600 border border-gray-200",
@@ -294,7 +306,7 @@ export default function AdminWorkathonPage() {
             이벤트 목록
           </button>
           <button
-            onClick={() => selectedEventId && setActiveTab("detail")}
+            onClick={() => { if (selectedEventId && confirmIfDirty()) { setActiveTab("detail"); } }}
             disabled={!selectedEventId}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
@@ -305,7 +317,7 @@ export default function AdminWorkathonPage() {
             이벤트 상세
           </button>
           <button
-            onClick={() => selectedEventId && setActiveTab("participants")}
+            onClick={() => { if (selectedEventId && confirmIfDirty()) { setActiveTab("participants"); } }}
             disabled={!selectedEventId}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-colors",

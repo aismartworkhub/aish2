@@ -26,7 +26,7 @@ export default function AboutPage() {
         p.filter((partner) => (partner as { isActive?: boolean }).isActive !== false)
          .sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 999) - ((b as { displayOrder?: number }).displayOrder ?? 999))
       );
-    }).catch(() => {})
+    }).catch((err) => console.error('[AboutPage] Firestore fetch failed:', err))
     .finally(() => setLoading(false));
   }, []);
 

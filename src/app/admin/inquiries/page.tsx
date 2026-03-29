@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Search, Mail, MailOpen, Clock, CheckCircle, XCircle, Trash2, Save, Send, Settings, Bell, Reply } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { INQUIRY_STATUS_LABELS } from "@/lib/constants";
-import { COLLECTIONS, updateDocFields, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, updateDocFields, removeDoc, getSingletonDoc, upsertDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { useToast } from "@/components/ui/Toast";
@@ -53,6 +53,18 @@ export default function AdminInquiriesPage() {
   const [adminEmail, setAdminEmail] = useState("");
   const [emailNotify, setEmailNotify] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Load email settings from Firestore on mount
+  useEffect(() => {
+    getSingletonDoc<{ adminEmail?: string; emailNotify?: boolean }>(COLLECTIONS.SETTINGS, "inquiryEmail")
+      .then((doc) => {
+        if (doc) {
+          if (doc.adminEmail) setAdminEmail(doc.adminEmail);
+          if (doc.emailNotify !== undefined) setEmailNotify(doc.emailNotify);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     setInquiries(rawInquiries.map((d) => ({
@@ -108,12 +120,12 @@ export default function AdminInquiriesPage() {
     if (!selectedId || !replyText.trim()) return;
     setSaving(true);
     try {
-      const updates = { status: "RESOLVED" as InquiryStatus, replyContent: replyText, emailSent: true };
+      const updates = { status: "RESOLVED" as InquiryStatus, replyContent: replyText, repliedAt: new Date().toISOString() };
       await updateDocFields(COLLECTIONS.INQUIRIES, selectedId, updates);
       setInquiries((prev) => prev.map((i) => i.id === selectedId ? { ...i, ...updates } : i));
       setEditStatus("RESOLVED");
-      setSaveMessage("답변이 저장되었습니다 (이메일 연동 설정 시 실제 발송)");
-      setTimeout(() => setSaveMessage(""), 3000);
+      toast("답변이 저장되었습니다. 이메일 발송은 외부 연동 설정 후 활성화됩니다.", "info");
+      setSaveMessage("");
     } catch (e) {
       console.error(e);
     } finally {
@@ -325,7 +337,16 @@ export default function AdminInquiriesPage() {
             </div>
             <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
               <button onClick={() => setShowEmailSettings(false)} className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
-              <button onClick={() => setShowEmailSettings(false)}
+              <button onClick={async () => {
+                try {
+                  await upsertDoc(COLLECTIONS.SETTINGS, "inquiryEmail", { adminEmail, emailNotify });
+                  toast("이메일 설정이 저장되었습니다.", "success");
+                  setShowEmailSettings(false);
+                } catch (e) {
+                  console.error(e);
+                  toast("저장에 실패했습니다.", "error");
+                }
+              }}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors">
                 <Save size={16} />저장
               </button>

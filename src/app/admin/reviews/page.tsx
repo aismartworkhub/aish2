@@ -136,19 +136,32 @@ export default function AdminReviewsPage() {
     }
   };
 
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (const char of line) {
+      if (char === '"') { inQuotes = !inQuotes; }
+      else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+      else { current += char; }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
   const handleBulkUpload = async () => {
     setBulkError("");
     const lines = bulkCsv.trim().split("\n").filter((l) => l.trim());
     if (lines.length < 2) { setBulkError("CSV에 헤더와 최소 1개의 데이터 행이 필요합니다."); return; }
 
-    const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+    const header = parseCSVLine(lines[0]).map((h) => h.toLowerCase());
     const requiredFields = ["authorname", "content", "rating"];
     const missing = requiredFields.filter((f) => !header.includes(f));
     if (missing.length > 0) { setBulkError(`필수 열 누락: ${missing.join(", ")}`); return; }
 
     const newReviews: Omit<Review, "id">[] = [];
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(",").map((v) => v.trim());
+      const values = parseCSVLine(lines[i]);
       if (values.length < header.length) continue;
       const row: Record<string, string> = {};
       header.forEach((h, idx) => { row[h] = values[idx] || ""; });

@@ -25,7 +25,7 @@ export default function InstructorsPage() {
           );
         if (active.length > 0) setInstructors(active);
       })
-      .catch(() => {})
+      .catch((err) => console.error('[InstructorsPage] Firestore fetch failed:', err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -76,24 +76,24 @@ export default function InstructorsPage() {
                     </span>
                   ))}
                 </div>
-                {inst.socialLinks && (
+                {inst.socialLinks && (Object.values(inst.socialLinks).some((v) => typeof v === "string" && v.trim())) && (
                   <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-50">
-                    {inst.socialLinks.linkedin && (
+                    {inst.socialLinks.linkedin?.trim() && (
                       <a href={inst.socialLinks.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${inst.name} LinkedIn`} className="text-gray-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 rounded">
                         <Linkedin size={16} />
                       </a>
                     )}
-                    {inst.socialLinks.youtube && (
+                    {inst.socialLinks.youtube?.trim() && (
                       <a href={inst.socialLinks.youtube} target="_blank" rel="noopener noreferrer" aria-label={`${inst.name} YouTube`} className="text-gray-400 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/30 rounded">
                         <Youtube size={16} />
                       </a>
                     )}
-                    {inst.socialLinks.instagram && (
+                    {inst.socialLinks.instagram?.trim() && (
                       <a href={inst.socialLinks.instagram} target="_blank" rel="noopener noreferrer" aria-label={`${inst.name} Instagram`} className="text-gray-400 hover:text-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500/30 rounded">
                         <Instagram size={16} />
                       </a>
                     )}
-                    {inst.socialLinks.github && (
+                    {inst.socialLinks.github?.trim() && (
                       <a href={inst.socialLinks.github} target="_blank" rel="noopener noreferrer" aria-label={`${inst.name} GitHub`} className="text-gray-400 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500/30 rounded">
                         <Github size={16} />
                       </a>

@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Bell, FolderOpen, Award, HelpCircle, Handshake, Images, FileText,
   ChevronDown, ChevronUp, ExternalLink, Mail, Phone, Building,
-  Star, Download, Eye, Pin, Search,
+  Star, Download, Eye, Pin, Search, X,
 } from "lucide-react";
 import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
@@ -35,7 +35,7 @@ const NOTICES: { id: string | number; title: string; date: string; views: number
   { id: 5, title: "[소식] 누적 수강생 1,500명 돌파", date: "2026.02.15", views: 76, pinned: false },
 ];
 
-const RESOURCES: { id: string | number; title: string; author: string; date: string; downloads: number; type: string }[] = [
+const RESOURCES: { id: string | number; title: string; author: string; date: string; downloads: number; type: string; url?: string }[] = [
   { id: 1, title: "AI 기초 11기 - 1주차 강의자료", author: "김상용", date: "2026.03.15", downloads: 156, type: "PDF" },
   { id: 2, title: "프롬프트 엔지니어링 실습 가이드", author: "김상용", date: "2026.03.14", downloads: 98, type: "PDF" },
   { id: 3, title: "데이터 분석 실습 데이터셋", author: "김학태", date: "2026.03.10", downloads: 76, type: "ZIP" },
@@ -69,7 +69,10 @@ function CommunityContent() {
   const [noticeList, setNoticeList] = useState(NOTICES);
   const [resourceList, setResourceList] = useState(RESOURCES);
   const [galleryList, setGalleryList] = useState(GALLERY_IMAGES);
-  const [customBoards, setCustomBoards] = useState<{ boardType: string; posts: { id: string; title: string; date: string; views: number; pinned: boolean }[] }[]>([]);
+  const [customBoards, setCustomBoards] = useState<{ boardType: string; posts: { id: string; title: string; date: string; views: number; pinned: boolean; content?: string }[] }[]>([]);
+  const [expandedNoticeId, setExpandedNoticeId] = useState<string | number | null>(null);
+  const [expandedCustomPostId, setExpandedCustomPostId] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ imageUrl: string; title: string } | null>(null);
 
   const { user, showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
 
@@ -173,10 +176,14 @@ function CommunityContent() {
     }, "협력 문의를 보내려면 로그인이 필요합니다.");
   };
 
-  const handleDownload = (resTitle: string) => {
+  const handleDownload = (resTitle: string, resUrl?: string) => {
     requireLogin(() => {
-      // TODO: 실제 파일 다운로드 로직
-      toast(`"${resTitle}" 다운로드를 시작합니다.`, "info");
+      if (resUrl?.trim()) {
+        window.open(resUrl, "_blank");
+        toast(`"${resTitle}" 다운로드를 시작합니다.`, "info");
+      } else {
+        toast("다운로드 링크가 등록되지 않았습니다", "error");
+      }
     }, "자료를 다운로드하려면 로그인이 필요합니다.");
   };
 
@@ -257,15 +264,26 @@ function CommunityContent() {
             </div>
             <div className="divide-y divide-gray-50">
               {noticeList.map((notice) => (
-                <div key={notice.id} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer">
-                  {notice.pinned && <Pin size={14} className="text-primary-500 mr-2 shrink-0" />}
-                  <span className={cn("text-sm flex-1", notice.pinned ? "font-semibold text-gray-900" : "text-gray-700")}>
-                    {notice.title}
-                  </span>
-                  <div className="flex items-center gap-4 shrink-0 ml-4">
-                    <span className="text-xs text-gray-400 flex items-center gap-1"><Eye size={12} />{notice.views}</span>
-                    <span className="text-xs text-gray-400">{notice.date}</span>
-                  </div>
+                <div key={notice.id}>
+                  <button
+                    onClick={() => setExpandedNoticeId(expandedNoticeId === notice.id ? null : notice.id)}
+                    className="w-full flex items-center px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    {notice.pinned && <Pin size={14} className="text-primary-500 mr-2 shrink-0" />}
+                    <span className={cn("text-sm flex-1", notice.pinned ? "font-semibold text-gray-900" : "text-gray-700")}>
+                      {notice.title}
+                    </span>
+                    <div className="flex items-center gap-4 shrink-0 ml-4">
+                      <span className="text-xs text-gray-400 flex items-center gap-1"><Eye size={12} />{notice.views}</span>
+                      <span className="text-xs text-gray-400">{notice.date}</span>
+                      {expandedNoticeId === notice.id ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                    </div>
+                  </button>
+                  {expandedNoticeId === notice.id && (
+                    <div className="px-6 pb-4 text-sm text-gray-600 bg-gray-50 border-t border-gray-100">
+                      <p className="pt-3">{(notice as { content?: string }).content || "상세 내용은 추후 업데이트 예정입니다."}</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -289,7 +307,7 @@ function CommunityContent() {
                   <div className="flex items-center gap-4 shrink-0 ml-4">
                     <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{res.type}</span>
                     <span className="text-xs text-gray-400 flex items-center gap-1"><Download size={12} />{res.downloads}</span>
-                    <button onClick={() => handleDownload(res.title)} className="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition-colors">
+                    <button onClick={() => handleDownload(res.title, (res as { url?: string }).url)} className="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition-colors">
                       <Download size={16} />
                     </button>
                   </div>
@@ -365,7 +383,7 @@ function CommunityContent() {
                 )}
               </div>
               <p className="text-xs text-gray-400 mt-6 text-center">
-                * Google 로그인 연동 후 자동 확인이 가능합니다. (추후 지원 예정)
+                * 이메일로 수료 여부를 확인합니다.
               </p>
             </div>
           </div>
@@ -484,7 +502,11 @@ function CommunityContent() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {galleryList.map((img) => (
-                <div key={img.id} className="group relative rounded-xl overflow-hidden aspect-[4/3] cursor-pointer bg-gray-100">
+                <div
+                  key={img.id}
+                  className="group relative rounded-xl overflow-hidden aspect-[4/3] cursor-pointer bg-gray-100"
+                  onClick={() => setLightboxImage({ imageUrl: img.imageUrl, title: img.title })}
+                >
                   <DriveOrExternalImage
                     src={img.imageUrl}
                     alt={img.title}
@@ -512,15 +534,26 @@ function CommunityContent() {
                 {cb.posts.length === 0 ? (
                   <div className="px-6 py-12 text-center text-gray-400 text-sm">게시물이 없습니다.</div>
                 ) : cb.posts.map((post) => (
-                  <div key={post.id} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer">
-                    {post.pinned && <Pin size={14} className="text-primary-500 mr-2 shrink-0" />}
-                    <span className={cn("text-sm flex-1", post.pinned ? "font-semibold text-gray-900" : "text-gray-700")}>
-                      {post.title}
-                    </span>
-                    <div className="flex items-center gap-4 shrink-0 ml-4">
-                      <span className="text-xs text-gray-400 flex items-center gap-1"><Eye size={12} />{post.views}</span>
-                      <span className="text-xs text-gray-400">{post.date}</span>
-                    </div>
+                  <div key={post.id}>
+                    <button
+                      onClick={() => setExpandedCustomPostId(expandedCustomPostId === post.id ? null : post.id)}
+                      className="w-full flex items-center px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      {post.pinned && <Pin size={14} className="text-primary-500 mr-2 shrink-0" />}
+                      <span className={cn("text-sm flex-1", post.pinned ? "font-semibold text-gray-900" : "text-gray-700")}>
+                        {post.title}
+                      </span>
+                      <div className="flex items-center gap-4 shrink-0 ml-4">
+                        <span className="text-xs text-gray-400 flex items-center gap-1"><Eye size={12} />{post.views}</span>
+                        <span className="text-xs text-gray-400">{post.date}</span>
+                        {expandedCustomPostId === post.id ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                      </div>
+                    </button>
+                    {expandedCustomPostId === post.id && (
+                      <div className="px-6 pb-4 text-sm text-gray-600 bg-gray-50 border-t border-gray-100">
+                        <p className="pt-3">{post.content || "상세 내용은 추후 업데이트 예정입니다."}</p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -528,6 +561,28 @@ function CommunityContent() {
           )
         ))}
       </div>
+      {/* Gallery Lightbox */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+          >
+            <X size={32} />
+          </button>
+          <div className="max-w-4xl max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={lightboxImage.imageUrl}
+              alt={lightboxImage.title}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+            />
+            <p className="text-white text-center mt-3 text-sm font-medium">{lightboxImage.title}</p>
+          </div>
+        </div>
+      )}
       <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>
   );

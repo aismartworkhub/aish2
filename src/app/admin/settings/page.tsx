@@ -8,7 +8,7 @@ import {
   Key, Mail, Cloud, Calendar, Database, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
+import { COLLECTIONS, getSingletonDoc, setSingletonDoc, upsertDoc } from "@/lib/firestore";
 import { useToast } from "@/components/ui/Toast";
 import AdminSettingsPublicHint from "@/components/admin/AdminSettingsPublicHint";
 import {
@@ -178,7 +178,7 @@ function AdminSettingsInner() {
             delete (safeGoogleApi as Record<string, unknown>)[field];
           }
         }
-        await setSingletonDoc(COLLECTIONS.SETTINGS, "integrations", { googleApi: safeGoogleApi, emailConfig, driveConfig, calendarConfig });
+        await upsertDoc(COLLECTIONS.SETTINGS, "integrations", { googleApi: safeGoogleApi, emailConfig, driveConfig, calendarConfig });
       }
       setSaveMessage("저장되었습니다");
       toast(`저장되었습니다.\n${ADMIN_SETTINGS_SAVED_PUBLIC_HINT}`, "success");

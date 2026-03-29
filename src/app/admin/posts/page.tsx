@@ -187,11 +187,20 @@ export default function AdminPostsPage() {
 
   const currentAttachmentCount = editingPost?.attachments?.length ?? 0;
 
-  const addFileAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const addFileAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!editingPost || !e.target.files) return;
     const files = Array.from(e.target.files);
     const currentAttachments = editingPost.attachments ?? [];
     const newAttachments: Attachment[] = [];
+
+    const readFileAsDataURL = (file: File): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
     for (const file of files) {
       if (currentAttachments.length + newAttachments.length >= MAX_ATTACHMENTS) {
         toast(`첨부파일은 최대 ${MAX_ATTACHMENTS}개까지 가능합니다.`, "info");
@@ -201,8 +210,13 @@ export default function AdminPostsPage() {
         toast(`"${file.name}" 파일이 ${MAX_FILE_SIZE_MB}MB를 초과합니다.`, "error");
         continue;
       }
-      const isImage = file.type.startsWith("image/");
-      newAttachments.push({ name: file.name, url: URL.createObjectURL(file), size: formatFileSize(file.size), type: isImage ? "image" : "file" });
+      try {
+        const dataUrl = await readFileAsDataURL(file);
+        const isImage = file.type.startsWith("image/");
+        newAttachments.push({ name: file.name, url: dataUrl, size: formatFileSize(file.size), type: isImage ? "image" : "file" });
+      } catch {
+        toast(`"${file.name}" 파일 읽기에 실패했습니다.`, "error");
+      }
     }
     if (newAttachments.length > 0) setEditingPost({ ...editingPost, attachments: [...currentAttachments, ...newAttachments] });
     if (fileInputRef.current) fileInputRef.current.value = "";

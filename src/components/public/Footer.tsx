@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { SITE_NAME, SITE_FULL_NAME, CTA_URL, CTA_TEXT, NAV_ITEMS } from "@/lib/constants";
+import { SITE_NAME, SITE_FULL_NAME, NAV_ITEMS } from "@/lib/constants";
+import { useSiteCta } from "@/hooks/useSiteCta";
 
 export default function Footer() {
+  const { buttonUrl: CTA_URL, buttonText: CTA_TEXT } = useSiteCta();
   return (
     <footer className="bg-gray-900 text-gray-300">
       <div className="max-w-7xl mx-auto px-4 py-12">

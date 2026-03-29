@@ -33,7 +33,7 @@ export default function ProgramsPage() {
   useEffect(() => {
     getCollection<typeof DEMO_PROGRAMS[0]>(COLLECTIONS.PROGRAMS)
       .then((data) => { if (data.length > 0) setPrograms(data); })
-      .catch(() => {})
+      .catch((err) => console.error('[ProgramsPage] Firestore fetch failed:', err))
       .finally(() => setLoading(false));
   }, []);
 

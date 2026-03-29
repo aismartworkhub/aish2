@@ -7,10 +7,10 @@ import { getCollection, COLLECTIONS } from "@/lib/firestore";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
 
 const FALLBACK_VIDEOS: VideoItem[] = [
-  { id: "v1", title: "AI 기초 정규과정 OT", category: "LECTURE", youtubeUrl: "", publishedAt: "2026-03-01" },
-  { id: "v2", title: "제3회 스마트워크톤 하이라이트", category: "WORKATHON", youtubeUrl: "", publishedAt: "2025-12-15" },
-  { id: "v3", title: "김상용 강사 인터뷰", category: "INTERVIEW", youtubeUrl: "", publishedAt: "2026-01-10" },
-  { id: "v4", title: "AISH 홍보 영상", category: "PROMO", youtubeUrl: "", publishedAt: "2025-09-01" },
+  { id: "v1", title: "AI 기초 정규과정 OT", category: "LECTURE", youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", publishedAt: "2026-03-01" },
+  { id: "v2", title: "제3회 스마트워크톤 하이라이트", category: "WORKATHON", youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", publishedAt: "2025-12-15" },
+  { id: "v3", title: "김상용 강사 인터뷰", category: "INTERVIEW", youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", publishedAt: "2026-01-10" },
+  { id: "v4", title: "AISH 홍보 영상", category: "PROMO", youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", publishedAt: "2025-09-01" },
 ];
 
 interface VideoItem {
@@ -42,7 +42,7 @@ export default function VideosPage() {
         });
         setVideos(sorted);
       })
-      .catch(() => {})
+      .catch((err) => console.error('[VideosPage] Firestore fetch failed:', err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -85,38 +85,50 @@ export default function VideosPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {!loading && filtered.map((video) => (
-            <a
-              key={video.id}
-              href={video.youtubeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
-            >
-              <div className="aspect-video bg-gray-100 relative overflow-hidden">
-                <YouTubeThumbnailImage
-                  videoUrl={video.youtubeUrl}
-                  alt={video.title}
-                  preferredThumbnailUrl={video.thumbnailUrl}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
-                  <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Play className="text-primary-600 ml-1" size={28} />
+          {!loading && filtered.map((video) => {
+            const hasUrl = !!video.youtubeUrl?.trim();
+            const Wrapper = hasUrl ? "a" : "div";
+            const wrapperProps = hasUrl
+              ? { href: video.youtubeUrl, target: "_blank" as const, rel: "noopener noreferrer" }
+              : {};
+            return (
+              <Wrapper
+                key={video.id}
+                {...wrapperProps}
+                className={`group bg-white rounded-xl border border-gray-100 overflow-hidden transition-shadow ${
+                  hasUrl ? "hover:shadow-md cursor-pointer" : "opacity-60 cursor-not-allowed"
+                }`}
+              >
+                <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                  <YouTubeThumbnailImage
+                    videoUrl={video.youtubeUrl}
+                    alt={video.title}
+                    preferredThumbnailUrl={video.thumbnailUrl}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+                    <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Play className="text-primary-600 ml-1" size={28} />
+                    </div>
                   </div>
+                  {!hasUrl && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <span className="text-white text-sm font-medium bg-black/50 px-3 py-1 rounded">영상 준비 중</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="p-4">
-                <span className="text-xs bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full">
-                  {VIDEO_CATEGORY_LABELS[video.category] || video.category}
-                </span>
-                <h3 className="font-semibold text-gray-900 mt-2 group-hover:text-primary-600 transition-colors">
-                  {video.title}
-                </h3>
-                <p className="text-xs text-gray-400 mt-1">{video.publishedAt || video.date}</p>
-              </div>
-            </a>
-          ))}
+                <div className="p-4">
+                  <span className="text-xs bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full">
+                    {VIDEO_CATEGORY_LABELS[video.category] || video.category}
+                  </span>
+                  <h3 className="font-semibold text-gray-900 mt-2 group-hover:text-primary-600 transition-colors">
+                    {video.title}
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-1">{video.publishedAt || video.date}</p>
+                </div>
+              </Wrapper>
+            );
+          })}
         </div>
       </div>
     </div>
