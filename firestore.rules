@@ -29,8 +29,9 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == userId
                     && request.resource.data.role == 'user';
       allow update: if isAuthenticated() && (
-        // 본인이 role 외 필드 수정 (role 필드는 기존 값 유지 강제)
-        (request.auth.uid == userId && request.resource.data.role == resource.data.role)
+        // 본인이 수정 (role 변경 시도가 없거나 기존 값 유지)
+        (request.auth.uid == userId &&
+         (!('role' in request.resource.data) || request.resource.data.role == resource.data.role))
         // 슈퍼관리자는 모든 사용자의 모든 필드 수정 가능
         || isSuperAdmin()
       );
@@ -101,6 +102,18 @@ service cloud.firestore {
     match /certificateGraduates/{docId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /adminEvents/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /resources/{docId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin() ||
+        (isAuthenticated() && resource.data.uploaderId == request.auth.uid);
     }
 
     // 사이트 설정 (공개 읽기: 히어로, 배너 등 / integrations는 관리자만)
