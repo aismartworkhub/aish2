@@ -133,6 +133,23 @@ export interface WorkathonEvent {
   schedule: { time: string; title: string; speaker: string | null }[];
 }
 
+export interface Resource {
+  id?: string;
+  title: string;
+  description: string;
+  fileType: string;
+  fileName: string;
+  fileSize: string;
+  driveFileId: string;
+  driveDownloadUrl: string;
+  driveViewUrl: string;
+  uploaderId: string;
+  uploaderName: string;
+  uploaderEmail: string;
+  downloads: number;
+  tags: string[];
+}
+
 export interface AdminEvent {
   id?: string;
   title: string;

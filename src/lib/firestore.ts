@@ -111,4 +111,5 @@ export const COLLECTIONS = {
   ADMINS: "admins",
   USERS: "users",
   ADMIN_EVENTS: "adminEvents",
+  RESOURCES: "resources",
 } as const;

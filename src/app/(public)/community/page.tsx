@@ -12,8 +12,10 @@ import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
 import { getCollection, createDoc, COLLECTIONS } from "@/lib/firestore";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
+import { useAuth } from "@/contexts/AuthContext";
 import LoginModal from "@/components/public/LoginModal";
 import { useToast } from "@/components/ui/Toast";
+import type { Resource } from "@/types/firestore";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 
 type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery" | string;
@@ -75,6 +77,8 @@ function CommunityContent() {
   const [lightboxImage, setLightboxImage] = useState<{ imageUrl: string; title: string } | null>(null);
 
   const { user, showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
+  const { isProfileComplete } = useAuth();
+  const [driveResources, setDriveResources] = useState<(Resource & { id: string })[]>([]);
 
   useEffect(() => {
     if (tabParam) {
@@ -106,6 +110,10 @@ function CommunityContent() {
         }));
         if (n.length > 0) setNoticeList(n);
         if (r.length > 0) setResourceList(r);
+        // Drive 자료실 로드
+        getCollection<Resource & { id: string }>(COLLECTIONS.RESOURCES)
+          .then((res) => { if (res.length > 0) setDriveResources(res); })
+          .catch(() => {});
         // 커스텀 게시판 수집
         const knownTypes = ["NOTICE", "RESOURCE"];
         const customTypes = [...new Set(posts.map((p) => getType(p)).filter((t) => t && !knownTypes.includes(t)))];
@@ -297,6 +305,46 @@ function CommunityContent() {
               <h2 className="text-xl font-bold text-gray-900">자료실</h2>
               <p className="text-sm text-gray-500 mt-1">교육 자료와 참고 문서를 다운로드하세요.</p>
             </div>
+
+            {/* 프로필 미완성 안내 */}
+            {user && !isProfileComplete && (
+              <div className="mx-6 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                <p className="font-semibold">프로필 완성이 필요합니다</p>
+                <p className="text-xs mt-1 text-amber-700">자료를 다운로드하려면 <a href="/profile" className="underline font-medium">프로필 설정</a>에서 이름, 기수, 연락처를 입력해 주세요.</p>
+              </div>
+            )}
+
+            {/* Drive 자료 (Google Drive 연동) */}
+            {driveResources.length > 0 && (
+              <div className="divide-y divide-gray-50">
+                {driveResources.map((res) => (
+                  <div key={res.id} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{res.title}</p>
+                      <p className="text-xs text-gray-400 mt-1">{res.uploaderName} · {res.fileSize}</p>
+                      {res.tags.length > 0 && (
+                        <div className="flex gap-1 mt-1">{res.tags.slice(0, 3).map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{t}</span>)}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 shrink-0 ml-4">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{res.fileType.toUpperCase()}</span>
+                      <span className="text-xs text-gray-400 flex items-center gap-1"><Download size={12} />{res.downloads}</span>
+                      <button
+                        onClick={() => requireLogin(() => {
+                          if (!isProfileComplete) { toast("프로필을 먼저 완성해 주세요.", "info"); return; }
+                          window.open(res.driveDownloadUrl, "_blank");
+                        }, "자료 다운로드는 로그인이 필요합니다.")}
+                        className="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition-colors"
+                      >
+                        <Download size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 기존 게시판 자료 (Firestore posts) */}
             <div className="divide-y divide-gray-50">
               {resourceList.map((res) => (
                 <div key={res.id} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors">
@@ -314,6 +362,10 @@ function CommunityContent() {
                 </div>
               ))}
             </div>
+
+            {driveResources.length === 0 && resourceList.length === 0 && (
+              <div className="px-6 py-12 text-center text-gray-400 text-sm">등록된 자료가 없습니다.</div>
+            )}
           </div>
         )}
 
