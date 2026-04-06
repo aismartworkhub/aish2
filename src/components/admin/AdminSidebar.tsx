@@ -45,7 +45,7 @@ const NAV_ITEMS: NavItem[] = [
  },
  { label: "퀵배너 관리", href: "/admin/banners", icon: "Megaphone" },
  { label: "프로그램 관리", href: "/admin/programs", icon: "BookOpen" },
- { label: "긴급등록", href: "/admin/programs-legacy", icon: "Zap" },
+ { label: "Event", href: "/admin/event", icon: "Zap" },
  { label: "강사 관리", href: "/admin/instructors", icon: "Users" },
  {
    label: "게시판", href: "/admin/posts", icon: "FileText",

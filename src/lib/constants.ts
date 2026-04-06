@@ -153,7 +153,22 @@ export const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
 /** 기수 옵션 */
 export const COHORT_OPTIONS = Array.from({ length: 20 }, (_, i) => `${i + 1}기`);
 
-// ── Runmoa 콘텐츠 연동 상수 ──
+// ── Event 관리 상수 ──
+export const EVENT_STATUS_LABELS: Record<string, string> = {
+  UPCOMING: "예정",
+  ONGOING: "진행중",
+  COMPLETED: "완료",
+  CANCELLED: "취소",
+};
+
+export const EVENT_STATUS_COLORS: Record<string, string> = {
+  UPCOMING: "bg-yellow-100 text-yellow-800",
+  ONGOING: "bg-green-100 text-green-800",
+  COMPLETED: "bg-gray-100 text-gray-800",
+  CANCELLED: "bg-red-100 text-red-800",
+};
+
+// ── Runmoa 콘텐��� 연동 상수 ──
 export const RUNMOA_CONTENT_TYPE_LABELS: Record<string, string> = {
   vod: "VOD",
   live: "라이브",

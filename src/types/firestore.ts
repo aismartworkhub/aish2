@@ -132,3 +132,18 @@ export interface WorkathonEvent {
   posterUrl?: string;
   schedule: { time: string; title: string; speaker: string | null }[];
 }
+
+export interface AdminEvent {
+  id?: string;
+  title: string;
+  tags: string[];
+  startDate: string;
+  endDate: string;
+  status: string;
+  organizer: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  summary: string;
+  thumbnailUrl: string;
+}
