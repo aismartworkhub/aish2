@@ -43,6 +43,7 @@ export interface Instructor {
   title: string;
   organization: string;
   profileImageUrl: string;
+  imageUrl?: string;
   specialties: string[];
   bio: string;
   socialLinks: {
@@ -53,6 +54,12 @@ export interface Instructor {
     personalSite: string | null;
   };
   programs: string[];
+  experience: { period: string; description: string }[];
+  education: { degree: string; institution: string; year: string }[];
+  certifications: string[];
+  contactEmail: string;
+  isActive: boolean;
+  displayOrder: number;
 }
 
 export interface Post {

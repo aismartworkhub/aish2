@@ -41,6 +41,18 @@ export const DEMO_INSTRUCTORS = [
      personalSite: null,
    },
    programs: ["AI 기초 정규과정 11기", "AI 정부과제 A"],
+   experience: [
+     { period: "2020 - 현재", description: "AI 교육 총괄 디렉터, AISH" },
+     { period: "2015 - 2020", description: "AI 연구원, 삼성전자 AI센터" },
+   ],
+   education: [
+     { degree: "컴퓨터공학 박사", institution: "KAIST", year: "2015" },
+     { degree: "컴퓨터과학 학사", institution: "서울대학교", year: "2010" },
+   ],
+   certifications: ["Google Cloud ML Engineer", "AWS Solutions Architect"],
+   contactEmail: "",
+   isActive: true,
+   displayOrder: 0,
  },
  {
    id: "ins-2",
@@ -58,6 +70,9 @@ export const DEMO_INSTRUCTORS = [
      personalSite: null,
    },
    programs: ["바이브코딩 입문"],
+   experience: [{ period: "2018 - 현재", description: "바이브 코딩 강사, AISH" }],
+   education: [{ degree: "소프트웨어공학 석사", institution: "연세대학교", year: "2018" }],
+   certifications: [], contactEmail: "", isActive: true, displayOrder: 1,
  },
  {
    id: "ins-3",
@@ -75,6 +90,9 @@ export const DEMO_INSTRUCTORS = [
      personalSite: null,
    },
    programs: ["데이터분석 실무"],
+   experience: [{ period: "2016 - 현재", description: "데이터 분석 전문가, AISH" }],
+   education: [{ degree: "통계학 석사", institution: "고려대학교", year: "2016" }],
+   certifications: [], contactEmail: "", isActive: true, displayOrder: 2,
  },
  {
    id: "ins-4",
@@ -92,6 +110,7 @@ export const DEMO_INSTRUCTORS = [
      personalSite: null,
    },
    programs: ["AI 비즈니스 활용"],
+   experience: [], education: [], certifications: [], contactEmail: "", isActive: true, displayOrder: 3,
  },
  {
    id: "ins-5",
@@ -109,6 +128,9 @@ export const DEMO_INSTRUCTORS = [
      personalSite: null,
    },
    programs: ["머신러닝 심화과정"],
+   experience: [{ period: "2019 - 현재", description: "머신러닝 엔지니어, AISH" }],
+   education: [{ degree: "인공지능 석사", institution: "포항공과대학교", year: "2019" }],
+   certifications: ["TensorFlow Developer Certificate"], contactEmail: "", isActive: true, displayOrder: 4,
  },
 ];
 
