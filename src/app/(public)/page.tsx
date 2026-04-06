@@ -8,9 +8,12 @@ import {
   Users, GraduationCap, UserCheck, Building, Star, Play,
   BookOpen, Trophy, Bell, FolderOpen, Award, HelpCircle, Handshake, Images,
 } from "lucide-react";
-import { PROGRAM_CATEGORY_LABELS } from "@/lib/constants";
+import { PROGRAM_CATEGORY_LABELS, EVENT_STATUS_LABELS, EVENT_STATUS_COLORS, RUNMOA_CONTENT_TYPE_LABELS } from "@/lib/constants";
 import { DEMO_STATS, DEMO_PROGRAMS, DEMO_REVIEWS, DEMO_WORKATHON } from "@/lib/demo-data";
 import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
+import { getRunmoaContents } from "@/lib/runmoa-api";
+import type { RunmoaContent } from "@/types/runmoa";
+import type { AdminEvent } from "@/types/firestore";
 import {
   loadSiteCta,
   pickActiveHeroSlides,
@@ -108,6 +111,8 @@ export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [stats, setStats] = useState(DEMO_STATS);
   const [programs, setPrograms] = useState(DEMO_PROGRAMS);
+  const [runmoaPrograms, setRunmoaPrograms] = useState<RunmoaContent[]>([]);
+  const [adminEvents, setAdminEvents] = useState<(AdminEvent & { id: string })[]>([]);
   const [reviews, setReviews] = useState(DEMO_REVIEWS);
   const [workathon, setWorkathon] = useState<typeof DEMO_WORKATHON & { posterUrl?: string }>(DEMO_WORKATHON);
   const [notices, setNotices] = useState(RECENT_NOTICES);
@@ -193,6 +198,15 @@ export default function HomePage() {
         }
         if (bannerDoc) setSiteBanner(bannerDoc);
         if (firestorePrograms.length > 0) setPrograms(firestorePrograms);
+        // Runmoa 콘텐츠 + Event 로드
+        try {
+          const [runmoaRes, eventsData] = await Promise.all([
+            getRunmoaContents({ status: "publish", limit: 8 }),
+            getCollection<AdminEvent & { id: string }>(COLLECTIONS.ADMIN_EVENTS),
+          ]);
+          if (runmoaRes.data.length > 0) setRunmoaPrograms(runmoaRes.data);
+          if (eventsData.length > 0) setAdminEvents(eventsData.filter((e) => e.status !== "COMPLETED" && e.status !== "CANCELLED"));
+        } catch { /* Runmoa/Event 실패 시 무시 */ }
         if (firestoreReviews.length > 0) setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false));
         if (firestoreEvents.length > 0) {
           const sortedEv = [...firestoreEvents].sort((a, b) =>
@@ -572,7 +586,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── S7: 교육 프로그램 카드 ── */}
+      {/* ── S7: 교육 프로그램 카드 (Runmoa 연동 + Firestore 폴백) ── */}
       <section className="py-24 md:py-28 bg-gray-50">
         <div className="container-custom">
           <div className="flex items-end justify-between mb-12">
@@ -590,30 +604,67 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {programs.filter((p) => p.status !== "CLOSED").map((program) => (
-              <Link
-                key={program.id}
-                href={`/programs#${program.id}`}
-                ref={addRevealRef}
-                className="group bg-white rounded overflow-hidden border border-gray-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
-              >
-                <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center relative">
-                  <BookOpen size={36} className="text-gray-300" />
-                  <div className="absolute top-3 left-3">
-                    <StatusBadge status={program.status} />
-                  </div>
-                </div>
-                <div className="p-5">
-                  <p className="text-xs text-gray-400 mb-1">
-                    {PROGRAM_CATEGORY_LABELS[program.category] ?? program.category}
-                  </p>
-                  <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary-600 transition-colors line-clamp-1">
-                    {program.title}
-                  </h3>
-                  <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{program.summary}</p>
-                </div>
-              </Link>
-            ))}
+            {runmoaPrograms.length > 0
+              ? runmoaPrograms.slice(0, 8).map((c) => (
+                  <a
+                    key={c.content_id}
+                    href={`https://aish.runmoa.com/contents/${c.content_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    ref={addRevealRef}
+                    className="group bg-white rounded overflow-hidden border border-gray-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                  >
+                    <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden">
+                      {c.featured_image ? (
+                        <img src={c.featured_image} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <BookOpen size={36} className="text-gray-300" />
+                        </div>
+                      )}
+                      <div className="absolute top-3 left-3">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-800">
+                          {RUNMOA_CONTENT_TYPE_LABELS[c.content_type] ?? c.content_type}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-5">
+                      <p className="text-xs text-gray-400 mb-1">
+                        {c.categories.map((cat) => cat.name).join(", ") || "교육과정"}
+                      </p>
+                      <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary-600 transition-colors line-clamp-1">
+                        {c.title}
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-1.5">
+                        {c.is_free ? "무료" : c.is_on_sale && c.sale_price > 0 ? `₩${c.sale_price.toLocaleString("ko-KR")}` : c.base_price > 0 ? `₩${c.base_price.toLocaleString("ko-KR")}` : ""}
+                      </p>
+                    </div>
+                  </a>
+                ))
+              : programs.filter((p) => p.status !== "CLOSED").map((program) => (
+                  <Link
+                    key={program.id}
+                    href={`/programs#${program.id}`}
+                    ref={addRevealRef}
+                    className="group bg-white rounded overflow-hidden border border-gray-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                  >
+                    <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center relative">
+                      <BookOpen size={36} className="text-gray-300" />
+                      <div className="absolute top-3 left-3">
+                        <StatusBadge status={program.status} />
+                      </div>
+                    </div>
+                    <div className="p-5">
+                      <p className="text-xs text-gray-400 mb-1">
+                        {PROGRAM_CATEGORY_LABELS[program.category] ?? program.category}
+                      </p>
+                      <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary-600 transition-colors line-clamp-1">
+                        {program.title}
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{program.summary}</p>
+                    </div>
+                  </Link>
+                ))}
           </div>
 
           <div className="text-center mt-10 md:hidden">
@@ -627,6 +678,55 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── S7.2: Event 섹션 ── */}
+      {adminEvents.length > 0 && (
+        <section className="py-24 md:py-28">
+          <div className="container-custom">
+            <div className="flex items-end justify-between mb-12">
+              <div>
+                <h2 className="text-[42px] font-bold text-primary-700 tracking-tight">Event</h2>
+                <p className="mt-2 text-gray-500 text-lg">진행 예정 행사 및 이벤트</p>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {adminEvents.slice(0, 6).map((evt) => (
+                <div
+                  key={evt.id}
+                  ref={addRevealRef}
+                  className="bg-white rounded-xl overflow-hidden border border-gray-200/80 hover:shadow-lg transition-shadow"
+                >
+                  {evt.thumbnailUrl ? (
+                    <div className="h-40 overflow-hidden">
+                      <img src={evt.thumbnailUrl} alt={evt.title} className="w-full h-full object-cover" loading="lazy" />
+                    </div>
+                  ) : (
+                    <div className="h-40 bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
+                      <Trophy size={36} className="text-primary-300" />
+                    </div>
+                  )}
+                  <div className="p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", EVENT_STATUS_COLORS[evt.status] ?? "bg-gray-100 text-gray-600")}>
+                        {EVENT_STATUS_LABELS[evt.status] ?? evt.status}
+                      </span>
+                      {evt.tags.slice(0, 2).map((tag) => (
+                        <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{tag}</span>
+                      ))}
+                    </div>
+                    <h3 className="text-base font-bold text-gray-900 line-clamp-1">{evt.title}</h3>
+                    {evt.summary && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{evt.summary}</p>}
+                    <div className="mt-3 text-xs text-gray-500 space-y-0.5">
+                      <p>{evt.startDate} ~ {evt.endDate}</p>
+                      {evt.organizer && <p>주관: {evt.organizer}</p>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── S7.5: Featured Videos ── */}
       {featuredVideos.length > 0 && (
