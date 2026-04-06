@@ -84,7 +84,13 @@ export default function DriveFileUploader({
     } catch (err) {
       tokenRef.current = null;
       const msg = err instanceof Error ? err.message : "업로드 실패";
-      alert(msg);
+      if (msg.includes("popup") || msg.includes("cancelled")) {
+        alert("Google 로그인 팝업이 차단되었거나 취소되었습니다.\n팝업 차단을 해제한 후 다시 시도해 주세요.");
+      } else if (msg.includes("403") || msg.includes("insufficient")) {
+        alert("Google Drive API가 활성화되지 않았습니다.\nGoogle Cloud Console에서 Drive API를 활성화해 주세요.");
+      } else {
+        alert(`업로드 실패: ${msg}`);
+      }
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

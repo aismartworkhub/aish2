@@ -40,9 +40,12 @@ export async function findOrCreateFolder(
   accessToken: string,
   folderName = "AISH 자료실"
 ): Promise<string> {
-  // 기존 폴더 검색
-  const searchUrl = `${DRIVE_API}drive/v3/files?q=name='${encodeURIComponent(folderName)}'+and+mimeType='application/vnd.google-apps.folder'+and+trashed=false&fields=files(id,name)`;
-  const searchRes = await fetch(searchUrl, {
+  // 기존 폴더 검색 — q 파라미터는 URLSearchParams로 안전하게 인코딩
+  const searchUrl = new URL(`${DRIVE_API}drive/v3/files`);
+  searchUrl.searchParams.set("q", `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  searchUrl.searchParams.set("fields", "files(id,name)");
+
+  const searchRes = await fetch(searchUrl.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (searchRes.ok) {
@@ -62,7 +65,10 @@ export async function findOrCreateFolder(
       mimeType: "application/vnd.google-apps.folder",
     }),
   });
-  if (!createRes.ok) throw new Error("폴더 생성 실패");
+  if (!createRes.ok) {
+    const err = await createRes.text();
+    throw new Error(`폴더 생성 실패: ${err}`);
+  }
   const folder = await createRes.json();
   return folder.id;
 }
