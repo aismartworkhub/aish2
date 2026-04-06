@@ -625,11 +625,11 @@ function CommunityContent() {
           >
             <X size={32} />
           </button>
-          <div className="max-w-4xl max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
-            <img
+          <div className="max-w-5xl w-full max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
+            <DriveOrExternalImage
               src={lightboxImage.imageUrl}
               alt={lightboxImage.title}
-              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              className="w-full max-h-[85vh] object-contain rounded-lg"
             />
             <p className="text-white text-center mt-3 text-sm font-medium">{lightboxImage.title}</p>
           </div>
