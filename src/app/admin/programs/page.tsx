@@ -1,267 +1,132 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Search, Edit, Trash2, Filter, X, PlusCircle } from "lucide-react";
+import { useState, useMemo } from "react";
+import {
+  Plus, Search, Filter, ExternalLink, RefreshCw,
+  ChevronLeft, ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import StatusBadge from "@/components/ui/StatusBadge";
-import { PROGRAM_CATEGORY_LABELS, PROGRAM_STATUS_LABELS } from "@/lib/constants";
-import { deleteField } from "firebase/firestore";
-import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
-import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import {
+  RUNMOA_CONTENT_TYPE_LABELS,
+  RUNMOA_STATUS_LABELS,
+  RUNMOA_STATUS_COLORS,
+} from "@/lib/constants";
+import { RUNMOA_ADMIN_ADD_URL, runmoaAdminEditUrl } from "@/lib/runmoa-api";
+import { useRunmoaContents } from "@/hooks/useRunmoaContents";
+import { useDebounce } from "@/hooks/useDebounce";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
-import { useToast } from "@/components/ui/Toast";
-import type { Program as ProgramDoc } from "@/types/firestore";
-import { CTA_TEXT } from "@/lib/constants";
+import type { RunmoaContentType, RunmoaStatus } from "@/types/runmoa";
 
-type Program = ProgramDoc & { id: string };
+const ITEMS_PER_PAGE = 20;
 
-interface ProgramFormData {
-  title: string;
-  category: string;
-  status: string;
-  cohort: string;
-  summary: string;
-  schedule: string;
-  startDate: string;
-  endDate: string;
-  instructors: string;
-  ctaText: string;
-  ctaLink: string;
+function formatPrice(price: number): string {
+  return new Intl.NumberFormat("ko-KR").format(price);
 }
 
-const emptyForm: ProgramFormData = {
-  title: "",
-  category: "REGULAR_FREE",
-  status: "SOON",
-  cohort: "",
-  summary: "",
-  schedule: "",
-  startDate: "",
-  endDate: "",
-  instructors: "",
-  ctaText: CTA_TEXT,
-  ctaLink: "",
-};
-
-function formFromProgram(p: Program): ProgramFormData {
-  return {
-    title: p.title,
-    category: p.category,
-    status: p.status,
-    cohort: p.cohort ?? "",
-    summary: p.summary,
-    schedule: p.schedule,
-    startDate: p.startDate,
-    endDate: p.endDate,
-    instructors: p.instructors.join(", "),
-    ctaText: p.ctaText?.trim() || CTA_TEXT,
-    ctaLink: p.ctaLink?.trim() ?? "",
-  };
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, "").trim();
 }
 
 export default function AdminProgramsPage() {
-  const { toast } = useToast();
-  const { data: programs, setData: setPrograms, loading, error, refresh } = useFirestoreCollection<Program>(COLLECTIONS.PROGRAMS);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("ALL");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingProgram, setEditingProgram] = useState<Program | null>(null);
-  const [formData, setFormData] = useState<ProgramFormData>(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [customCategoryMode, setCustomCategoryMode] = useState(false);
-  const [customCategoryInput, setCustomCategoryInput] = useState("");
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 400);
+  const [statusFilter, setStatusFilter] = useState<RunmoaStatus | "">("");
+  const [typeFilter, setTypeFilter] = useState<RunmoaContentType | "">("");
+  const [page, setPage] = useState(1);
 
-  const filteredPrograms = programs.filter((p) => {
-    const matchSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchCategory = selectedCategory === "ALL" || p.category === selectedCategory;
-    const matchStatus = selectedStatus === "ALL" || p.status === selectedStatus;
-    return matchSearch && matchCategory && matchStatus;
-  });
+  const params = useMemo(() => ({
+    page,
+    limit: ITEMS_PER_PAGE,
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...(typeFilter ? { content_type: typeFilter } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+  }), [page, statusFilter, typeFilter, debouncedSearch]);
 
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const { data: contents, pagination, loading, error, refresh } = useRunmoaContents(params);
+
+  const handleOpenAdd = () => {
+    window.open(RUNMOA_ADMIN_ADD_URL, "_blank", "noopener");
   };
 
-  const toggleAll = () => {
-    if (selectedIds.length === filteredPrograms.length) setSelectedIds([]);
-    else setSelectedIds(filteredPrograms.map((p) => p.id));
+  const handleOpenEdit = (contentId: number) => {
+    window.open(runmoaAdminEditUrl(contentId), "_blank", "noopener");
   };
 
-  // 기존 프로그램에서 사용된 커스텀 카테고리 수집
-  const customCategories = [...new Set(
-    programs.map((p) => p.category).filter((c) => !(c in PROGRAM_CATEGORY_LABELS))
-  )];
-
-  const openCreateModal = () => {
-    setIsCreating(true);
-    setEditingProgram(null);
-    setFormData(emptyForm);
-    setCustomCategoryMode(false);
-    setCustomCategoryInput("");
-    setIsModalOpen(true);
+  // 필터 변경 시 1페이지로 리셋
+  const changeStatus = (v: string) => {
+    setStatusFilter(v as RunmoaStatus | "");
+    setPage(1);
+  };
+  const changeType = (v: string) => {
+    setTypeFilter(v as RunmoaContentType | "");
+    setPage(1);
   };
 
-  const openEditModal = (program: Program) => {
-    setIsCreating(false);
-    setEditingProgram(program);
-    setFormData(formFromProgram(program));
-    const isCustom = !(program.category in PROGRAM_CATEGORY_LABELS);
-    setCustomCategoryMode(isCustom);
-    setCustomCategoryInput(isCustom ? program.category : "");
-    setIsModalOpen(true);
-  };
+  if (loading && contents.length === 0) return <AdminLoading />;
+  if (error && contents.length === 0) return <AdminError message={error} onRetry={refresh} />;
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingProgram(null);
-    setIsCreating(false);
-    setFormData(emptyForm);
-    setCustomCategoryMode(false);
-    setCustomCategoryInput("");
-  };
-
-  const handleSave = async () => {
-    const instructorsArray = formData.instructors.split(",").map((s) => s.trim()).filter(Boolean);
-    const finalCategory = customCategoryMode ? customCategoryInput.trim() : formData.category;
-    if (!finalCategory) { toast("카테고리를 입력해 주세요.", "info"); return; }
-    setSaving(true);
-    try {
-      const ctaLinkTrimmed = formData.ctaLink.trim();
-      const ctaTextTrimmed = formData.ctaText.trim();
-      if (isCreating) {
-        const newProgram: Omit<Program, "id"> = {
-          title: formData.title,
-          category: finalCategory,
-          status: formData.status,
-          cohort: formData.cohort,
-          summary: formData.summary,
-          schedule: formData.schedule,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          instructors: instructorsArray,
-          thumbnailUrl: "/images/placeholder-program.jpg",
-          ...(ctaLinkTrimmed ? { ctaLink: ctaLinkTrimmed } : {}),
-          ...(ctaTextTrimmed ? { ctaText: ctaTextTrimmed } : {}),
-        };
-        const id = await createDoc(COLLECTIONS.PROGRAMS, newProgram);
-        setPrograms((prev) => [{ id, ...newProgram }, ...prev]);
-      } else if (editingProgram) {
-        const updated = {
-          title: formData.title,
-          category: finalCategory,
-          status: formData.status,
-          cohort: formData.cohort,
-          summary: formData.summary,
-          schedule: formData.schedule,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          instructors: instructorsArray,
-          ctaLink: ctaLinkTrimmed ? ctaLinkTrimmed : deleteField(),
-          ctaText: ctaTextTrimmed ? ctaTextTrimmed : deleteField(),
-        };
-        await upsertDoc(COLLECTIONS.PROGRAMS, editingProgram.id, updated);
-        setPrograms((prev) => prev.map((p) => p.id === editingProgram.id ? {
-          ...editingProgram,
-          title: formData.title,
-          category: finalCategory,
-          status: formData.status,
-          cohort: formData.cohort,
-          summary: formData.summary,
-          schedule: formData.schedule,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          instructors: instructorsArray,
-          ctaLink: ctaLinkTrimmed || undefined,
-          ctaText: ctaTextTrimmed || undefined,
-        } : p));
-      }
-      closeModal();
-    } catch (e) {
-      console.error(e);
-      toast("저장에 실패했습니다.", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("정말 이 프로그램을 삭제하시겠습니까?")) return;
-    try {
-      await removeDoc(COLLECTIONS.PROGRAMS, id);
-      setPrograms((prev) => prev.filter((p) => p.id !== id));
-      setSelectedIds((prev) => prev.filter((x) => x !== id));
-    } catch (e) {
-      console.error(e);
-      toast("삭제에 실패했습니다.", "error");
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
-    if (!window.confirm(`선택된 ${selectedIds.length}개 프로그램을 삭제하시겠습니까?`)) return;
-    try {
-      await Promise.all(selectedIds.map((id) => removeDoc(COLLECTIONS.PROGRAMS, id)));
-      setPrograms((prev) => prev.filter((p) => !selectedIds.includes(p.id)));
-      setSelectedIds([]);
-    } catch (e) {
-      console.error(e);
-      toast("삭제에 실패했습니다.", "error");
-    }
-  };
-
-  const updateField = (field: keyof ProgramFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  if (loading) return <AdminLoading />;
-  if (error) return <AdminError message={error} onRetry={refresh} />;
+  const lastPage = pagination?.last_page ?? 1;
+  const total = pagination?.total ?? 0;
 
   return (
     <div>
+      {/* 헤더 */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">교육 프로그램 관리</h1>
-          <p className="text-gray-500 mt-1">프로그램을 등록하고 관리합니다.</p>
+          <p className="text-gray-500 mt-1">
+            Runmoa 콘텐츠와 연동됩니다. 등록·수정은 Runmoa 관리 화면에서 진행합니다.
+          </p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
-        >
-          <Plus size={18} />새 프로그램 등록
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refresh}
+            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw size={16} />새로고침
+          </button>
+          <button
+            onClick={handleOpenAdd}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+          >
+            <Plus size={18} />새 프로그램 등록
+            <ExternalLink size={14} className="opacity-60" />
+          </button>
+        </div>
       </div>
 
+      {/* 필터 바 */}
       <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="relative flex-1 min-w-[200px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="프로그램 검색..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="콘텐츠 검색..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             />
           </div>
           <div className="flex items-center gap-2">
             <Filter size={16} className="text-gray-400" />
-            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none">
-              <option value="ALL">전체 카테고리</option>
-              {Object.entries(PROGRAM_CATEGORY_LABELS).map(([key, label]) => (
+            <select
+              value={typeFilter}
+              onChange={(e) => changeType(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none"
+            >
+              <option value="">전체 유형</option>
+              {Object.entries(RUNMOA_CONTENT_TYPE_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
-              {customCategories.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
             </select>
-            <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none">
-              <option value="ALL">전체 상태</option>
-              {Object.entries(PROGRAM_STATUS_LABELS).map(([key, label]) => (
+            <select
+              value={statusFilter}
+              onChange={(e) => changeStatus(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none"
+            >
+              <option value="">전체 상태</option>
+              {Object.entries(RUNMOA_STATUS_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
             </select>
@@ -269,59 +134,103 @@ export default function AdminProgramsPage() {
         </div>
       </div>
 
+      {/* 테이블 */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50">
-                <th className="px-4 py-3 text-left">
-                  <input type="checkbox"
-                    checked={selectedIds.length === filteredPrograms.length && filteredPrograms.length > 0}
-                    onChange={toggleAll} className="rounded border-gray-300" />
-                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">제목</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">카테고리</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">유형</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">상태</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">강사</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">기간</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">관리</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">가격</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">카테고리</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">수정</th>
               </tr>
             </thead>
             <tbody>
-              {filteredPrograms.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400 text-sm">등록된 프로그램이 없습니다.</td></tr>
+              {contents.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-gray-400 text-sm">
+                    {loading ? "불러오는 중..." : "콘텐츠가 없습니다."}
+                  </td>
+                </tr>
               ) : (
-                filteredPrograms.map((program) => (
-                  <tr key={program.id}
-                    className={cn("border-b border-gray-50 hover:bg-gray-50/50 transition-colors",
-                      selectedIds.includes(program.id) && "bg-primary-50/30")}>
+                contents.map((c) => (
+                  <tr
+                    key={c.content_id}
+                    className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                    onClick={() => handleOpenEdit(c.content_id)}
+                  >
                     <td className="px-4 py-4">
-                      <input type="checkbox" checked={selectedIds.includes(program.id)}
-                        onChange={() => toggleSelect(program.id)} className="rounded border-gray-300" />
+                      <div className="flex items-center gap-3">
+                        {c.featured_image ? (
+                          <img
+                            src={c.featured_image}
+                            alt=""
+                            className="w-10 h-10 rounded-lg object-cover shrink-0"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center shrink-0">
+                            <span className="text-lg">📚</span>
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900 text-sm truncate max-w-xs">
+                            {c.title}
+                          </div>
+                          {c.description_html && (
+                            <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">
+                              {stripHtml(c.description_html).slice(0, 60)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="font-medium text-gray-900 text-sm">{program.title}</div>
-                      {program.cohort && <div className="text-xs text-gray-400 mt-0.5">{program.cohort}</div>}
+                      <span className="text-sm text-gray-600">
+                        {RUNMOA_CONTENT_TYPE_LABELS[c.content_type] ?? c.content_type}
+                      </span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="text-sm text-gray-600">{PROGRAM_CATEGORY_LABELS[program.category] ?? program.category}</span>
-                    </td>
-                    <td className="px-4 py-4"><StatusBadge status={program.status} /></td>
-                    <td className="px-4 py-4">
-                      <span className="text-sm text-gray-600">{program.instructors.join(", ")}</span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-xs text-gray-500">{program.startDate}<br />~ {program.endDate}</span>
+                      <span className={cn(
+                        "text-xs px-2 py-0.5 rounded-full font-medium",
+                        RUNMOA_STATUS_COLORS[c.status] ?? "bg-gray-100 text-gray-600"
+                      )}>
+                        {RUNMOA_STATUS_LABELS[c.status] ?? c.status}
+                      </span>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openEditModal(program)}
-                          className="p-2 rounded-lg hover:bg-primary-50 text-gray-400 hover:text-primary-600 transition-colors">
-                          <Edit size={16} />
-                        </button>
-                        <button onClick={() => handleDelete(program.id)}
-                          className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors">
-                          <Trash2 size={16} />
+                      {c.is_free ? (
+                        <span className="text-sm text-green-600 font-medium">무료</span>
+                      ) : (
+                        <div className="text-sm">
+                          {c.is_on_sale && c.sale_price > 0 ? (
+                            <>
+                              <span className="text-gray-900 font-medium">₩{formatPrice(c.sale_price)}</span>
+                              <span className="text-xs text-gray-400 line-through ml-1">₩{formatPrice(c.base_price)}</span>
+                            </>
+                          ) : (
+                            <span className="text-gray-900">₩{formatPrice(c.base_price)}</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="text-sm text-gray-600">
+                        {c.categories.map((cat) => cat.name).join(", ") || "-"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-end">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(c.content_id); }}
+                          className="p-2 rounded-lg hover:bg-primary-50 text-gray-400 hover:text-primary-600 transition-colors"
+                          title="Runmoa에서 수정"
+                        >
+                          <ExternalLink size={16} />
                         </button>
                       </div>
                     </td>
@@ -332,146 +241,50 @@ export default function AdminProgramsPage() {
           </table>
         </div>
 
-        {selectedIds.length > 0 && (
-          <div className="flex items-center gap-4 px-6 py-3 bg-primary-50 border-t border-primary-100">
-            <span className="text-sm text-primary-700 font-medium">{selectedIds.length}개 선택됨</span>
-            <button onClick={handleBulkDelete} className="text-sm text-red-600 hover:underline">삭제</button>
-          </div>
-        )}
-      </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">{isCreating ? "새 프로그램 등록" : "프로그램 수정"}</h2>
-              <button onClick={closeModal} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400"><X size={18} /></button>
-            </div>
-            <div className="px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
-                <input type="text" value={formData.title} onChange={(e) => updateField("title", e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                  placeholder="프로그램 제목" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
-                  {customCategoryMode ? (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={customCategoryInput}
-                        onChange={(e) => setCustomCategoryInput(e.target.value)}
-                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                        placeholder="새 카테고리명 입력"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={() => { setCustomCategoryMode(false); setCustomCategoryInput(""); }}
-                        className="px-2 py-2 text-gray-400 hover:text-gray-600 transition-colors"
-                        title="기존 카테고리 선택"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <select value={formData.category} onChange={(e) => updateField("category", e.target.value)}
-                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none">
-                        {Object.entries(PROGRAM_CATEGORY_LABELS).map(([key, label]) => (
-                          <option key={key} value={key}>{label}</option>
-                        ))}
-                        {customCategories.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => setCustomCategoryMode(true)}
-                        className="px-2 py-2 text-gray-400 hover:text-primary-600 transition-colors"
-                        title="새 카테고리 추가"
-                      >
-                        <PlusCircle size={18} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
-                  <select value={formData.status} onChange={(e) => updateField("status", e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none">
-                    {Object.entries(PROGRAM_STATUS_LABELS).map(([key, label]) => (
-                      <option key={key} value={key}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">기수 (cohort)</label>
-                <input type="text" value={formData.cohort} onChange={(e) => updateField("cohort", e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                  placeholder="예: 11기" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">요약</label>
-                <textarea value={formData.summary} onChange={(e) => updateField("summary", e.target.value)}
-                  rows={3} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
-                  placeholder="프로그램 요약 설명" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">일정</label>
-                <input type="text" value={formData.schedule} onChange={(e) => updateField("schedule", e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                  placeholder="예: 매주 화요일 19:00-21:00" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">시작일</label>
-                  <input type="date" value={formData.startDate} onChange={(e) => updateField("startDate", e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">종료일</label>
-                  <input type="date" value={formData.endDate} onChange={(e) => updateField("endDate", e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">강사 (쉼표로 구분)</label>
-                <input type="text" value={formData.instructors} onChange={(e) => updateField("instructors", e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                  placeholder="예: 김상용, 박준혁" />
-              </div>
-              <div className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2 text-xs text-amber-900 mb-1">
-                공개 프로그램 페이지 카드의 버튼입니다. 링크를 비우면 버튼이 표시되지 않습니다.
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">CTA 버튼 문구</label>
-                <input type="text" value={formData.ctaText} onChange={(e) => updateField("ctaText", e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                  placeholder={CTA_TEXT} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">CTA 링크 URL</label>
-                <input type="text" value={formData.ctaLink} onChange={(e) => updateField("ctaLink", e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                  placeholder="https://… 또는 /community 등 사이트 내 경로" />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
-              <button onClick={closeModal}
-                className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">취소</button>
-              <button onClick={handleSave} disabled={!formData.title.trim() || saving}
-                className="px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                {saving ? "저장중..." : isCreating ? "등록" : "저장"}
+        {/* 페이지네이션 */}
+        {lastPage > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
+            <span className="text-sm text-gray-500">
+              총 {total}개 중 {pagination?.from ?? 0}-{pagination?.to ?? 0}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="p-2 rounded-lg hover:bg-gray-50 text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {Array.from({ length: Math.min(lastPage, 5) }, (_, i) => {
+                const start = Math.max(1, Math.min(page - 2, lastPage - 4));
+                const p = start + i;
+                if (p > lastPage) return null;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={cn(
+                      "w-8 h-8 rounded-lg text-sm font-medium transition-colors",
+                      p === page
+                        ? "bg-primary-600 text-white"
+                        : "text-gray-600 hover:bg-gray-50"
+                    )}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+              <button
+                disabled={page >= lastPage}
+                onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+                className="p-2 rounded-lg hover:bg-gray-50 text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

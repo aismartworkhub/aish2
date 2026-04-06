@@ -152,3 +152,27 @@ export const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
 
 /** 기수 옵션 */
 export const COHORT_OPTIONS = Array.from({ length: 20 }, (_, i) => `${i + 1}기`);
+
+// ── Runmoa 콘텐츠 연동 상수 ──
+export const RUNMOA_CONTENT_TYPE_LABELS: Record<string, string> = {
+  vod: "VOD",
+  live: "라이브",
+  offline: "오프라인",
+  digital_content: "디지털 콘텐츠",
+};
+
+export const RUNMOA_STATUS_LABELS: Record<string, string> = {
+  publish: "판매중",
+  pending: "숨김",
+  paused: "판매중지",
+  in_review: "검토중",
+  banned: "판매불가",
+};
+
+export const RUNMOA_STATUS_COLORS: Record<string, string> = {
+  publish: "bg-green-100 text-green-800",
+  pending: "bg-gray-100 text-gray-600",
+  paused: "bg-yellow-100 text-yellow-800",
+  in_review: "bg-blue-100 text-blue-800",
+  banned: "bg-red-100 text-red-800",
+};
