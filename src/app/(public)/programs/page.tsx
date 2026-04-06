@@ -182,7 +182,7 @@ export default function ProgramsPage() {
                   </div>
 
                   <a
-                    href={`${RUNMOA_BASE}/contents/${c.content_id}`}
+                    href={`${RUNMOA_BASE}/classes/${c.content_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-auto w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"

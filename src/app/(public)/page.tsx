@@ -608,7 +608,7 @@ export default function HomePage() {
               ? runmoaPrograms.slice(0, 8).map((c) => (
                   <a
                     key={c.content_id}
-                    href={`https://aish.runmoa.com/contents/${c.content_id}`}
+                    href={`https://aish.runmoa.com/classes/${c.content_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     ref={addRevealRef}
