@@ -1,23 +1,18 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
-  Plus, Search, Edit, Trash2, Pin, Eye, FileText, X, Save, Link, Paperclip, ExternalLink, Upload, Image as ImageIcon, File, PlusCircle,
+  Plus, Search, Edit, Trash2, Pin, Eye, FileText, X, Save, Link, Paperclip, ExternalLink, Image as ImageIcon, File, PlusCircle, HardDrive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { useToast } from "@/components/ui/Toast";
+import DriveFileUploader from "@/components/admin/DriveFileUploader";
+import type { DriveAttachment } from "@/types/firestore";
 
 type BoardType = "NOTICE" | "RESOURCE" | string;
-
-interface Attachment {
-  name: string;
-  url: string;
-  size: string;
-  type: string;
-}
 
 interface Post {
   id: string;
@@ -31,7 +26,7 @@ interface Post {
   googleLink?: string;
   notionLink?: string;
   slackLink?: string;
-  attachments?: Attachment[];
+  attachments?: DriveAttachment[];
 }
 
 const DEFAULT_BOARD_TYPES: Record<string, string> = {
@@ -41,7 +36,6 @@ const DEFAULT_BOARD_TYPES: Record<string, string> = {
 
 const MAX_ATTACHMENTS = 3;
 const MAX_FILE_SIZE_MB = 10;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const emptyPost = (): Omit<Post, "id"> => ({
   title: "",
@@ -57,14 +51,9 @@ const emptyPost = (): Omit<Post, "id"> => ({
   attachments: [],
 });
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
-
 function getAttachmentIcon(type: string) {
   switch (type) {
+    case "drive": return <HardDrive size={14} className="text-blue-500" />;
     case "image": return <ImageIcon size={14} className="text-purple-500" />;
     case "link": return <Link size={14} className="text-blue-500" />;
     default: return <File size={14} className="text-gray-500" />;
@@ -79,10 +68,7 @@ export default function AdminPostsPage() {
   const [editingPost, setEditingPost] = useState<(Omit<Post, "id"> & { id?: string }) | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [attachmentLinkName, setAttachmentLinkName] = useState("");
-  const [attachmentLinkUrl, setAttachmentLinkUrl] = useState("");
   const [saving, setSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [customBoardMode, setCustomBoardMode] = useState(false);
   const [customBoardInput, setCustomBoardInput] = useState("");
 
@@ -102,15 +88,11 @@ export default function AdminPostsPage() {
   const startCreate = () => {
     setEditingPost(emptyPost());
     setIsCreating(true);
-    setAttachmentLinkName("");
-    setAttachmentLinkUrl("");
   };
 
   const startEdit = (post: Post) => {
     setEditingPost({ ...post, attachments: post.attachments ? [...post.attachments] : [] });
     setIsCreating(false);
-    setAttachmentLinkName("");
-    setAttachmentLinkUrl("");
   };
 
   const savePost = async () => {
@@ -185,58 +167,9 @@ export default function AdminPostsPage() {
     }
   };
 
-  const currentAttachmentCount = editingPost?.attachments?.length ?? 0;
 
-  const addFileAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!editingPost || !e.target.files) return;
-    const files = Array.from(e.target.files);
-    const currentAttachments = editingPost.attachments ?? [];
-    const newAttachments: Attachment[] = [];
 
-    const readFileAsDataURL = (file: File): Promise<string> =>
-      new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-    for (const file of files) {
-      if (currentAttachments.length + newAttachments.length >= MAX_ATTACHMENTS) {
-        toast(`첨부파일은 최대 ${MAX_ATTACHMENTS}개까지 가능합니다.`, "info");
-        break;
-      }
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        toast(`"${file.name}" 파일이 ${MAX_FILE_SIZE_MB}MB를 초과합니다.`, "error");
-        continue;
-      }
-      try {
-        const dataUrl = await readFileAsDataURL(file);
-        const isImage = file.type.startsWith("image/");
-        newAttachments.push({ name: file.name, url: dataUrl, size: formatFileSize(file.size), type: isImage ? "image" : "file" });
-      } catch {
-        toast(`"${file.name}" 파일 읽기에 실패했습니다.`, "error");
-      }
-    }
-    if (newAttachments.length > 0) setEditingPost({ ...editingPost, attachments: [...currentAttachments, ...newAttachments] });
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const addLinkAttachment = () => {
-    if (!editingPost || !attachmentLinkUrl.trim()) return;
-    const currentAttachments = editingPost.attachments ?? [];
-    if (currentAttachments.length >= MAX_ATTACHMENTS) { toast(`첨부는 최대 ${MAX_ATTACHMENTS}개까지 가능합니다.`, "info"); return; }
-    setEditingPost({ ...editingPost, attachments: [...currentAttachments, { name: attachmentLinkName.trim() || attachmentLinkUrl.trim(), url: attachmentLinkUrl.trim(), size: "-", type: "link" }] });
-    setAttachmentLinkName("");
-    setAttachmentLinkUrl("");
-  };
-
-  const removeAttachment = (index: number) => {
-    if (!editingPost) return;
-    const updated = [...(editingPost.attachments ?? [])];
-    updated.splice(index, 1);
-    setEditingPost({ ...editingPost, attachments: updated });
-  };
+  // 첨부파일은 DriveFileUploader 컴포넌트에서 처리
 
   const hasResourceLinks = (post: Post) => post.googleLink || post.notionLink || post.slackLink;
 
@@ -420,51 +353,13 @@ export default function AdminPostsPage() {
                   </div>
                 </div>
               )}
-              <div className="space-y-3 p-4 bg-gray-50/80 rounded-xl border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><Paperclip size={16} className="text-gray-500" />첨부파일</h3>
-                  <span className="text-xs text-gray-400">{currentAttachmentCount}/{MAX_ATTACHMENTS} (최대 {MAX_FILE_SIZE_MB}MB/파일)</span>
-                </div>
-                {editingPost.attachments && editingPost.attachments.length > 0 && (
-                  <div className="space-y-2">
-                    {editingPost.attachments.map((att, idx) => (
-                      <div key={idx} className="flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-gray-100">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {getAttachmentIcon(att.type)}
-                          <span className="text-sm text-gray-700 truncate">{att.name}</span>
-                          {att.size !== "-" && <span className="text-xs text-gray-400 shrink-0">{att.size}</span>}
-                          <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium uppercase shrink-0",
-                            att.type === "image" ? "bg-purple-50 text-purple-600" : att.type === "link" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-500")}>
-                            {att.type}
-                          </span>
-                        </div>
-                        <button onClick={() => removeAttachment(idx)} className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors shrink-0 ml-2"><X size={14} /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {currentAttachmentCount < MAX_ATTACHMENTS && (
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <input ref={fileInputRef} type="file" multiple className="hidden" onChange={addFileAttachment} accept="*/*" />
-                      <button type="button" onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                        <Upload size={14} />파일 업로드
-                      </button>
-                    </div>
-                    <div className="flex gap-2">
-                      <input type="text" value={attachmentLinkName} onChange={(e) => setAttachmentLinkName(e.target.value)}
-                        placeholder="링크 이름" className="w-32 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
-                      <input type="url" value={attachmentLinkUrl} onChange={(e) => setAttachmentLinkUrl(e.target.value)}
-                        placeholder="https://..." className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
-                      <button type="button" onClick={addLinkAttachment} disabled={!attachmentLinkUrl.trim()}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40">
-                        <Link size={14} />추가
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <DriveFileUploader
+                attachments={editingPost.attachments ?? []}
+                onChange={(atts) => setEditingPost({ ...editingPost, attachments: atts })}
+                maxFiles={MAX_ATTACHMENTS}
+                maxFileSizeMB={MAX_FILE_SIZE_MB}
+                allowLinks
+              />
               <div className="flex items-center gap-2">
                 <input type="checkbox" checked={editingPost.isPinned} onChange={(e) => setEditingPost({ ...editingPost, isPinned: e.target.checked })} className="rounded border-gray-300" />
                 <label className="text-sm text-gray-700">상단 고정</label>

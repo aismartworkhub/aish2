@@ -27,6 +27,16 @@ export interface Program {
   ctaLink?: string;
 }
 
+export interface DriveAttachment {
+  name: string;
+  url: string;
+  size: string;
+  type: string;
+  driveFileId?: string;
+  driveDownloadUrl?: string;
+  driveViewUrl?: string;
+}
+
 export interface Instructor {
   id?: string;
   name: string;
@@ -137,6 +147,8 @@ export interface Resource {
   id?: string;
   title: string;
   description: string;
+  content?: string;
+  author?: string;
   fileType: string;
   fileName: string;
   fileSize: string;
