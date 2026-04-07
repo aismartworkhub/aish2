@@ -6,7 +6,9 @@ import {
   Sparkles, Link, Upload, FileText,
 } from "lucide-react";
 import { cn, toDirectImageUrl, extractGoogleDriveFileId } from "@/lib/utils";
-import { getDriveAccessToken, shareFilePublic } from "@/lib/google-drive";
+import { getDriveAccessToken, shareFilePublic, driveViewUrl as makeDriveViewUrl } from "@/lib/google-drive";
+import DriveFileUploader from "@/components/admin/DriveFileUploader";
+import type { DriveAttachment } from "@/types/firestore";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc, updateDocFields } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
@@ -492,20 +494,38 @@ export default function AdminInstructorsPage() {
                 </div>
               </div>
 
-              {/* Image URL */}
+              {/* Profile Image */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">프로필 이미지 URL</label>
-                <input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                  placeholder="https://... 또는 Google Drive 공유 링크" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">프로필 이미지</label>
                 {form.imageUrl.trim() && (
-                  <div className="mt-2 flex items-center gap-3">
-                    <div className="w-16 h-16 rounded-full border border-gray-200 bg-gray-50 overflow-hidden shrink-0">
-                      <img src={toDirectImageUrl(form.imageUrl)} alt="미리보기" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="w-20 h-20 rounded-full border-2 border-gray-200 bg-gray-50 overflow-hidden shrink-0">
+                      <img src={toDirectImageUrl(form.imageUrl)} alt="미리보기" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" />
                     </div>
-                    <p className="text-xs text-gray-400">미리보기 -- Google Drive 링크는 자동 변환됩니다.</p>
+                    <div>
+                      <p className="text-xs text-gray-500">현재 이미지</p>
+                      <button type="button" onClick={() => setForm({ ...form, imageUrl: "" })}
+                        className="text-xs text-red-500 hover:underline mt-1">제거</button>
+                    </div>
                   </div>
                 )}
+                <DriveFileUploader
+                  attachments={form.imageUrl.trim() ? [] : []}
+                  onChange={(atts: DriveAttachment[]) => {
+                    const att = atts[0];
+                    if (att?.driveFileId) {
+                      setForm({ ...form, imageUrl: `https://drive.google.com/file/d/${att.driveFileId}/view` });
+                    }
+                  }}
+                  maxFiles={1}
+                  maxFileSizeMB={10}
+                />
+                <div className="mt-2">
+                  <p className="text-xs text-gray-400 mb-1">또는 URL 직접 입력:</p>
+                  <input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    placeholder="https://... 또는 Google Drive 공유 링크" />
+                </div>
               </div>
 
               {/* Bio */}
