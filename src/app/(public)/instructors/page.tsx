@@ -34,6 +34,7 @@ import {
   User,
 } from "lucide-react";
 import { toDirectImageUrl, cn } from "@/lib/utils";
+import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import type { InstructorComment } from "@/types/firestore";
 import type { RunmoaContent } from "@/types/runmoa";
 
@@ -529,15 +530,13 @@ export default function InstructorsPage() {
                 {/* Image */}
                 <div className={cn("relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-primary-200 to-primary-50")}>
                   {imageSrc(inst) ? (
-                    <img
-                      src={toDirectImageUrl(imageSrc(inst)!)}
+                    <DriveOrExternalImage
+                      src={imageSrc(inst)!}
                       alt={inst.name}
                       className={cn("w-full h-full object-cover object-top")}
-                      referrerPolicy="no-referrer"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      quiet
                     />
-                  ) : null}
-                  {!imageSrc(inst) && (
+                  ) : (
                     <div
                       className={cn(
                         "w-full h-full flex items-center justify-center"
@@ -717,12 +716,11 @@ export default function InstructorsPage() {
               >
                 <div className={cn("relative rounded-2xl overflow-hidden shadow-2xl")}>
                   {imageSrc(selectedInstructor) ? (
-                    <img
-                      src={toDirectImageUrl(imageSrc(selectedInstructor)!)}
+                    <DriveOrExternalImage
+                      src={imageSrc(selectedInstructor)!}
                       alt={selectedInstructor.name}
                       className={cn("object-cover object-top w-full aspect-[3/4]")}
-                      referrerPolicy="no-referrer"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      quiet
                     />
                   ) : (
                     <div
