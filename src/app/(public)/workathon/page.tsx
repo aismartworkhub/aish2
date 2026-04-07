@@ -106,16 +106,32 @@ export default function WorkathonPage() {
         </div>
 
         {/* CTA */}
-        <div className="text-center">
-          <Link
-            href={buttonUrl}
-            target={isExternalHref(buttonUrl) ? "_blank" : undefined}
-            rel={isExternalHref(buttonUrl) ? "noopener noreferrer" : undefined}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-600 to-purple-600 text-white rounded-xl font-semibold text-lg hover:shadow-lg transition-shadow"
-          >
-            {buttonText} <ArrowRight size={20} />
-          </Link>
-        </div>
+        {(() => {
+          const ctaHref = (w as { ctaLink?: string }).ctaLink?.trim() || buttonUrl;
+          const ctaLabel = (w as { ctaText?: string }).ctaText?.trim() || buttonText;
+          const external = isExternalHref(ctaHref);
+          return (
+            <div className="text-center">
+              {external ? (
+                <a
+                  href={ctaHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-600 to-purple-600 text-white rounded-xl font-semibold text-lg hover:shadow-lg transition-shadow"
+                >
+                  {ctaLabel} <ArrowRight size={20} />
+                </a>
+              ) : (
+                <Link
+                  href={ctaHref}
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-600 to-purple-600 text-white rounded-xl font-semibold text-lg hover:shadow-lg transition-shadow"
+                >
+                  {ctaLabel} <ArrowRight size={20} />
+                </Link>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

@@ -44,6 +44,8 @@ interface EventData {
   maxParticipants: number;
   status: EventStatus;
   posterUrl: string;
+  ctaText: string;
+  ctaLink: string;
   schedule: ScheduleItem[];
   registrations: Registration[];
 }
@@ -131,6 +133,8 @@ export default function AdminWorkathonPage() {
       maxParticipants: 50,
       status: "DRAFT",
       posterUrl: "",
+      ctaText: "",
+      ctaLink: "",
       schedule: [],
       registrations: [],
     };
@@ -656,6 +660,26 @@ export default function AdminWorkathonPage() {
                   value={selectedEvent.posterUrl || ""}
                   onChange={(e) => updateEvent(selectedEvent.id, { posterUrl: e.target.value })}
                   placeholder="https://... 또는 Google Drive 공유 링크"
+                  className={cn(INPUT_CLASS)}
+                />
+              </div>
+              <div>
+                <label className={cn("block text-xs font-medium text-gray-500 mb-1")}>CTA 버튼 문구</label>
+                <input
+                  type="text"
+                  value={selectedEvent.ctaText || ""}
+                  onChange={(e) => updateEvent(selectedEvent.id, { ctaText: e.target.value })}
+                  placeholder="예: 참가 신청하기"
+                  className={cn(INPUT_CLASS)}
+                />
+              </div>
+              <div>
+                <label className={cn("block text-xs font-medium text-gray-500 mb-1")}>CTA 링크 URL</label>
+                <input
+                  type="text"
+                  value={selectedEvent.ctaLink || ""}
+                  onChange={(e) => updateEvent(selectedEvent.id, { ctaLink: e.target.value })}
+                  placeholder="https://... 외부 링크 또는 /community 등 내부 경로"
                   className={cn(INPUT_CLASS)}
                 />
               </div>
