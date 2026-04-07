@@ -527,18 +527,20 @@ export default function InstructorsPage() {
                 )}
               >
                 {/* Image */}
-                <div className={cn("relative aspect-[3/4] overflow-hidden")}>
+                <div className={cn("relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-primary-200 to-primary-50")}>
                   {imageSrc(inst) ? (
                     <img
                       src={toDirectImageUrl(imageSrc(inst)!)}
                       alt={inst.name}
-                      className={cn("w-full h-full object-cover")}
+                      className={cn("w-full h-full object-cover object-top")}
                       referrerPolicy="no-referrer"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
-                  ) : (
+                  ) : null}
+                  {!imageSrc(inst) && (
                     <div
                       className={cn(
-                        "w-full h-full bg-gradient-to-br from-primary-200 to-primary-50 flex items-center justify-center"
+                        "w-full h-full flex items-center justify-center"
                       )}
                     >
                       <GraduationCap className={cn("w-20 h-20 text-primary-400")} />
@@ -718,8 +720,9 @@ export default function InstructorsPage() {
                     <img
                       src={toDirectImageUrl(imageSrc(selectedInstructor)!)}
                       alt={selectedInstructor.name}
-                      className={cn("object-cover w-full aspect-[3/4]")}
+                      className={cn("object-cover object-top w-full aspect-[3/4]")}
                       referrerPolicy="no-referrer"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   ) : (
                     <div
