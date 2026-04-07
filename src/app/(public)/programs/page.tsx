@@ -134,9 +134,9 @@ export default function ProgramsPage() {
         {!loading && !useFallback && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {(filtered as RunmoaContent[]).map((c) => (
-              <div key={c.content_id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+              <div key={c.content_id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover-lift">
                 {c.featured_image ? (
-                  <div className="h-40 overflow-hidden">
+                  <div className="aspect-[16/9] overflow-hidden relative">
                     <img
                       src={c.featured_image}
                       alt={c.title}
@@ -146,7 +146,7 @@ export default function ProgramsPage() {
                     />
                   </div>
                 ) : (
-                  <div className="h-40 bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
+                  <div className="aspect-[16/9] bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
                     <span className="text-4xl">📚</span>
                   </div>
                 )}
@@ -168,24 +168,25 @@ export default function ProgramsPage() {
                       {stripHtml(c.description_html).slice(0, 120)}
                     </p>
                   )}
-                  <div className="text-sm mb-4">
+                  <div className="mb-4">
                     {c.is_free ? (
-                      <span className="text-green-600 font-semibold">무료</span>
+                      <span className="text-lg font-bold text-green-600">무료</span>
                     ) : c.is_on_sale && c.sale_price > 0 ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-900 font-semibold">₩{formatPrice(c.sale_price)}</span>
+                        <span className="text-lg font-bold text-gray-900">₩{formatPrice(c.sale_price)}</span>
                         <span className="text-xs text-gray-400 line-through">₩{formatPrice(c.base_price)}</span>
                       </div>
                     ) : c.base_price > 0 ? (
-                      <span className="text-gray-900 font-semibold">₩{formatPrice(c.base_price)}</span>
+                      <span className="text-lg font-bold text-gray-900">₩{formatPrice(c.base_price)}</span>
                     ) : null}
                   </div>
-
+                </div>
+                <div className="px-5 pb-5 pt-0 mt-auto border-t border-gray-100">
                   <a
                     href={`${RUNMOA_BASE}/classes/${c.content_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-auto w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+                    className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
                   >
                     자세히 보기
                     <ExternalLink size={16} />
@@ -200,8 +201,8 @@ export default function ProgramsPage() {
         {!loading && useFallback && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {(filtered as typeof DEMO_PROGRAMS).map((program) => (
-              <div key={program.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-                <div className="h-40 bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
+              <div key={program.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover-lift">
+                <div className="aspect-[16/9] bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
                   <span className="text-4xl">📚</span>
                 </div>
                 <div className="p-5 flex-1 flex flex-col">

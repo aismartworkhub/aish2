@@ -180,6 +180,18 @@ export interface InstructorComment {
   createdAt: string;
 }
 
+export interface PostComment {
+  id?: string;
+  postId: string;
+  postType: "NOTICE" | "RESOURCE";
+  authorUid: string;
+  authorName: string;
+  authorEmail: string;
+  authorPhotoURL: string | null;
+  content: string;
+  createdAt: string;
+}
+
 export interface AdminEvent {
   id?: string;
   title: string;

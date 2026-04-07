@@ -486,6 +486,15 @@ export default function InstructorsPage() {
     };
   }, [selectedInstructor]);
 
+  useEffect(() => {
+    if (!selectedInstructor) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedInstructor(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedInstructor]);
+
   const imageSrc = (inst: InstructorItem) =>
     inst.imageUrl || inst.profileImageUrl;
 
@@ -523,12 +532,12 @@ export default function InstructorsPage() {
                 key={inst.id}
                 onClick={() => setSelectedInstructor(inst)}
                 className={cn(
-                  "bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden",
+                  "bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover-lift group",
                   "cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
                 )}
               >
                 {/* Image */}
-                <div className={cn("relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-primary-200 to-primary-50")}>
+                <div className={cn("relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-primary-200 to-primary-50")}>
                   {imageSrc(inst) ? (
                     <DriveOrExternalImage
                       src={imageSrc(inst)!}
@@ -537,12 +546,8 @@ export default function InstructorsPage() {
                       quiet
                     />
                   ) : (
-                    <div
-                      className={cn(
-                        "w-full h-full flex items-center justify-center"
-                      )}
-                    >
-                      <GraduationCap className={cn("w-20 h-20 text-primary-400")} />
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200">
+                      <span className="text-5xl font-bold text-primary-400">{inst.name.charAt(0)}</span>
                     </div>
                   )}
                   <div
@@ -582,6 +587,9 @@ export default function InstructorsPage() {
                     </p>
                   )}
                 </div>
+                <div className="px-5 pb-4">
+                  <span className="text-xs text-primary-600 font-medium group-hover:underline">프로필 보기 →</span>
+                </div>
               </div>
             ))}
         </div>
@@ -589,7 +597,7 @@ export default function InstructorsPage() {
 
       {/* Detail Modal */}
       {selectedInstructor && (
-        <div className={cn("fixed inset-0 z-50 bg-[#0a3a7a] overflow-y-auto")}>
+        <div className={cn("fixed inset-0 z-50 bg-[#0a3a7a] overflow-y-auto")} role="dialog" aria-modal="true">
           {/* Top buttons */}
           <div className={cn("absolute top-4 right-4 z-10 flex items-center gap-2")}>
             {isAdmin && (
@@ -719,13 +727,13 @@ export default function InstructorsPage() {
                     <DriveOrExternalImage
                       src={imageSrc(selectedInstructor)!}
                       alt={selectedInstructor.name}
-                      className={cn("object-cover object-top w-full aspect-[3/4]")}
+                      className={cn("object-cover object-top w-full aspect-[4/5]")}
                       quiet
                     />
                   ) : (
                     <div
                       className={cn(
-                        "w-full aspect-[3/4] bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center"
+                        "w-full aspect-[4/5] bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center"
                       )}
                     >
                       <GraduationCap className={cn("w-24 h-24 text-white/40")} />

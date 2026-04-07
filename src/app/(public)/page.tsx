@@ -612,7 +612,7 @@ export default function HomePage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     ref={addRevealRef}
-                    className="group bg-white rounded overflow-hidden border border-gray-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                    className="group bg-white rounded overflow-hidden border border-gray-200/80 hover-lift"
                   >
                     <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden">
                       {c.featured_image ? (
@@ -635,8 +635,8 @@ export default function HomePage() {
                       <h3 className="text-sm font-bold text-gray-900 group-hover:text-primary-600 transition-colors line-clamp-1">
                         {c.title}
                       </h3>
-                      <p className="text-xs text-gray-400 mt-1.5">
-                        {c.is_free ? "무료" : c.is_on_sale && c.sale_price > 0 ? `₩${c.sale_price.toLocaleString("ko-KR")}` : c.base_price > 0 ? `₩${c.base_price.toLocaleString("ko-KR")}` : ""}
+                      <p className="mt-1.5">
+                        {c.is_free ? <span className="text-sm font-semibold text-green-600">무료</span> : c.is_on_sale && c.sale_price > 0 ? <span className="text-sm font-semibold text-gray-900">₩{c.sale_price.toLocaleString("ko-KR")}</span> : c.base_price > 0 ? <span className="text-sm font-semibold text-gray-900">₩{c.base_price.toLocaleString("ko-KR")}</span> : null}
                       </p>
                     </div>
                   </a>
@@ -646,7 +646,7 @@ export default function HomePage() {
                     key={program.id}
                     href={`/programs#${program.id}`}
                     ref={addRevealRef}
-                    className="group bg-white rounded overflow-hidden border border-gray-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                    className="group bg-white rounded overflow-hidden border border-gray-200/80 hover-lift"
                   >
                     <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center relative">
                       <BookOpen size={36} className="text-gray-300" />

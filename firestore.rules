@@ -116,6 +116,15 @@ service cloud.firestore {
         (isAuthenticated() && resource.data.uploaderId == request.auth.uid);
     }
 
+    // 게시글 댓글
+    match /postComments/{docId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+      allow delete: if isAdmin() ||
+        (isAuthenticated() && resource.data.authorUid == request.auth.uid);
+    }
+
     // 강사 댓글: 공개 읽기, 로그인 사용자 작성, 본인 또는 관리자만 삭제
     match /instructorComments/{docId} {
       allow read: if true;

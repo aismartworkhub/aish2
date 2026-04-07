@@ -1,21 +1,22 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Bell, FolderOpen, Award, HelpCircle, Handshake, Images, FileText,
   ChevronDown, ChevronUp, ExternalLink, Mail, Phone, Building,
   Star, Download, Eye, Pin, Search, X,
+  MessageCircle, Send, Trash2, User,
 } from "lucide-react";
 import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
-import { getCollection, createDoc, COLLECTIONS } from "@/lib/firestore";
+import { getCollection, getFilteredCollection, createDoc, removeDoc, invalidateCache, COLLECTIONS } from "@/lib/firestore";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import { useAuth } from "@/contexts/AuthContext";
 import LoginModal from "@/components/public/LoginModal";
 import { useToast } from "@/components/ui/Toast";
-import type { Resource } from "@/types/firestore";
+import type { Resource, PostComment } from "@/types/firestore";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 
 type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery" | string;
@@ -53,6 +54,102 @@ const GALLERY_IMAGES: { id: string | number; title: string; category: string; im
   { id: 6, title: "네트워킹 행사", category: "행사", imageUrl: "/images/defaults/spec-system.jpg" },
 ];
 
+function PostCommentSection({ postId, postType }: { postId: string; postType: "NOTICE" | "RESOURCE" }) {
+  const { user, profile, isAdmin } = useAuth();
+  const [comments, setComments] = useState<(PostComment & { id: string })[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await getFilteredCollection<PostComment & { id: string }>(COLLECTIONS.POST_COMMENTS, "postId", postId);
+      data.sort((a, b) => {
+        const ta = typeof a.createdAt === "object" && a.createdAt ? (a.createdAt as unknown as { seconds: number }).seconds * 1000 : new Date(a.createdAt).getTime();
+        const tb = typeof b.createdAt === "object" && b.createdAt ? (b.createdAt as unknown as { seconds: number }).seconds * 1000 : new Date(b.createdAt).getTime();
+        return tb - ta;
+      });
+      setComments(data);
+    } catch { setComments([]); }
+    finally { setLoaded(true); }
+  }, [postId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSubmit = async () => {
+    if (!newComment.trim() || !user) return;
+    setSubmitting(true);
+    try {
+      await createDoc(COLLECTIONS.POST_COMMENTS, {
+        postId, postType,
+        authorUid: user.uid,
+        authorName: profile?.name || user.displayName || "익명",
+        authorEmail: user.email || "",
+        authorPhotoURL: user.photoURL || null,
+        content: newComment.trim(),
+      });
+      setNewComment("");
+      invalidateCache(COLLECTIONS.POST_COMMENTS);
+      await load();
+    } finally { setSubmitting(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+    await removeDoc(COLLECTIONS.POST_COMMENTS, id);
+    invalidateCache(COLLECTIONS.POST_COMMENTS);
+    await load();
+  };
+
+  const formatTime = (ts: unknown) => {
+    if (!ts) return "";
+    const ms = typeof ts === "object" && ts !== null && "seconds" in ts
+      ? (ts as { seconds: number }).seconds * 1000
+      : new Date(ts as string).getTime();
+    return new Date(ms).toLocaleDateString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-200">
+      <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
+        <MessageCircle size={14} /> 댓글 {loaded ? `(${comments.length})` : ""}
+      </h4>
+      {user ? (
+        <div className="flex gap-2 mb-4">
+          <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)}
+            placeholder="댓글을 입력하세요..." rows={2}
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
+          <button onClick={handleSubmit} disabled={!newComment.trim() || submitting}
+            className="btn-primary btn-sm self-end disabled:opacity-40">
+            <Send size={14} />{submitting ? "..." : "작성"}
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400 mb-3">댓글을 작성하려면 로그인이 필요합니다.</p>
+      )}
+      <div className="space-y-3">
+        {comments.map((c) => (
+          <div key={c.id} className="flex gap-2">
+            <div className="w-7 h-7 rounded-full bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center">
+              {c.authorPhotoURL ? <img src={c.authorPhotoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <User size={14} className="text-gray-400" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-800">{c.authorName}</span>
+                <span className="text-[10px] text-gray-400">{formatTime(c.createdAt)}</span>
+                {(user?.uid === c.authorUid || isAdmin) && (
+                  <button onClick={() => handleDelete(c.id)} className="text-gray-300 hover:text-red-400 ml-auto"><Trash2 size={12} /></button>
+                )}
+              </div>
+              <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap">{c.content}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CommunityContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
@@ -73,6 +170,7 @@ function CommunityContent() {
   const [galleryList, setGalleryList] = useState(GALLERY_IMAGES);
   const [customBoards, setCustomBoards] = useState<{ boardType: string; posts: { id: string; title: string; date: string; views: number; pinned: boolean; content?: string }[] }[]>([]);
   const [expandedNoticeId, setExpandedNoticeId] = useState<string | number | null>(null);
+  const [expandedResourceId, setExpandedResourceId] = useState<string | number | null>(null);
   const [expandedCustomPostId, setExpandedCustomPostId] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<{ imageUrl: string; title: string } | null>(null);
 
@@ -241,27 +339,31 @@ function CommunityContent() {
         </div>
 
         {/* 탭 네비게이션 */}
-        <div className="flex flex-wrap justify-center gap-2 mb-10">
-          {[...FIXED_TABS, ...customBoards.map((cb) => ({
-            key: cb.boardType.toLowerCase(),
-            label: cb.boardType,
-            icon: FileText,
-            color: "text-gray-600 bg-gray-50",
-          }))].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all",
-                activeTab === tab.key
-                  ? "bg-primary-600 text-white shadow-md"
-                  : "bg-white text-gray-600 border border-gray-200 hover:border-primary-300 hover:text-primary-600"
-              )}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-            </button>
-          ))}
+        <div className="relative mb-10 border-b border-gray-200" role="tablist">
+          <div className="flex overflow-x-auto scrollbar-hide -mb-px">
+            {[...FIXED_TABS, ...customBoards.map((cb) => ({
+              key: cb.boardType.toLowerCase(),
+              label: cb.boardType,
+              icon: FileText,
+              color: "text-gray-600 bg-gray-50",
+            }))].map((tab) => (
+              <button
+                key={tab.key}
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "inline-flex items-center gap-2 whitespace-nowrap px-5 py-3 text-sm font-medium transition-all",
+                  activeTab === tab.key
+                    ? "border-b-2 border-primary-600 text-primary-600 font-semibold bg-transparent"
+                    : "border-b-2 border-transparent text-gray-500 hover:text-gray-700 bg-transparent"
+                )}
+              >
+                <tab.icon size={16} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* 공지사항 */}
@@ -288,8 +390,11 @@ function CommunityContent() {
                     </div>
                   </button>
                   {expandedNoticeId === notice.id && (
-                    <div className="px-6 pb-4 text-sm text-gray-600 bg-gray-50 border-t border-gray-100">
-                      <p className="pt-3">{(notice as { content?: string }).content || "상세 내용은 추후 업데이트 예정입니다."}</p>
+                    <div className="px-6 pb-6 bg-gray-50 border-t border-gray-100 space-y-4">
+                      <div className="pt-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                        {(notice as { content?: string }).content || "상세 내용은 추후 업데이트 예정입니다."}
+                      </div>
+                      <PostCommentSection postId={String(notice.id)} postType="NOTICE" />
                     </div>
                   )}
                 </div>
@@ -318,27 +423,48 @@ function CommunityContent() {
             {driveResources.length > 0 && (
               <div className="divide-y divide-gray-50">
                 {driveResources.map((res) => (
-                  <div key={res.id} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{res.title}</p>
-                      <p className="text-xs text-gray-400 mt-1">{res.uploaderName} · {res.fileSize}</p>
-                      {res.tags.length > 0 && (
-                        <div className="flex gap-1 mt-1">{res.tags.slice(0, 3).map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{t}</span>)}</div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 shrink-0 ml-4">
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{res.fileType.toUpperCase()}</span>
-                      <span className="text-xs text-gray-400 flex items-center gap-1"><Download size={12} />{res.downloads}</span>
-                      <button
-                        onClick={() => requireLogin(() => {
-                          if (!isProfileComplete) { toast("프로필을 먼저 완성해 주세요.", "info"); return; }
-                          window.open(res.driveDownloadUrl, "_blank");
-                        }, "자료 다운로드는 로그인이 필요합니다.")}
-                        className="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition-colors"
-                      >
-                        <Download size={16} />
-                      </button>
-                    </div>
+                  <div key={res.id}>
+                    <button
+                      onClick={() => setExpandedResourceId(expandedResourceId === res.id ? null : res.id)}
+                      className="w-full flex items-center px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{res.title}</p>
+                        <p className="text-xs text-gray-400 mt-1">{res.uploaderName} · {res.fileSize}</p>
+                        {res.tags.length > 0 && (
+                          <div className="flex gap-1 mt-1">{res.tags.slice(0, 3).map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{t}</span>)}</div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0 ml-4">
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{res.fileType.toUpperCase()}</span>
+                        <span className="text-xs text-gray-400 flex items-center gap-1"><Download size={12} />{res.downloads}</span>
+                        <span
+                          role="button"
+                          onClick={(e) => { e.stopPropagation(); requireLogin(() => {
+                            if (!isProfileComplete) { toast("프로필을 먼저 완성해 주세요.", "info"); return; }
+                            window.open(res.driveDownloadUrl, "_blank");
+                          }, "자료 다운로드는 로그인이 필요합니다."); }}
+                          className="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition-colors"
+                        >
+                          <Download size={16} />
+                        </span>
+                        {expandedResourceId === res.id ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                      </div>
+                    </button>
+                    {expandedResourceId === res.id && (
+                      <div className="px-6 pb-6 bg-gray-50 border-t border-gray-100 space-y-3">
+                        {res.description && <p className="text-sm text-gray-700">{res.description}</p>}
+                        {res.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">{res.tags.map((t) => <span key={t} className="badge-base bg-gray-100 text-gray-600">{t}</span>)}</div>
+                        )}
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <span>{res.fileType.toUpperCase()} · {res.fileSize}</span>
+                          <span>다운로드 {res.downloads}회</span>
+                          {res.driveViewUrl && <a href={res.driveViewUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">미리보기</a>}
+                        </div>
+                        <PostCommentSection postId={String(res.id)} postType="RESOURCE" />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

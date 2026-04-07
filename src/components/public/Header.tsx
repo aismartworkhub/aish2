@@ -50,7 +50,7 @@ export default function Header() {
       <header
         className={cn(
           "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200/60 transition-all duration-300 flex items-center",
-          isScrolled ? "h-[70px] shadow-[0_10px_20px_rgba(0,0,0,0.05)]" : "h-20"
+          isScrolled ? "h-14 md:h-[70px] shadow-[0_10px_20px_rgba(0,0,0,0.05)]" : "h-16 md:h-20"
         )}
       >
         <div className="w-[90%] max-w-[1400px] mx-auto flex items-center justify-between">
@@ -163,6 +163,9 @@ export default function Header() {
               </button>
             )}
 
+            <Link href="/programs" className="lg:hidden p-2 text-gray-700 hover:text-primary-600" aria-label="검색">
+              <Search size={20} />
+            </Link>
             <button
               type="button"
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}
@@ -183,8 +186,9 @@ export default function Header() {
             className="fixed inset-0 bg-black/30 z-[55] lg:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          {/* 메뉴 패널 */}
-          <div className="fixed top-20 left-0 right-0 z-[56] lg:hidden bg-white border-t border-gray-200 shadow-lg max-h-[calc(100vh-80px)] overflow-y-auto">
+          {/* 메뉴 패널 - bottom sheet */}
+          <div className="fixed bottom-0 left-0 right-0 z-[56] lg:hidden bg-white rounded-t-2xl shadow-lg max-h-[70vh] overflow-y-auto animate-slide-up">
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-2" />
             <nav className="w-[90%] max-w-[1400px] mx-auto py-4 space-y-1">
               {NAV_ITEMS.map((item) => (
                 <Link

@@ -131,4 +131,5 @@ export const COLLECTIONS = {
   ADMIN_EVENTS: "adminEvents",
   RESOURCES: "resources",
   INSTRUCTOR_COMMENTS: "instructorComments",
+  POST_COMMENTS: "postComments",
 } as const;
