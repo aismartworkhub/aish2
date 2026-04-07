@@ -5,20 +5,48 @@ import { auth } from "@/lib/firebase";
 
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
+let cachedToken: string | null = null;
+
 /**
  * Google Drive 업로드용 OAuth 액세스 토큰을 취득한다.
- * 이미 로그인된 사용자에게 drive.file 스코프를 추가로 요청한다.
+ * 세션 내 캐싱하여 매번 팝업을 띄우지 않는다.
+ * 캐시된 토큰이 만료되었으면 재취득한다.
  */
 export async function getDriveAccessToken(): Promise<string> {
+  // 캐시된 토큰이 유효한지 확인
+  if (cachedToken) {
+    try {
+      const test = await fetch("https://www.googleapis.com/drive/v3/about?fields=user", {
+        headers: { Authorization: `Bearer ${cachedToken}` },
+      });
+      if (test.ok) return cachedToken;
+    } catch { /* 만료됨 — 재취득 */ }
+    cachedToken = null;
+  }
+
   const provider = new GoogleAuthProvider();
   provider.addScope(DRIVE_SCOPE);
+  // 매번 계정 선택 화면을 건너뛰도록 힌트 설정
+  provider.setCustomParameters({ prompt: "consent" });
 
-  const result = await signInWithPopup(auth, provider);
-  const credential = GoogleAuthProvider.credentialFromResult(result);
-  if (!credential?.accessToken) {
-    throw new Error("Google Drive 액세스 토큰을 가져올 수 없습니다.");
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (!credential?.accessToken) {
+      throw new Error("Google Drive 액세스 토큰을 가져올 수 없습니다.\nGoogle 로그인 팝업에서 권한을 허용해 주세요.");
+    }
+    cachedToken = credential.accessToken;
+    return cachedToken;
+  } catch (err: unknown) {
+    const code = (err as { code?: string }).code ?? "";
+    if (code === "auth/popup-blocked") {
+      throw new Error("팝업이 차단되었습니다. 브라우저 팝업 차단을 해제한 후 다시 시도해 주세요.");
+    }
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+      throw new Error("Google 로그인이 취소되었습니다. 다시 시도해 주세요.");
+    }
+    throw err;
   }
-  return credential.accessToken;
 }
 
 /* ── Google Drive API 호출 ── */

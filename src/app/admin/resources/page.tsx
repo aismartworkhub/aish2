@@ -339,7 +339,7 @@ export default function AdminResourcesPage() {
                 attachments={editingResource.attachments}
                 onChange={(atts) => setEditingResource({ ...editingResource, attachments: atts })}
                 maxFiles={3}
-                maxFileSizeMB={10}
+                maxFileSizeMB={500}
                 allowLinks
               />
             </div>
