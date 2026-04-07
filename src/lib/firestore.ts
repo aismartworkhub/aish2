@@ -9,6 +9,7 @@ import {
   deleteDoc,
   query,
   orderBy,
+  where,
   serverTimestamp,
   DocumentData,
   WithFieldValue,
@@ -47,6 +48,23 @@ export async function getOrderedCollection<T>(col: string, field: string, dir: "
     return cached.data as T[];
   }
   const q = query(collection(db, col), orderBy(field, dir));
+  const snap = await getDocs(q);
+  const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+  _cache.set(cacheKey, { data: result, ts: Date.now() });
+  return result;
+}
+
+export async function getFilteredCollection<T>(
+  col: string,
+  field: string,
+  value: string,
+): Promise<T[]> {
+  const cacheKey = `${col}__${field}__${value}`;
+  const cached = _cache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data as T[];
+  }
+  const q = query(collection(db, col), where(field, "==", value));
   const snap = await getDocs(q);
   const result = snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
   _cache.set(cacheKey, { data: result, ts: Date.now() });
@@ -112,4 +130,5 @@ export const COLLECTIONS = {
   USERS: "users",
   ADMIN_EVENTS: "adminEvents",
   RESOURCES: "resources",
+  INSTRUCTOR_COMMENTS: "instructorComments",
 } as const;

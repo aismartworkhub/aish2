@@ -169,6 +169,17 @@ export interface Resource {
   tags: string[];
 }
 
+export interface InstructorComment {
+  id?: string;
+  instructorId: string;
+  authorUid: string;
+  authorName: string;
+  authorEmail: string;
+  authorPhotoURL: string | null;
+  content: string;
+  createdAt: string;
+}
+
 export interface AdminEvent {
   id?: string;
   title: string;
