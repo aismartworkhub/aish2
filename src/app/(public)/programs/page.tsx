@@ -140,7 +140,7 @@ export default function ProgramsPage() {
                     <img
                       src={c.featured_image}
                       alt={c.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-top"
                       loading="lazy"
                       decoding="async"
                     />

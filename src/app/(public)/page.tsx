@@ -616,7 +616,7 @@ export default function HomePage() {
                   >
                     <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden">
                       {c.featured_image ? (
-                        <img src={c.featured_image} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
+                        <img src={c.featured_image} alt={c.title} className="w-full h-full object-cover object-top" loading="lazy" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <BookOpen size={36} className="text-gray-300" />
