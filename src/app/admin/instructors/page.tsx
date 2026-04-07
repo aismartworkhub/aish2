@@ -5,10 +5,7 @@ import {
   Plus, Search, Edit, Trash2, X, Save, ChevronUp, ChevronDown,
   Sparkles, Link, Upload, FileText,
 } from "lucide-react";
-import { cn, toDirectImageUrl, extractGoogleDriveFileId } from "@/lib/utils";
-import { getDriveAccessToken, shareFilePublic, driveViewUrl as makeDriveViewUrl } from "@/lib/google-drive";
-import DriveFileUploader from "@/components/admin/DriveFileUploader";
-import type { DriveAttachment } from "@/types/firestore";
+import { cn, toDirectImageUrl } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc, updateDocFields } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
@@ -98,6 +95,38 @@ export default function AdminInstructorsPage() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [showApiKeyPrompt, setShowApiKeyPrompt] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profileImageRef = useRef<HTMLInputElement>(null);
+
+  // 프로필 이미지 리사이즈 → base64 (400x500, JPEG 80%)
+  const handleProfileImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast("이미지 파일만 업로드 가능합니다.", "info"); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_W = 400;
+        const MAX_H = 500;
+        let w = img.width;
+        let h = img.height;
+        if (w > MAX_W) { h = Math.round(h * (MAX_W / w)); w = MAX_W; }
+        if (h > MAX_H) { w = Math.round(w * (MAX_H / h)); h = MAX_H; }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        setForm((prev) => ({ ...prev, imageUrl: dataUrl }));
+        toast("이미지가 업로드되었습니다.", "success");
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+    if (profileImageRef.current) profileImageRef.current.value = "";
+  };
 
   const filtered = items.filter((i) =>
     i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -131,19 +160,7 @@ export default function AdminInstructorsPage() {
   const handleSave = async () => {
     if (!form.name.trim()) { toast("이름을 입력해 주세요.", "info"); return; }
     setSaving(true);
-    const saveData = { ...form, imageUrl: toDirectImageUrl(form.imageUrl) };
-
-    // Google Drive 이미지를 자동으로 공개 공유 설정
-    const driveFileId = extractGoogleDriveFileId(form.imageUrl);
-    if (driveFileId) {
-      try {
-        const token = await getDriveAccessToken();
-        await shareFilePublic(token, driveFileId);
-      } catch {
-        // 공유 설정 실패해도 저장은 진행 (이미 공유된 경우 등)
-      }
-    }
-
+    const saveData = { ...form };
     try {
       if (editId) {
         await upsertDoc(COLLECTIONS.INSTRUCTORS, editId, saveData);
@@ -498,29 +515,24 @@ export default function AdminInstructorsPage() {
               <div className="rounded-xl border border-gray-200 p-4 space-y-3">
                 <label className="block text-sm font-semibold text-gray-800">프로필 이미지</label>
                 <div className="flex items-start gap-4">
-                  {/* 미리보기 */}
                   <div className="w-24 h-24 rounded-full border-2 border-gray-200 bg-gray-50 overflow-hidden shrink-0 flex items-center justify-center">
                     {form.imageUrl.trim() ? (
-                      <img src={toDirectImageUrl(form.imageUrl)} alt="미리보기" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" />
+                      <img src={form.imageUrl.startsWith("data:") ? form.imageUrl : toDirectImageUrl(form.imageUrl)} alt="미리보기" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" />
                     ) : (
                       <span className="text-3xl text-gray-300">{form.name?.[0] || "?"}</span>
                     )}
                   </div>
-                  {/* 업로드 + URL 입력 */}
                   <div className="flex-1 space-y-2">
-                    <DriveFileUploader
-                      attachments={[]}
-                      onChange={(atts: DriveAttachment[]) => {
-                        const att = atts[0];
-                        if (att?.driveFileId) {
-                          setForm({ ...form, imageUrl: `https://drive.google.com/file/d/${att.driveFileId}/view` });
-                        }
-                      }}
-                      maxFiles={1}
-                      maxFileSizeMB={10}
-                    />
-                    <input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    <input ref={profileImageRef} type="file" accept="image/*" className="hidden" onChange={handleProfileImageUpload} />
+                    <button type="button" onClick={() => profileImageRef.current?.click()}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                      <Upload size={14} />사진 업로드
+                    </button>
+                    <p className="text-xs text-gray-400">이미지는 400x500px로 리사이즈 후 저장됩니다 (인증 불필요)</p>
+                    <input value={form.imageUrl.startsWith("data:") ? "(업로드된 이미지)" : form.imageUrl}
+                      onChange={(e) => { if (!form.imageUrl.startsWith("data:")) setForm({ ...form, imageUrl: e.target.value }); }}
+                      readOnly={form.imageUrl.startsWith("data:")}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 read-only:bg-gray-50 read-only:text-gray-400"
                       placeholder="또는 URL 직접 입력 (https://...)" />
                     {form.imageUrl.trim() && (
                       <button type="button" onClick={() => setForm({ ...form, imageUrl: "" })}
