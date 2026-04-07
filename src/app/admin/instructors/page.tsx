@@ -495,36 +495,38 @@ export default function AdminInstructorsPage() {
               </div>
 
               {/* Profile Image */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">프로필 이미지</label>
-                {form.imageUrl.trim() && (
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="w-20 h-20 rounded-full border-2 border-gray-200 bg-gray-50 overflow-hidden shrink-0">
+              <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+                <label className="block text-sm font-semibold text-gray-800">프로필 이미지</label>
+                <div className="flex items-start gap-4">
+                  {/* 미리보기 */}
+                  <div className="w-24 h-24 rounded-full border-2 border-gray-200 bg-gray-50 overflow-hidden shrink-0 flex items-center justify-center">
+                    {form.imageUrl.trim() ? (
                       <img src={toDirectImageUrl(form.imageUrl)} alt="미리보기" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">현재 이미지</p>
-                      <button type="button" onClick={() => setForm({ ...form, imageUrl: "" })}
-                        className="text-xs text-red-500 hover:underline mt-1">제거</button>
-                    </div>
+                    ) : (
+                      <span className="text-3xl text-gray-300">{form.name?.[0] || "?"}</span>
+                    )}
                   </div>
-                )}
-                <DriveFileUploader
-                  attachments={form.imageUrl.trim() ? [] : []}
-                  onChange={(atts: DriveAttachment[]) => {
-                    const att = atts[0];
-                    if (att?.driveFileId) {
-                      setForm({ ...form, imageUrl: `https://drive.google.com/file/d/${att.driveFileId}/view` });
-                    }
-                  }}
-                  maxFiles={1}
-                  maxFileSizeMB={10}
-                />
-                <div className="mt-2">
-                  <p className="text-xs text-gray-400 mb-1">또는 URL 직접 입력:</p>
-                  <input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                    placeholder="https://... 또는 Google Drive 공유 링크" />
+                  {/* 업로드 + URL 입력 */}
+                  <div className="flex-1 space-y-2">
+                    <DriveFileUploader
+                      attachments={[]}
+                      onChange={(atts: DriveAttachment[]) => {
+                        const att = atts[0];
+                        if (att?.driveFileId) {
+                          setForm({ ...form, imageUrl: `https://drive.google.com/file/d/${att.driveFileId}/view` });
+                        }
+                      }}
+                      maxFiles={1}
+                      maxFileSizeMB={10}
+                    />
+                    <input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      placeholder="또는 URL 직접 입력 (https://...)" />
+                    {form.imageUrl.trim() && (
+                      <button type="button" onClick={() => setForm({ ...form, imageUrl: "" })}
+                        className="text-xs text-red-500 hover:underline">이미지 제거</button>
+                    )}
+                  </div>
                 </div>
               </div>
 
