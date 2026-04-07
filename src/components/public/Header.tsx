@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronRight, Search, User, LogOut } from "lucide-react";
+import { Menu, X, ChevronRight, Search, User, LogOut, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
+import { getFilteredCollection, COLLECTIONS } from "@/lib/firestore";
+import type { AppNotification } from "@/types/firestore";
 import { useSiteCta } from "@/hooks/useSiteCta";
 import { isExternalHref } from "@/lib/utils";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
@@ -19,6 +21,22 @@ export default function Header() {
   const pathname = usePathname();
   const { user, isProfileComplete, signOut } = useAuth();
   const { buttonUrl, buttonText } = useSiteCta();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) { setUnreadCount(0); return; }
+    const checkNotifications = async () => {
+      try {
+        const notifs = await getFilteredCollection<AppNotification & { id: string }>(
+          COLLECTIONS.NOTIFICATIONS, "recipientUid", user.uid
+        );
+        setUnreadCount(notifs.filter((n) => !n.isRead).length);
+      } catch { /* ignore */ }
+    };
+    checkNotifications();
+    const interval = setInterval(checkNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleGoogleLogin = async () => {
     try {
@@ -92,6 +110,18 @@ export default function Header() {
               {buttonText}
               <Search size={16} />
             </a>
+
+            {/* 알림 벨 */}
+            {user && (
+              <Link href="/community?tab=notice" className="relative p-2 text-gray-600 hover:text-primary-600 transition-colors" aria-label="알림">
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* 로그인 / 프로필 */}
             {user ? (
@@ -206,6 +236,26 @@ export default function Header() {
                   <ChevronRight size={16} className="text-gray-300" />
                 </Link>
               ))}
+              {user && (
+                <Link
+                  href="/community?tab=notice"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center justify-between px-4 py-3.5 text-base font-medium transition-colors rounded-lg text-gray-700 hover:bg-gray-50"
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <Bell size={18} />
+                    알림
+                    {unreadCount > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold leading-none">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronRight size={16} className="text-gray-300" />
+                </Link>
+              )}
               <div className="pt-4 px-4 pb-2 space-y-2">
                 {!user && (
                   <button

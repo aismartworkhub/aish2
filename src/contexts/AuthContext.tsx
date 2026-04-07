@@ -23,6 +23,14 @@ export interface UserProfile {
   companyProduct?: string;
   companyWebsite?: string;
   companySocial?: string;
+  bio?: string;
+  interests?: string[];
+  socialLinks?: {
+    linkedin?: string;
+    youtube?: string;
+    instagram?: string;
+    github?: string;
+  };
 }
 
 function checkProfileComplete(profile: UserProfile): boolean {

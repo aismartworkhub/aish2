@@ -132,4 +132,7 @@ export const COLLECTIONS = {
   RESOURCES: "resources",
   INSTRUCTOR_COMMENTS: "instructorComments",
   POST_COMMENTS: "postComments",
+  LIKES: "likes",
+  BOOKMARKS: "bookmarks",
+  NOTIFICATIONS: "notifications",
 } as const;

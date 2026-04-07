@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Bell, FolderOpen, Award, HelpCircle, Handshake, Images, FileText,
   ChevronDown, ChevronUp, ExternalLink, Mail, Phone, Building,
   Star, Download, Eye, Pin, Search, X,
-  MessageCircle, Send, Trash2, User,
+  MessageCircle, Send, Trash2, User, Heart, BookmarkPlus, Plus,
 } from "lucide-react";
 import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
@@ -16,7 +16,9 @@ import { useLoginGuard } from "@/hooks/useLoginGuard";
 import { useAuth } from "@/contexts/AuthContext";
 import LoginModal from "@/components/public/LoginModal";
 import { useToast } from "@/components/ui/Toast";
-import type { Resource, PostComment } from "@/types/firestore";
+import { doc, setDoc, deleteDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { Resource, PostComment, Like, Bookmark } from "@/types/firestore";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 
 type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery" | string;
@@ -28,6 +30,8 @@ const FIXED_TABS: { key: TabKey; label: string; icon: React.ElementType; color: 
   { key: "faq", label: "FAQ", icon: HelpCircle, color: "text-yellow-600 bg-yellow-50" },
   { key: "inquiry", label: "협력 문의", icon: Handshake, color: "text-red-600 bg-red-50" },
   { key: "gallery", label: "갤러리", icon: Images, color: "text-pink-600 bg-pink-50" },
+  { key: "free", label: "자유게시판", icon: MessageCircle, color: "text-indigo-600 bg-indigo-50" },
+  { key: "review", label: "수강 후기", icon: Star, color: "text-orange-600 bg-orange-50" },
 ];
 
 const NOTICES: { id: string | number; title: string; date: string; views: number; pinned: boolean }[] = [
@@ -54,12 +58,14 @@ const GALLERY_IMAGES: { id: string | number; title: string; category: string; im
   { id: 6, title: "네트워킹 행사", category: "행사", imageUrl: "/images/defaults/spec-system.jpg" },
 ];
 
-function PostCommentSection({ postId, postType }: { postId: string; postType: "NOTICE" | "RESOURCE" }) {
+function PostCommentSection({ postId, postType }: { postId: string; postType: "NOTICE" | "RESOURCE" | "FREE" }) {
   const { user, profile, isAdmin } = useAuth();
   const [comments, setComments] = useState<(PostComment & { id: string })[]>([]);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +82,17 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
 
   useEffect(() => { load(); }, [load]);
 
+  const topLevel = useMemo(() => comments.filter((c) => !c.parentId), [comments]);
+  const repliesMap = useMemo(() => {
+    const map = new Map<string, (PostComment & { id: string })[]>();
+    comments.filter((c) => c.parentId).forEach((c) => {
+      const list = map.get(c.parentId!) || [];
+      list.push(c);
+      map.set(c.parentId!, list);
+    });
+    return map;
+  }, [comments]);
+
   const handleSubmit = async () => {
     if (!newComment.trim() || !user) return;
     setSubmitting(true);
@@ -89,6 +106,24 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
         content: newComment.trim(),
       });
       setNewComment("");
+      invalidateCache(COLLECTIONS.POST_COMMENTS);
+      await load();
+    } finally { setSubmitting(false); }
+  };
+
+  const handleReply = async () => {
+    if (!replyContent.trim() || !user || !replyingTo) return;
+    setSubmitting(true);
+    try {
+      await createDoc(COLLECTIONS.POST_COMMENTS, {
+        postId, postType, parentId: replyingTo,
+        authorUid: user.uid,
+        authorName: profile?.name || user.displayName || "익명",
+        authorEmail: user.email || "",
+        authorPhotoURL: user.photoURL || null,
+        content: replyContent.trim(),
+      });
+      setReplyContent(""); setReplyingTo(null);
       invalidateCache(COLLECTIONS.POST_COMMENTS);
       await load();
     } finally { setSubmitting(false); }
@@ -109,6 +144,28 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
     return new Date(ms).toLocaleDateString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   };
 
+  const renderComment = (c: PostComment & { id: string }, isReply: boolean) => (
+    <div key={c.id} className={cn("flex gap-2", isReply && "ml-9 border-l-2 border-gray-200 pl-3")}>
+      <div className="w-7 h-7 rounded-full bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center">
+        {c.authorPhotoURL ? <img src={c.authorPhotoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <User size={14} className="text-gray-400" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-800">{c.authorName}</span>
+          <span className="text-[10px] text-gray-400">{formatTime(c.createdAt)}</span>
+          {!isReply && user && (
+            <button onClick={() => { setReplyingTo(replyingTo === c.id ? null : c.id); setReplyContent(""); }}
+              className="text-[10px] text-gray-400 hover:text-primary-500">답글</button>
+          )}
+          {(user?.uid === c.authorUid || isAdmin) && (
+            <button onClick={() => handleDelete(c.id)} className="text-gray-300 hover:text-red-400 ml-auto"><Trash2 size={12} /></button>
+          )}
+        </div>
+        <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap">{c.content}</p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="mt-4 pt-4 border-t border-gray-200">
       <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
@@ -128,21 +185,25 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
         <p className="text-xs text-gray-400 mb-3">댓글을 작성하려면 로그인이 필요합니다.</p>
       )}
       <div className="space-y-3">
-        {comments.map((c) => (
-          <div key={c.id} className="flex gap-2">
-            <div className="w-7 h-7 rounded-full bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center">
-              {c.authorPhotoURL ? <img src={c.authorPhotoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <User size={14} className="text-gray-400" />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-gray-800">{c.authorName}</span>
-                <span className="text-[10px] text-gray-400">{formatTime(c.createdAt)}</span>
-                {(user?.uid === c.authorUid || isAdmin) && (
-                  <button onClick={() => handleDelete(c.id)} className="text-gray-300 hover:text-red-400 ml-auto"><Trash2 size={12} /></button>
-                )}
+        {topLevel.map((c) => (
+          <div key={c.id}>
+            {renderComment(c, false)}
+            {replyingTo === c.id && user && (
+              <div className="ml-9 border-l-2 border-gray-200 pl-3 mt-2 flex gap-2">
+                <textarea value={replyContent} onChange={(e) => setReplyContent(e.target.value)}
+                  placeholder="답글을 입력하세요..." rows={2}
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
+                <div className="flex flex-col gap-1 self-end">
+                  <button onClick={handleReply} disabled={!replyContent.trim() || submitting}
+                    className="btn-primary btn-sm disabled:opacity-40">
+                    <Send size={14} />{submitting ? "..." : "답글"}
+                  </button>
+                  <button onClick={() => { setReplyingTo(null); setReplyContent(""); }}
+                    className="btn-secondary btn-sm text-xs">취소</button>
+                </div>
               </div>
-              <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap">{c.content}</p>
-            </div>
+            )}
+            {(repliesMap.get(c.id) || []).map((r) => renderComment(r, true))}
           </div>
         ))}
       </div>
@@ -175,14 +236,77 @@ function CommunityContent() {
   const [lightboxImage, setLightboxImage] = useState<{ imageUrl: string; title: string } | null>(null);
 
   const { user, showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
-  const { isProfileComplete } = useAuth();
+  const { profile, isProfileComplete } = useAuth();
   const [driveResources, setDriveResources] = useState<(Resource & { id: string })[]>([]);
+
+  // 좋아요 / 북마크
+  const [likes, setLikes] = useState<Map<string, boolean>>(new Map());
+  const [likeCounts, setLikeCounts] = useState<Map<string, number>>(new Map());
+  const [bookmarks, setBookmarks] = useState<Map<string, boolean>>(new Map());
+
+  // 자유게시판
+  const [freePosts, setFreePosts] = useState<{ id: string; title: string; content: string; authorName: string; date: string; views: number; isApproved: boolean; authorUid: string }[]>([]);
+  const [showFreePostForm, setShowFreePostForm] = useState(false);
+  const [freePostTitle, setFreePostTitle] = useState("");
+  const [freePostContent, setFreePostContent] = useState("");
+
+  // 수강 후기
+  const [reviews, setReviews] = useState<{ id: string; authorName: string; authorCohort: string; content: string; rating: number; programTitle: string; isApproved: boolean; authorUid?: string }[]>([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ programTitle: "", rating: 5, content: "" });
+
+  // 통합 검색
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
+  const searchResults = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return null;
+    const notices = noticeList.filter((n) => n.title.toLowerCase().includes(q));
+    const resources = [...driveResources.filter((r) => r.title.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q) || r.tags.some((t) => t.toLowerCase().includes(q))),
+      ...resourceList.filter((r) => r.title.toLowerCase().includes(q))];
+    const faq = faqList.filter((f) => (f.question || "").toLowerCase().includes(q) || (f.answer || "").toLowerCase().includes(q));
+    return { notices, resources, faq, total: notices.length + resources.length + faq.length };
+  }, [searchQuery, noticeList, driveResources, resourceList, faqList]);
+
+  const handleSearchResultClick = (tab: TabKey, itemId?: string | number, faqIndex?: number) => {
+    setActiveTab(tab);
+    setShowSearchResults(false);
+    setSearchQuery("");
+    if (tab === "notice" && itemId) setExpandedNoticeId(itemId);
+    if (tab === "resource" && itemId) setExpandedResourceId(itemId);
+    if (tab === "faq" && faqIndex !== undefined) setOpenFaqIndex(faqIndex);
+    setTimeout(() => {
+      const el = document.getElementById(`community-item-${itemId ?? faqIndex}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+  };
 
   useEffect(() => {
     if (tabParam) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
+
+  // 좋아요 / 북마크 로드
+  useEffect(() => {
+    if (!user) return;
+    getCollection<Like & { id: string }>(COLLECTIONS.LIKES).then((all) => {
+      const counts = new Map<string, number>();
+      const mine = new Map<string, boolean>();
+      all.forEach((l) => {
+        counts.set(l.targetId, (counts.get(l.targetId) || 0) + 1);
+        if (l.userId === user.uid) mine.set(l.targetId, true);
+      });
+      setLikeCounts(counts);
+      setLikes(mine);
+    });
+    getCollection<Bookmark & { id: string }>(COLLECTIONS.BOOKMARKS).then((all) => {
+      const mine = new Map<string, boolean>();
+      all.filter((b) => b.userId === user.uid).forEach((b) => mine.set(b.targetId, true));
+      setBookmarks(mine);
+    });
+  }, [user]);
 
   useEffect(() => {
     Promise.all([
@@ -208,12 +332,20 @@ function CommunityContent() {
         }));
         if (n.length > 0) setNoticeList(n);
         if (r.length > 0) setResourceList(r);
+        const free = posts.filter((p) => getType(p) === "FREE").map((p) => ({
+          id: p.id, title: p.title, content: (p as { content?: string }).content || "",
+          authorName: (p as { authorName?: string }).authorName || p.author || "",
+          date: toDateString(p.createdAt || p.date),
+          views: p.views || 0, isApproved: (p as { isApproved?: boolean }).isApproved !== false,
+          authorUid: (p as { authorUid?: string }).authorUid || "",
+        }));
+        setFreePosts(free);
         // Drive 자료실 로드
         getCollection<Resource & { id: string }>(COLLECTIONS.RESOURCES)
           .then((res) => { if (res.length > 0) setDriveResources(res); })
           .catch(() => {});
         // 커스텀 게시판 수집
-        const knownTypes = ["NOTICE", "RESOURCE"];
+        const knownTypes = ["NOTICE", "RESOURCE", "FREE"];
         const customTypes = [...new Set(posts.map((p) => getType(p)).filter((t) => t && !knownTypes.includes(t)))];
         if (customTypes.length > 0) {
           setCustomBoards(customTypes.map((bt) => ({
@@ -233,6 +365,8 @@ function CommunityContent() {
         setGalleryList(sortedGallery);
       }
     }).catch(console.error);
+    getCollection<{ id: string; authorName: string; authorCohort: string; content: string; rating: number; programTitle: string; isApproved?: boolean; authorUid?: string }>(COLLECTIONS.REVIEWS)
+      .then((data) => { if (data.length > 0) setReviews(data.map((d) => ({ ...d, isApproved: d.isApproved ?? false }))); });
   }, []);
 
   const [inquiryError, setInquiryError] = useState("");
@@ -328,6 +462,65 @@ function CommunityContent() {
     }, "수료증을 조회하려면 로그인이 필요합니다.");
   };
 
+  const toggleLike = async (targetId: string, targetType: "NOTICE" | "RESOURCE" | "FREE") => {
+    if (!user) return;
+    const docId = `${user.uid}_${targetId}`;
+    const ref = doc(db, COLLECTIONS.LIKES, docId);
+    const isLiked = likes.get(targetId);
+    if (isLiked) {
+      await deleteDoc(ref);
+      setLikes((prev) => { const m = new Map(prev); m.delete(targetId); return m; });
+      setLikeCounts((prev) => { const m = new Map(prev); m.set(targetId, (m.get(targetId) || 1) - 1); return m; });
+    } else {
+      await setDoc(ref, { targetId, targetType, userId: user.uid, createdAt: new Date().toISOString() });
+      setLikes((prev) => new Map(prev).set(targetId, true));
+      setLikeCounts((prev) => { const m = new Map(prev); m.set(targetId, (m.get(targetId) || 0) + 1); return m; });
+    }
+  };
+
+  const toggleBookmark = async (targetId: string, targetType: "NOTICE" | "RESOURCE" | "FREE") => {
+    if (!user) return;
+    const docId = `${user.uid}_${targetId}`;
+    const ref = doc(db, COLLECTIONS.BOOKMARKS, docId);
+    if (bookmarks.get(targetId)) {
+      await deleteDoc(ref);
+      setBookmarks((prev) => { const m = new Map(prev); m.delete(targetId); return m; });
+    } else {
+      await setDoc(ref, { targetId, targetType, userId: user.uid, createdAt: new Date().toISOString() });
+      setBookmarks((prev) => new Map(prev).set(targetId, true));
+    }
+  };
+
+  const handleFreePostSubmit = async () => {
+    if (!freePostTitle.trim() || !freePostContent.trim() || !user) return;
+    await createDoc(COLLECTIONS.POSTS, {
+      title: freePostTitle.trim(), content: freePostContent.trim(), boardType: "FREE",
+      isPinned: false, views: 0, isApproved: false,
+      authorUid: user.uid, authorName: profile?.name || user.displayName || "익명",
+      author: profile?.name || user.displayName || "익명",
+      date: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
+    });
+    setFreePostTitle(""); setFreePostContent(""); setShowFreePostForm(false);
+    toast("게시물이 등록되었습니다. 관리자 승인 후 공개됩니다.", "success");
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!reviewForm.content.trim() || !reviewForm.programTitle.trim() || !user) return;
+    await createDoc(COLLECTIONS.REVIEWS, {
+      authorName: profile?.name || user.displayName || "익명",
+      authorCohort: profile?.cohort || "",
+      content: reviewForm.content.trim(),
+      rating: reviewForm.rating,
+      programTitle: reviewForm.programTitle.trim(),
+      isApproved: false,
+      isFeatured: false,
+      authorUid: user.uid,
+    });
+    setReviewForm({ programTitle: "", rating: 5, content: "" });
+    setShowReviewForm(false);
+    toast("후기가 등록되었습니다. 관리자 승인 후 공개됩니다.", "success");
+  };
+
   return (
     <div className="py-16">
       <div className="max-w-6xl mx-auto px-4">
@@ -336,6 +529,65 @@ function CommunityContent() {
           <p className="text-lg text-gray-500">
             AISH 커뮤니티에서 다양한 정보와 서비스를 이용하세요.
           </p>
+        </div>
+
+        {/* 통합 검색 */}
+        <div className="max-w-md mx-auto mb-8 relative">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setShowSearchResults(true); }}
+              onFocus={() => { if (searchQuery.trim()) setShowSearchResults(true); }}
+              placeholder="공지, 자료, FAQ 통합 검색..."
+              className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+            />
+            {searchQuery && (
+              <button onClick={() => { setSearchQuery(""); setShowSearchResults(false); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {showSearchResults && searchResults && searchResults.total > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-20 max-h-80 overflow-y-auto">
+              {searchResults.notices.length > 0 && (
+                <div className="p-3">
+                  <p className="text-xs font-semibold text-gray-400 mb-2">공지사항 ({searchResults.notices.length}건)</p>
+                  {searchResults.notices.slice(0, 3).map((n) => (
+                    <button key={n.id} onClick={() => handleSearchResultClick("notice", n.id)}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 truncate">{n.title}</button>
+                  ))}
+                </div>
+              )}
+              {searchResults.resources.length > 0 && (
+                <div className="p-3 border-t border-gray-100">
+                  <p className="text-xs font-semibold text-gray-400 mb-2">자료실 ({searchResults.resources.length}건)</p>
+                  {searchResults.resources.slice(0, 3).map((r) => (
+                    <button key={r.id} onClick={() => handleSearchResultClick("resource", r.id)}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 truncate">
+                      {(r as { title: string }).title}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {searchResults.faq.length > 0 && (
+                <div className="p-3 border-t border-gray-100">
+                  <p className="text-xs font-semibold text-gray-400 mb-2">FAQ ({searchResults.faq.length}건)</p>
+                  {searchResults.faq.slice(0, 3).map((f, i) => (
+                    <button key={i} onClick={() => handleSearchResultClick("faq", undefined, faqList.indexOf(f))}
+                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 truncate">{f.question}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {showSearchResults && searchResults && searchResults.total === 0 && searchQuery.trim() && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-20 p-6 text-center text-sm text-gray-400">
+              검색 결과가 없습니다.
+            </div>
+          )}
         </div>
 
         {/* 탭 네비게이션 */}
@@ -394,6 +646,18 @@ function CommunityContent() {
                       <div className="pt-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                         {(notice as { content?: string }).content || "상세 내용은 추후 업데이트 예정입니다."}
                       </div>
+                      {user && (
+                        <div className="flex items-center gap-3 py-2">
+                          <button onClick={() => toggleLike(String(notice.id), "NOTICE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500">
+                            <Heart size={14} className={likes.get(String(notice.id)) ? "fill-red-500 text-red-500" : ""} />
+                            {likeCounts.get(String(notice.id)) || 0}
+                          </button>
+                          <button onClick={() => toggleBookmark(String(notice.id), "NOTICE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-500">
+                            <BookmarkPlus size={14} className={bookmarks.get(String(notice.id)) ? "fill-primary-500 text-primary-500" : ""} />
+                            {bookmarks.get(String(notice.id)) ? "저장됨" : "북마크"}
+                          </button>
+                        </div>
+                      )}
                       <PostCommentSection postId={String(notice.id)} postType="NOTICE" />
                     </div>
                   )}
@@ -462,6 +726,18 @@ function CommunityContent() {
                           <span>다운로드 {res.downloads}회</span>
                           {res.driveViewUrl && <a href={res.driveViewUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">미리보기</a>}
                         </div>
+                        {user && (
+                          <div className="flex items-center gap-3 py-2">
+                            <button onClick={() => toggleLike(String(res.id), "RESOURCE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500">
+                              <Heart size={14} className={likes.get(String(res.id)) ? "fill-red-500 text-red-500" : ""} />
+                              {likeCounts.get(String(res.id)) || 0}
+                            </button>
+                            <button onClick={() => toggleBookmark(String(res.id), "RESOURCE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-500">
+                              <BookmarkPlus size={14} className={bookmarks.get(String(res.id)) ? "fill-primary-500 text-primary-500" : ""} />
+                              {bookmarks.get(String(res.id)) ? "저장됨" : "북마크"}
+                            </button>
+                          </div>
+                        )}
                         <PostCommentSection postId={String(res.id)} postType="RESOURCE" />
                       </div>
                     )}
@@ -701,6 +977,111 @@ function CommunityContent() {
             </div>
           </div>
         )}
+        {/* 자유게시판 */}
+        {activeTab === "free" && (
+          <div className="card-base overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">자유게시판</h2>
+                <p className="text-sm text-gray-500 mt-1">수강생 간 질문과 정보를 나눠보세요.</p>
+              </div>
+              {user && (
+                <button onClick={() => setShowFreePostForm(!showFreePostForm)} className="btn-primary btn-sm">
+                  <Plus size={14} />글쓰기
+                </button>
+              )}
+            </div>
+            {showFreePostForm && user && (
+              <div className="p-6 bg-gray-50 border-b border-gray-100 space-y-3">
+                <input type="text" value={freePostTitle} onChange={(e) => setFreePostTitle(e.target.value)}
+                  placeholder="제목" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                <textarea value={freePostContent} onChange={(e) => setFreePostContent(e.target.value)}
+                  placeholder="내용을 입력하세요..." rows={4}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setShowFreePostForm(false)} className="btn-secondary btn-sm">취소</button>
+                  <button onClick={handleFreePostSubmit} disabled={!freePostTitle.trim() || !freePostContent.trim()} className="btn-primary btn-sm disabled:opacity-40">등록</button>
+                </div>
+              </div>
+            )}
+            <div className="divide-y divide-gray-50">
+              {freePosts.filter((p) => p.isApproved || p.authorUid === user?.uid).length === 0 ? (
+                <div className="px-6 py-12 text-center text-gray-400 text-sm">게시물이 없습니다.{user ? " 첫 글을 작성해 보세요!" : ""}</div>
+              ) : freePosts.filter((p) => p.isApproved || p.authorUid === user?.uid).map((post) => (
+                <div key={post.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-medium text-gray-900">{post.title}</span>
+                    {!post.isApproved && <span className="badge-base bg-yellow-100 text-yellow-700">승인 대기</span>}
+                  </div>
+                  <p className="text-xs text-gray-400">{post.authorName} · {post.date} · 조회 {post.views}</p>
+                  {post.content && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{post.content}</p>}
+                  {user && (
+                    <div className="flex items-center gap-3 py-2">
+                      <button onClick={() => toggleLike(post.id, "FREE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500">
+                        <Heart size={14} className={likes.get(post.id) ? "fill-red-500 text-red-500" : ""} />
+                        {likeCounts.get(post.id) || 0}
+                      </button>
+                      <button onClick={() => toggleBookmark(post.id, "FREE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-500">
+                        <BookmarkPlus size={14} className={bookmarks.get(post.id) ? "fill-primary-500 text-primary-500" : ""} />
+                        {bookmarks.get(post.id) ? "저장됨" : "북마크"}
+                      </button>
+                    </div>
+                  )}
+                  <PostCommentSection postId={post.id} postType="FREE" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 수강 후기 */}
+        {activeTab === "review" && (
+          <div className="card-base overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">수강 후기</h2>
+                <p className="text-sm text-gray-500 mt-1">수강 경험을 나눠주세요.</p>
+              </div>
+              {user && <button onClick={() => setShowReviewForm(!showReviewForm)} className="btn-primary btn-sm"><Plus size={14} />후기 작성</button>}
+            </div>
+            {showReviewForm && user && (
+              <div className="p-6 bg-gray-50 border-b border-gray-100 space-y-3">
+                <input type="text" value={reviewForm.programTitle} onChange={(e) => setReviewForm({...reviewForm, programTitle: e.target.value})}
+                  placeholder="프로그램명" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-gray-600 mr-2">평점:</span>
+                  {[1,2,3,4,5].map((s) => (
+                    <button key={s} onClick={() => setReviewForm({...reviewForm, rating: s})}
+                      className={cn("text-lg", s <= reviewForm.rating ? "text-amber-400" : "text-gray-300")}>★</button>
+                  ))}
+                </div>
+                <textarea value={reviewForm.content} onChange={(e) => setReviewForm({...reviewForm, content: e.target.value})}
+                  placeholder="수강 경험을 공유해 주세요..." rows={4}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none resize-none" />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setShowReviewForm(false)} className="btn-secondary btn-sm">취소</button>
+                  <button onClick={handleReviewSubmit} disabled={!reviewForm.content.trim() || !reviewForm.programTitle.trim()} className="btn-primary btn-sm disabled:opacity-40">등록</button>
+                </div>
+              </div>
+            )}
+            <div className="divide-y divide-gray-50">
+              {reviews.filter((r) => r.isApproved !== false || r.authorUid === user?.uid).length === 0 ? (
+                <div className="px-6 py-12 text-center text-gray-400 text-sm">등록된 후기가 없습니다.</div>
+              ) : reviews.filter((r) => r.isApproved !== false || r.authorUid === user?.uid).map((r) => (
+                <div key={r.id} className="px-6 py-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex gap-0.5">{[1,2,3,4,5].map((s) => <span key={s} className={cn("text-sm", s <= r.rating ? "text-amber-400" : "text-gray-200")}>★</span>)}</div>
+                    <span className="text-xs text-gray-400">{r.programTitle}</span>
+                    {r.isApproved === false && <span className="badge-base bg-yellow-100 text-yellow-700">승인 대기</span>}
+                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed">{r.content}</p>
+                  <p className="text-xs text-gray-400 mt-2">{r.authorName} · {r.authorCohort}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 커스텀 게시판 */}
         {customBoards.map((cb) => (
           activeTab === cb.boardType.toLowerCase() && (

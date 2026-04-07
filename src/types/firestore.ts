@@ -180,10 +180,40 @@ export interface InstructorComment {
   createdAt: string;
 }
 
+export interface Like {
+  id?: string;
+  targetId: string;
+  targetType: "NOTICE" | "RESOURCE" | "FREE";
+  userId: string;
+  createdAt: string;
+}
+
+export interface Bookmark {
+  id?: string;
+  targetId: string;
+  targetType: "NOTICE" | "RESOURCE" | "FREE";
+  userId: string;
+  createdAt: string;
+}
+
+export interface AppNotification {
+  id?: string;
+  recipientUid: string;
+  type: "NEW_COMMENT" | "NEW_POST" | "ADMIN_NOTICE" | "POST_APPROVED";
+  title: string;
+  message: string;
+  linkUrl?: string;
+  linkTab?: string;
+  linkTargetId?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface PostComment {
   id?: string;
   postId: string;
-  postType: "NOTICE" | "RESOURCE";
+  postType: "NOTICE" | "RESOURCE" | "FREE";
+  parentId?: string | null;
   authorUid: string;
   authorName: string;
   authorEmail: string;
