@@ -5,7 +5,8 @@ import {
   Plus, Search, Edit, Trash2, X, Save, ChevronUp, ChevronDown,
   Sparkles, Link, Upload, FileText,
 } from "lucide-react";
-import { cn, toDirectImageUrl } from "@/lib/utils";
+import { cn, toDirectImageUrl, extractGoogleDriveFileId } from "@/lib/utils";
+import { getDriveAccessToken, shareFilePublic } from "@/lib/google-drive";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc, updateDocFields } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
@@ -129,6 +130,18 @@ export default function AdminInstructorsPage() {
     if (!form.name.trim()) { toast("이름을 입력해 주세요.", "info"); return; }
     setSaving(true);
     const saveData = { ...form, imageUrl: toDirectImageUrl(form.imageUrl) };
+
+    // Google Drive 이미지를 자동으로 공개 공유 설정
+    const driveFileId = extractGoogleDriveFileId(form.imageUrl);
+    if (driveFileId) {
+      try {
+        const token = await getDriveAccessToken();
+        await shareFilePublic(token, driveFileId);
+      } catch {
+        // 공유 설정 실패해도 저장은 진행 (이미 공유된 경우 등)
+      }
+    }
+
     try {
       if (editId) {
         await upsertDoc(COLLECTIONS.INSTRUCTORS, editId, saveData);
