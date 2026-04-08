@@ -614,7 +614,7 @@ export default function HomePage() {
                     ref={addRevealRef}
                     className="group bg-white rounded overflow-hidden border border-gray-200/80 hover-lift"
                   >
-                    <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden">
+                    <div className="aspect-[16/9] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden">
                       {c.featured_image ? (
                         <img src={c.featured_image} alt={c.title} className="w-full h-full object-cover object-top" loading="lazy" />
                       ) : (
@@ -648,7 +648,7 @@ export default function HomePage() {
                     ref={addRevealRef}
                     className="group bg-white rounded overflow-hidden border border-gray-200/80 hover-lift"
                   >
-                    <div className="aspect-[4/3] bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center relative">
+                    <div className="aspect-[16/9] bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center relative">
                       <BookOpen size={36} className="text-gray-300" />
                       <div className="absolute top-3 left-3">
                         <StatusBadge status={program.status} />
