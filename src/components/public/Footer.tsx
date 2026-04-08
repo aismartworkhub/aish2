@@ -8,8 +8,8 @@ import { useSiteCta } from "@/hooks/useSiteCta";
 export default function Footer() {
   const { buttonUrl: CTA_URL, buttonText: CTA_TEXT } = useSiteCta();
   return (
-    <footer className="bg-gray-900 text-gray-300">
-      <div className="max-w-7xl mx-auto px-4 py-12">
+    <footer className="bg-brand-dark text-gray-300">
+      <div className="max-w-[1440px] mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Logo & Info */}
           <div className="md:col-span-2">
@@ -60,7 +60,7 @@ export default function Footer() {
               href={CTA_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-sm bg-brand-blue text-white text-sm font-semibold hover:bg-brand-lightBlue uppercase tracking-widest transition-colors"
             >
               {CTA_TEXT}
               <ChevronRight size={16} />

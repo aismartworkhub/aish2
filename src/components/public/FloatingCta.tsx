@@ -22,7 +22,7 @@ export default function FloatingCta() {
      {isVisible && (
        <button
          onClick={scrollToTop}
-         className="hidden md:flex w-12 h-12 rounded-full bg-gray-800/80 text-white items-center justify-center shadow-lg hover:bg-gray-800 transition-all backdrop-blur-sm"
+         className="hidden md:flex w-12 h-12 rounded-sm bg-brand-dark/80 text-white items-center justify-center shadow-lg hover:bg-brand-dark transition-all backdrop-blur-sm"
          aria-label="맨 위로"
        >
          <ArrowUp size={20} />
@@ -34,7 +34,7 @@ export default function FloatingCta() {
          href={buttonUrl}
          target="_blank"
          rel="noopener noreferrer"
-         className="md:hidden flex items-center gap-2 px-6 py-3.5 rounded-full bg-primary-600 text-white text-sm font-semibold shadow-2xl shadow-primary-600/30 hover:bg-primary-700 transition-all"
+         className="md:hidden flex items-center gap-2 px-6 py-3.5 rounded-sm bg-brand-blue text-white text-sm font-semibold uppercase tracking-widest shadow-2xl shadow-brand-blue/30 hover:bg-brand-dark transition-all"
        >
          {buttonText}
        </Link>

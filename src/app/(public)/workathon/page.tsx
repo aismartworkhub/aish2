@@ -30,7 +30,7 @@ export default function WorkathonPage() {
     return (
       <div className="py-16 flex justify-center items-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-brand-border border-t-brand-blue rounded-full animate-spin" />
           <p className="text-sm text-gray-500">데이터를 불러오는 중...</p>
         </div>
       </div>
@@ -45,57 +45,57 @@ export default function WorkathonPage() {
           <span className="inline-block bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-sm font-medium mb-4">
             {w.status === "REGISTRATION_OPEN" ? "참가 신청 중" : w.status}
           </span>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">{w.title}</h1>
+          <h1 className="text-4xl font-bold text-brand-dark uppercase tracking-tight mb-4">{w.title}</h1>
           <p className="text-lg text-gray-500 max-w-2xl mx-auto">{w.description}</p>
         </div>
 
         {/* Info Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
-            <Calendar className="mx-auto text-primary-500 mb-2" size={24} />
+          <div className="bg-white rounded-sm border border-brand-border p-4 text-center hover:border-t-4 hover:border-t-brand-blue">
+            <Calendar className="mx-auto text-brand-blue mb-2" size={24} />
             <p className="text-sm text-gray-500">일시</p>
             <p className="font-semibold text-gray-900">{w.eventDate}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
-            <MapPin className="mx-auto text-primary-500 mb-2" size={24} />
+          <div className="bg-white rounded-sm border border-brand-border p-4 text-center hover:border-t-4 hover:border-t-brand-blue">
+            <MapPin className="mx-auto text-brand-blue mb-2" size={24} />
             <p className="text-sm text-gray-500">장소</p>
             <p className="font-semibold text-gray-900">{w.venue}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
-            <Users className="mx-auto text-primary-500 mb-2" size={24} />
+          <div className="bg-white rounded-sm border border-brand-border p-4 text-center hover:border-t-4 hover:border-t-brand-blue">
+            <Users className="mx-auto text-brand-blue mb-2" size={24} />
             <p className="text-sm text-gray-500">참가 현황</p>
             <p className="font-semibold text-gray-900">
               {w.currentParticipantCount}/{w.maxParticipants}명
             </p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
-            <Clock className="mx-auto text-primary-500 mb-2" size={24} />
+          <div className="bg-white rounded-sm border border-brand-border p-4 text-center hover:border-t-4 hover:border-t-brand-blue">
+            <Clock className="mx-auto text-brand-blue mb-2" size={24} />
             <p className="text-sm text-gray-500">회차</p>
             <p className="font-semibold text-gray-900">제{w.edition}회</p>
           </div>
         </div>
 
         {/* Progress */}
-        <div className="bg-white rounded-xl border border-gray-100 p-6 mb-12">
+        <div className="bg-white rounded-sm border border-brand-border p-6 mb-12">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">참가 신청 현황</span>
             <span className="text-sm text-gray-500">{progress}%</span>
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-3">
+          <div className="w-full bg-gray-100 rounded-sm h-3">
             <div
-              className="bg-gradient-to-r from-primary-500 to-purple-500 h-3 rounded-full transition-all"
+              className="bg-brand-blue h-3 rounded-sm transition-all"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
         {/* Schedule */}
-        <div className="bg-white rounded-xl border border-gray-100 p-6 mb-12">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">프로그램 일정</h2>
+        <div className="bg-white rounded-sm border border-brand-border p-6 mb-12">
+          <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight mb-6">프로그램 일정</h2>
           <div className="space-y-4">
             {(w.schedule || []).map((s, i) => (
               <div key={i} className="flex items-start gap-4 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                <span className="text-sm font-mono text-primary-600 w-32 shrink-0">{s.time}</span>
+                <span className="text-sm font-mono text-brand-blue w-32 shrink-0">{s.time}</span>
                 <div>
                   <p className="font-medium text-gray-900">{s.title}</p>
                   {s.speaker && <p className="text-sm text-gray-400">발표: {s.speaker}</p>}
@@ -117,14 +117,14 @@ export default function WorkathonPage() {
                   href={ctaHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-600 to-purple-600 text-white rounded-xl font-semibold text-lg hover:shadow-lg transition-shadow"
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-brand-blue text-white rounded-sm font-semibold text-lg uppercase tracking-widest hover:shadow-lg transition-shadow"
                 >
                   {ctaLabel} <ArrowRight size={20} />
                 </a>
               ) : (
                 <Link
                   href={ctaHref}
-                  className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-600 to-purple-600 text-white rounded-xl font-semibold text-lg hover:shadow-lg transition-shadow"
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-brand-blue text-white rounded-sm font-semibold text-lg uppercase tracking-widest hover:shadow-lg transition-shadow"
                 >
                   {ctaLabel} <ArrowRight size={20} />
                 </Link>

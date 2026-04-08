@@ -145,8 +145,8 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
   };
 
   const renderComment = (c: PostComment & { id: string }, isReply: boolean) => (
-    <div key={c.id} className={cn("flex gap-2", isReply && "ml-9 border-l-2 border-gray-200 pl-3")}>
-      <div className="w-7 h-7 rounded-full bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center">
+    <div key={c.id} className={cn("flex gap-2", isReply && "ml-9 border-l-2 border-brand-border pl-3")}>
+      <div className="w-7 h-7 rounded-full bg-brand-gray shrink-0 overflow-hidden flex items-center justify-center">
         {c.authorPhotoURL ? <img src={c.authorPhotoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <User size={14} className="text-gray-400" />}
       </div>
       <div className="flex-1 min-w-0">
@@ -155,7 +155,7 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
           <span className="text-[10px] text-gray-400">{formatTime(c.createdAt)}</span>
           {!isReply && user && (
             <button onClick={() => { setReplyingTo(replyingTo === c.id ? null : c.id); setReplyContent(""); }}
-              className="text-[10px] text-gray-400 hover:text-primary-500">답글</button>
+              className="text-[10px] text-gray-400 hover:text-brand-blue">답글</button>
           )}
           {(user?.uid === c.authorUid || isAdmin) && (
             <button onClick={() => handleDelete(c.id)} className="text-gray-300 hover:text-red-400 ml-auto"><Trash2 size={12} /></button>
@@ -167,7 +167,7 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
   );
 
   return (
-    <div className="mt-4 pt-4 border-t border-gray-200">
+    <div className="mt-4 pt-4 border-t border-brand-border">
       <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
         <MessageCircle size={14} /> 댓글 {loaded ? `(${comments.length})` : ""}
       </h4>
@@ -175,7 +175,7 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
         <div className="flex gap-2 mb-4">
           <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)}
             placeholder="댓글을 입력하세요..." rows={2}
-            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
+            className="flex-1 px-3 py-2 border border-brand-border rounded-sm text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 resize-none" />
           <button onClick={handleSubmit} disabled={!newComment.trim() || submitting}
             className="btn-primary btn-sm self-end disabled:opacity-40">
             <Send size={14} />{submitting ? "..." : "작성"}
@@ -189,10 +189,10 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
           <div key={c.id}>
             {renderComment(c, false)}
             {replyingTo === c.id && user && (
-              <div className="ml-9 border-l-2 border-gray-200 pl-3 mt-2 flex gap-2">
+              <div className="ml-9 border-l-2 border-brand-border pl-3 mt-2 flex gap-2">
                 <textarea value={replyContent} onChange={(e) => setReplyContent(e.target.value)}
                   placeholder="답글을 입력하세요..." rows={2}
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
+                  className="flex-1 px-3 py-2 border border-brand-border rounded-sm text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 resize-none" />
                 <div className="flex flex-col gap-1 self-end">
                   <button onClick={handleReply} disabled={!replyContent.trim() || submitting}
                     className="btn-primary btn-sm disabled:opacity-40">
@@ -525,7 +525,7 @@ function CommunityContent() {
     <div className="py-16">
       <div className="max-w-6xl mx-auto px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">커뮤니티</h1>
+          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">커뮤니티</h1>
           <p className="text-lg text-gray-500">
             AISH 커뮤니티에서 다양한 정보와 서비스를 이용하세요.
           </p>
@@ -541,7 +541,7 @@ function CommunityContent() {
               onChange={(e) => { setSearchQuery(e.target.value); setShowSearchResults(true); }}
               onFocus={() => { if (searchQuery.trim()) setShowSearchResults(true); }}
               placeholder="공지, 자료, FAQ 통합 검색..."
-              className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="w-full pl-9 pr-9 py-2.5 border border-brand-border rounded-sm text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
             />
             {searchQuery && (
               <button onClick={() => { setSearchQuery(""); setShowSearchResults(false); }}
@@ -551,47 +551,47 @@ function CommunityContent() {
             )}
           </div>
           {showSearchResults && searchResults && searchResults.total > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-20 max-h-80 overflow-y-auto">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-sm border border-brand-border shadow-lg z-20 max-h-80 overflow-y-auto">
               {searchResults.notices.length > 0 && (
                 <div className="p-3">
                   <p className="text-xs font-semibold text-gray-400 mb-2">공지사항 ({searchResults.notices.length}건)</p>
                   {searchResults.notices.slice(0, 3).map((n) => (
                     <button key={n.id} onClick={() => handleSearchResultClick("notice", n.id)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 truncate">{n.title}</button>
+                      className="w-full text-left px-3 py-2 rounded-sm text-sm text-gray-700 hover:bg-gray-50 truncate">{n.title}</button>
                   ))}
                 </div>
               )}
               {searchResults.resources.length > 0 && (
-                <div className="p-3 border-t border-gray-100">
+                <div className="p-3 border-t border-brand-border">
                   <p className="text-xs font-semibold text-gray-400 mb-2">자료실 ({searchResults.resources.length}건)</p>
                   {searchResults.resources.slice(0, 3).map((r) => (
                     <button key={r.id} onClick={() => handleSearchResultClick("resource", r.id)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 truncate">
+                      className="w-full text-left px-3 py-2 rounded-sm text-sm text-gray-700 hover:bg-gray-50 truncate">
                       {(r as { title: string }).title}
                     </button>
                   ))}
                 </div>
               )}
               {searchResults.faq.length > 0 && (
-                <div className="p-3 border-t border-gray-100">
+                <div className="p-3 border-t border-brand-border">
                   <p className="text-xs font-semibold text-gray-400 mb-2">FAQ ({searchResults.faq.length}건)</p>
                   {searchResults.faq.slice(0, 3).map((f, i) => (
                     <button key={i} onClick={() => handleSearchResultClick("faq", undefined, faqList.indexOf(f))}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 truncate">{f.question}</button>
+                      className="w-full text-left px-3 py-2 rounded-sm text-sm text-gray-700 hover:bg-gray-50 truncate">{f.question}</button>
                   ))}
                 </div>
               )}
             </div>
           )}
           {showSearchResults && searchResults && searchResults.total === 0 && searchQuery.trim() && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-20 p-6 text-center text-sm text-gray-400">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-sm border border-brand-border shadow-lg z-20 p-6 text-center text-sm text-gray-400">
               검색 결과가 없습니다.
             </div>
           )}
         </div>
 
         {/* 탭 네비게이션 */}
-        <div className="relative mb-10 border-b border-gray-200" role="tablist">
+        <div className="relative mb-10 border-b border-brand-border" role="tablist">
           <div className="flex overflow-x-auto scrollbar-hide -mb-px">
             {[...FIXED_TABS, ...customBoards.map((cb) => ({
               key: cb.boardType.toLowerCase(),
@@ -607,7 +607,7 @@ function CommunityContent() {
                 className={cn(
                   "inline-flex items-center gap-2 whitespace-nowrap px-5 py-3 text-sm font-medium transition-all",
                   activeTab === tab.key
-                    ? "border-b-2 border-primary-600 text-primary-600 font-semibold bg-transparent"
+                    ? "border-b-2 border-brand-blue text-brand-blue font-semibold bg-transparent"
                     : "border-b-2 border-transparent text-gray-500 hover:text-gray-700 bg-transparent"
                 )}
               >
@@ -620,9 +620,9 @@ function CommunityContent() {
 
         {/* 공지사항 */}
         {activeTab === "notice" && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">공지사항</h2>
+          <div className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-brand-border">
+              <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">공지사항</h2>
             </div>
             <div className="divide-y divide-gray-50">
               {noticeList.map((notice) => (
@@ -631,7 +631,7 @@ function CommunityContent() {
                     onClick={() => setExpandedNoticeId(expandedNoticeId === notice.id ? null : notice.id)}
                     className="w-full flex items-center px-6 py-4 hover:bg-gray-50 transition-colors text-left"
                   >
-                    {notice.pinned && <Pin size={14} className="text-primary-500 mr-2 shrink-0" />}
+                    {notice.pinned && <Pin size={14} className="text-brand-blue mr-2 shrink-0" />}
                     <span className={cn("text-sm flex-1", notice.pinned ? "font-semibold text-gray-900" : "text-gray-700")}>
                       {notice.title}
                     </span>
@@ -642,7 +642,7 @@ function CommunityContent() {
                     </div>
                   </button>
                   {expandedNoticeId === notice.id && (
-                    <div className="px-6 pb-6 bg-gray-50 border-t border-gray-100 space-y-4">
+                    <div className="px-6 pb-6 bg-gray-50 border-t border-brand-border space-y-4">
                       <div className="pt-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                         {(notice as { content?: string }).content || "상세 내용은 추후 업데이트 예정입니다."}
                       </div>
@@ -652,8 +652,8 @@ function CommunityContent() {
                             <Heart size={14} className={likes.get(String(notice.id)) ? "fill-red-500 text-red-500" : ""} />
                             {likeCounts.get(String(notice.id)) || 0}
                           </button>
-                          <button onClick={() => toggleBookmark(String(notice.id), "NOTICE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-500">
-                            <BookmarkPlus size={14} className={bookmarks.get(String(notice.id)) ? "fill-primary-500 text-primary-500" : ""} />
+                          <button onClick={() => toggleBookmark(String(notice.id), "NOTICE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-blue">
+                            <BookmarkPlus size={14} className={bookmarks.get(String(notice.id)) ? "fill-brand-blue text-brand-blue" : ""} />
                             {bookmarks.get(String(notice.id)) ? "저장됨" : "북마크"}
                           </button>
                         </div>
@@ -669,15 +669,15 @@ function CommunityContent() {
 
         {/* 자료실 */}
         {activeTab === "resource" && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">자료실</h2>
+          <div className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-brand-border">
+              <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">자료실</h2>
               <p className="text-sm text-gray-500 mt-1">교육 자료와 참고 문서를 다운로드하세요.</p>
             </div>
 
             {/* 프로필 미완성 안내 */}
             {user && !isProfileComplete && (
-              <div className="mx-6 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <div className="mx-6 mt-4 rounded-sm border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 <p className="font-semibold">프로필 완성이 필요합니다</p>
                 <p className="text-xs mt-1 text-amber-700">자료를 다운로드하려면 <a href="/profile" className="underline font-medium">프로필 설정</a>에서 이름, 기수, 연락처를 입력해 주세요.</p>
               </div>
@@ -696,11 +696,11 @@ function CommunityContent() {
                         <p className="text-sm font-medium text-gray-900 truncate">{res.title}</p>
                         <p className="text-xs text-gray-400 mt-1">{res.uploaderName} · {res.fileSize}</p>
                         {res.tags.length > 0 && (
-                          <div className="flex gap-1 mt-1">{res.tags.slice(0, 3).map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{t}</span>)}</div>
+                          <div className="flex gap-1 mt-1">{res.tags.slice(0, 3).map((t) => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-brand-gray text-gray-500">{t}</span>)}</div>
                         )}
                       </div>
                       <div className="flex items-center gap-4 shrink-0 ml-4">
-                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{res.fileType.toUpperCase()}</span>
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-brand-gray text-gray-600">{res.fileType.toUpperCase()}</span>
                         <span className="text-xs text-gray-400 flex items-center gap-1"><Download size={12} />{res.downloads}</span>
                         <span
                           role="button"
@@ -708,7 +708,7 @@ function CommunityContent() {
                             if (!isProfileComplete) { toast("프로필을 먼저 완성해 주세요.", "info"); return; }
                             window.open(res.driveDownloadUrl, "_blank");
                           }, "자료 다운로드는 로그인이 필요합니다."); }}
-                          className="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition-colors"
+                          className="p-2 rounded-sm hover:bg-brand-gray text-brand-blue transition-colors"
                         >
                           <Download size={16} />
                         </span>
@@ -716,15 +716,15 @@ function CommunityContent() {
                       </div>
                     </button>
                     {expandedResourceId === res.id && (
-                      <div className="px-6 pb-6 bg-gray-50 border-t border-gray-100 space-y-3">
+                      <div className="px-6 pb-6 bg-gray-50 border-t border-brand-border space-y-3">
                         {res.description && <p className="text-sm text-gray-700">{res.description}</p>}
                         {res.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">{res.tags.map((t) => <span key={t} className="badge-base bg-gray-100 text-gray-600">{t}</span>)}</div>
+                          <div className="flex flex-wrap gap-1">{res.tags.map((t) => <span key={t} className="badge-base bg-brand-gray text-gray-600">{t}</span>)}</div>
                         )}
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span>{res.fileType.toUpperCase()} · {res.fileSize}</span>
                           <span>다운로드 {res.downloads}회</span>
-                          {res.driveViewUrl && <a href={res.driveViewUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">미리보기</a>}
+                          {res.driveViewUrl && <a href={res.driveViewUrl} target="_blank" rel="noopener noreferrer" className="text-brand-blue hover:underline">미리보기</a>}
                         </div>
                         {user && (
                           <div className="flex items-center gap-3 py-2">
@@ -732,8 +732,8 @@ function CommunityContent() {
                               <Heart size={14} className={likes.get(String(res.id)) ? "fill-red-500 text-red-500" : ""} />
                               {likeCounts.get(String(res.id)) || 0}
                             </button>
-                            <button onClick={() => toggleBookmark(String(res.id), "RESOURCE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-500">
-                              <BookmarkPlus size={14} className={bookmarks.get(String(res.id)) ? "fill-primary-500 text-primary-500" : ""} />
+                            <button onClick={() => toggleBookmark(String(res.id), "RESOURCE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-blue">
+                              <BookmarkPlus size={14} className={bookmarks.get(String(res.id)) ? "fill-brand-blue text-brand-blue" : ""} />
                               {bookmarks.get(String(res.id)) ? "저장됨" : "북마크"}
                             </button>
                           </div>
@@ -755,9 +755,9 @@ function CommunityContent() {
                     <p className="text-xs text-gray-400 mt-1">{res.author} · {res.date}</p>
                   </div>
                   <div className="flex items-center gap-4 shrink-0 ml-4">
-                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{res.type}</span>
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-brand-gray text-gray-600">{res.type}</span>
                     <span className="text-xs text-gray-400 flex items-center gap-1"><Download size={12} />{res.downloads}</span>
-                    <button onClick={() => handleDownload(res.title, (res as { url?: string }).url)} className="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition-colors">
+                    <button onClick={() => handleDownload(res.title, (res as { url?: string }).url)} className="p-2 rounded-sm hover:bg-brand-gray text-brand-blue transition-colors">
                       <Download size={16} />
                     </button>
                   </div>
@@ -774,12 +774,12 @@ function CommunityContent() {
         {/* 수료증 발급 */}
         {activeTab === "certificate" && (
           <div className="max-w-lg mx-auto">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+            <div className="bg-white rounded-sm border border-brand-border shadow-sm p-8">
               <div className="text-center mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 rounded-sm bg-purple-50 flex items-center justify-center mx-auto mb-4">
                   <Award size={32} className="text-purple-600" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">수료증 발급</h2>
+                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">수료증 발급</h2>
                 <p className="text-sm text-gray-500 mt-2">
                   수강 시 등록한 이메일로 수료증 발급 여부를 확인할 수 있습니다.
                 </p>
@@ -792,7 +792,7 @@ function CommunityContent() {
                     value={certEmail}
                     onChange={(e) => { setCertEmail(e.target.value); setCertSearched(false); setCertResult(null); }}
                     placeholder="수강 신청 시 사용한 이메일을 입력하세요"
-                    className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    className="w-full px-4 py-3 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
                   />
                 </div>
                 <div>
@@ -802,18 +802,18 @@ function CommunityContent() {
                     value={certName}
                     onChange={(e) => { setCertName(e.target.value); setCertSearched(false); setCertResult(null); }}
                     placeholder="이메일로 찾을 수 없을 때 이름으로 검색합니다"
-                    className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    className="w-full px-4 py-3 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
                   />
                 </div>
                 <button
                   onClick={() => handleCertSearch()}
                   disabled={(!certEmail.trim() && !certName.trim()) || certLoading}
-                  className="w-full py-3 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"
+                  className="w-full py-3 rounded-sm bg-brand-blue text-white text-sm font-semibold hover:bg-brand-lightBlue transition-colors disabled:opacity-50"
                 >
                   {certLoading ? "조회 중..." : "수료증 조회"}
                 </button>
                 {certSearched && !certResult && (
-                  <div className="bg-yellow-50 text-yellow-700 text-sm p-4 rounded-lg">
+                  <div className="bg-yellow-50 text-yellow-700 text-sm p-4 rounded-sm">
                     <p className="font-medium mb-1">수료 정보를 찾을 수 없습니다.</p>
                     <ul className="text-yellow-600 text-xs space-y-1 mt-2 list-disc list-inside">
                       <li>수강 신청 시 등록한 이메일과 동일한지 확인해 주세요.</li>
@@ -825,7 +825,7 @@ function CommunityContent() {
                   </div>
                 )}
                 {certResult && (
-                  <div className="bg-green-50 text-green-700 text-sm p-4 rounded-lg">
+                  <div className="bg-green-50 text-green-700 text-sm p-4 rounded-sm">
                     <p className="font-medium mb-2">수료 정보가 확인되었습니다!</p>
                     <div className="space-y-1 text-green-600 text-xs">
                       <p>과정명: <strong>{certResult.courseName}</strong></p>
@@ -847,12 +847,12 @@ function CommunityContent() {
         {activeTab === "faq" && (
           <div className="max-w-3xl mx-auto space-y-3">
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-900">자주 묻는 질문</h2>
+              <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">자주 묻는 질문</h2>
             </div>
             {faqList.map((faq, index) => (
               <div
                 key={index}
-                className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
+                className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden"
               >
                 <button
                   onClick={() => setOpenFaqIndex(openFaqIndex === index ? null : index)}
@@ -866,7 +866,7 @@ function CommunityContent() {
                   )}
                 </button>
                 {openFaqIndex === index && (
-                  <div className="px-5 pb-5 border-t border-gray-100">
+                  <div className="px-5 pb-5 border-t border-brand-border">
                     <p className="text-sm text-gray-600 leading-relaxed pt-4">{faq.answer}</p>
                   </div>
                 )}
@@ -878,8 +878,8 @@ function CommunityContent() {
         {/* 협력 문의 */}
         {activeTab === "inquiry" && (
           <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">협력 문의</h2>
+            <div className="bg-white rounded-sm border border-brand-border shadow-sm p-8">
+              <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight mb-2">협력 문의</h2>
               <p className="text-sm text-gray-500 mb-6">교육 협력 및 제휴를 문의해 주세요. 담당자가 빠르게 연락드리겠습니다.</p>
 
               {inquirySubmitted ? (
@@ -887,11 +887,11 @@ function CommunityContent() {
                   <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
                     <Mail size={32} className="text-green-600" />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">문의가 접수되었습니다</h3>
+                  <h3 className="text-lg font-bold text-brand-dark mb-2">문의가 접수되었습니다</h3>
                   <p className="text-sm text-gray-500">담당자 확인 후 입력하신 이메일로 답변드리겠습니다.</p>
                   <button
                     onClick={() => { setInquirySubmitted(false); setInquiryForm({ name: "", email: "", phone: "", company: "", subject: "", message: "" }); }}
-                    className="mt-6 px-6 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                    className="mt-6 px-6 py-2.5 rounded-sm border border-brand-border text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
                   >
                     새 문의 작성
                   </button>
@@ -902,12 +902,12 @@ function CommunityContent() {
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1.5 block">이름 *</label>
                       <input type="text" required value={inquiryForm.name} onChange={(e) => setInquiryForm({ ...inquiryForm, name: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                        className="w-full px-4 py-2.5 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20" />
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1.5 block">이메일 *</label>
                       <input type="email" required value={inquiryForm.email} onChange={(e) => setInquiryForm({ ...inquiryForm, email: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                        className="w-full px-4 py-2.5 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -915,30 +915,30 @@ function CommunityContent() {
                       <label className="text-sm font-medium text-gray-700 mb-1.5 block">연락처</label>
                       <input type="tel" value={inquiryForm.phone} onChange={(e) => setInquiryForm({ ...inquiryForm, phone: e.target.value })}
                         placeholder="010-0000-0000"
-                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                        className="w-full px-4 py-2.5 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20" />
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1.5 block">소속/회사</label>
                       <input type="text" value={inquiryForm.company} onChange={(e) => setInquiryForm({ ...inquiryForm, company: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                        className="w-full px-4 py-2.5 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20" />
                     </div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700 mb-1.5 block">제목 *</label>
                     <input type="text" required value={inquiryForm.subject} onChange={(e) => setInquiryForm({ ...inquiryForm, subject: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                      className="w-full px-4 py-2.5 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20" />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700 mb-1.5 block">문의 내용 *</label>
                     <textarea rows={5} required value={inquiryForm.message} onChange={(e) => setInquiryForm({ ...inquiryForm, message: e.target.value })}
                       placeholder="문의 내용을 입력해 주세요..."
-                      className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
+                      className="w-full px-4 py-2.5 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 resize-none" />
                   </div>
                   {inquiryError && (
-                    <p className="text-sm text-red-600 bg-red-50 px-4 py-2.5 rounded-lg">{inquiryError}</p>
+                    <p className="text-sm text-red-600 bg-red-50 px-4 py-2.5 rounded-sm">{inquiryError}</p>
                   )}
                   <button type="submit"
-                    className="w-full py-3 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors">
+                    className="w-full py-3 rounded-sm bg-brand-blue text-white text-sm font-semibold hover:bg-brand-lightBlue transition-colors">
                     문의 보내기
                   </button>
                 </form>
@@ -951,14 +951,14 @@ function CommunityContent() {
         {activeTab === "gallery" && (
           <div>
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-900">갤러리</h2>
+              <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">갤러리</h2>
               <p className="text-sm text-gray-500 mt-1">교육 현장과 행사 사진을 둘러보세요.</p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {galleryList.map((img) => (
                 <div
                   key={img.id}
-                  className="group relative rounded-xl overflow-hidden aspect-[4/3] cursor-pointer bg-gray-100"
+                  className="group relative rounded-sm overflow-hidden aspect-[4/3] cursor-pointer bg-brand-gray"
                   onClick={() => setLightboxImage({ imageUrl: img.imageUrl, title: img.title })}
                 >
                   <DriveOrExternalImage
@@ -980,9 +980,9 @@ function CommunityContent() {
         {/* 자유게시판 */}
         {activeTab === "free" && (
           <div className="card-base overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <div className="p-6 border-b border-brand-border flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">자유게시판</h2>
+                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">자유게시판</h2>
                 <p className="text-sm text-gray-500 mt-1">수강생 간 질문과 정보를 나눠보세요.</p>
               </div>
               {user && (
@@ -992,12 +992,12 @@ function CommunityContent() {
               )}
             </div>
             {showFreePostForm && user && (
-              <div className="p-6 bg-gray-50 border-b border-gray-100 space-y-3">
+              <div className="p-6 bg-gray-50 border-b border-brand-border space-y-3">
                 <input type="text" value={freePostTitle} onChange={(e) => setFreePostTitle(e.target.value)}
-                  placeholder="제목" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                  placeholder="제목" className="w-full px-3 py-2 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20" />
                 <textarea value={freePostContent} onChange={(e) => setFreePostContent(e.target.value)}
                   placeholder="내용을 입력하세요..." rows={4}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
+                  className="w-full px-3 py-2 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 resize-none" />
                 <div className="flex justify-end gap-2">
                   <button onClick={() => setShowFreePostForm(false)} className="btn-secondary btn-sm">취소</button>
                   <button onClick={handleFreePostSubmit} disabled={!freePostTitle.trim() || !freePostContent.trim()} className="btn-primary btn-sm disabled:opacity-40">등록</button>
@@ -1021,8 +1021,8 @@ function CommunityContent() {
                         <Heart size={14} className={likes.get(post.id) ? "fill-red-500 text-red-500" : ""} />
                         {likeCounts.get(post.id) || 0}
                       </button>
-                      <button onClick={() => toggleBookmark(post.id, "FREE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-primary-500">
-                        <BookmarkPlus size={14} className={bookmarks.get(post.id) ? "fill-primary-500 text-primary-500" : ""} />
+                      <button onClick={() => toggleBookmark(post.id, "FREE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-blue">
+                        <BookmarkPlus size={14} className={bookmarks.get(post.id) ? "fill-brand-blue text-brand-blue" : ""} />
                         {bookmarks.get(post.id) ? "저장됨" : "북마크"}
                       </button>
                     </div>
@@ -1037,17 +1037,17 @@ function CommunityContent() {
         {/* 수강 후기 */}
         {activeTab === "review" && (
           <div className="card-base overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <div className="p-6 border-b border-brand-border flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">수강 후기</h2>
+                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">수강 후기</h2>
                 <p className="text-sm text-gray-500 mt-1">수강 경험을 나눠주세요.</p>
               </div>
               {user && <button onClick={() => setShowReviewForm(!showReviewForm)} className="btn-primary btn-sm"><Plus size={14} />후기 작성</button>}
             </div>
             {showReviewForm && user && (
-              <div className="p-6 bg-gray-50 border-b border-gray-100 space-y-3">
+              <div className="p-6 bg-gray-50 border-b border-brand-border space-y-3">
                 <input type="text" value={reviewForm.programTitle} onChange={(e) => setReviewForm({...reviewForm, programTitle: e.target.value})}
-                  placeholder="프로그램명" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" />
+                  placeholder="프로그램명" className="w-full px-3 py-2 rounded-sm border border-brand-border text-sm focus:outline-none" />
                 <div className="flex items-center gap-1">
                   <span className="text-sm text-gray-600 mr-2">평점:</span>
                   {[1,2,3,4,5].map((s) => (
@@ -1057,7 +1057,7 @@ function CommunityContent() {
                 </div>
                 <textarea value={reviewForm.content} onChange={(e) => setReviewForm({...reviewForm, content: e.target.value})}
                   placeholder="수강 경험을 공유해 주세요..." rows={4}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none resize-none" />
+                  className="w-full px-3 py-2 rounded-sm border border-brand-border text-sm focus:outline-none resize-none" />
                 <div className="flex justify-end gap-2">
                   <button onClick={() => setShowReviewForm(false)} className="btn-secondary btn-sm">취소</button>
                   <button onClick={handleReviewSubmit} disabled={!reviewForm.content.trim() || !reviewForm.programTitle.trim()} className="btn-primary btn-sm disabled:opacity-40">등록</button>
@@ -1085,9 +1085,9 @@ function CommunityContent() {
         {/* 커스텀 게시판 */}
         {customBoards.map((cb) => (
           activeTab === cb.boardType.toLowerCase() && (
-            <div key={cb.boardType} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-gray-900">{cb.boardType}</h2>
+            <div key={cb.boardType} className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-brand-border">
+                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">{cb.boardType}</h2>
               </div>
               <div className="divide-y divide-gray-50">
                 {cb.posts.length === 0 ? (
@@ -1098,7 +1098,7 @@ function CommunityContent() {
                       onClick={() => setExpandedCustomPostId(expandedCustomPostId === post.id ? null : post.id)}
                       className="w-full flex items-center px-6 py-4 hover:bg-gray-50 transition-colors text-left"
                     >
-                      {post.pinned && <Pin size={14} className="text-primary-500 mr-2 shrink-0" />}
+                      {post.pinned && <Pin size={14} className="text-brand-blue mr-2 shrink-0" />}
                       <span className={cn("text-sm flex-1", post.pinned ? "font-semibold text-gray-900" : "text-gray-700")}>
                         {post.title}
                       </span>
@@ -1109,7 +1109,7 @@ function CommunityContent() {
                       </div>
                     </button>
                     {expandedCustomPostId === post.id && (
-                      <div className="px-6 pb-4 text-sm text-gray-600 bg-gray-50 border-t border-gray-100">
+                      <div className="px-6 pb-4 text-sm text-gray-600 bg-gray-50 border-t border-brand-border">
                         <p className="pt-3">{post.content || "상세 내용은 추후 업데이트 예정입니다."}</p>
                       </div>
                     )}
@@ -1136,7 +1136,7 @@ function CommunityContent() {
             <DriveOrExternalImage
               src={lightboxImage.imageUrl}
               alt={lightboxImage.title}
-              className="w-full max-h-[85vh] object-contain rounded-lg"
+              className="w-full max-h-[85vh] object-contain rounded-sm"
             />
             <p className="text-white text-center mt-3 text-sm font-medium">{lightboxImage.title}</p>
           </div>

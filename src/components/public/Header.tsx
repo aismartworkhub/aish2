@@ -67,11 +67,11 @@ export default function Header() {
     <>
       <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200/60 transition-all duration-300 flex items-center",
+          "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-brand-border transition-all duration-300 flex items-center",
           isScrolled ? "h-14 md:h-[70px] shadow-[0_10px_20px_rgba(0,0,0,0.05)]" : "h-16 md:h-20"
         )}
       >
-        <div className="w-[90%] max-w-[1400px] mx-auto flex items-center justify-between">
+        <div className="w-[90%] max-w-[1440px] mx-auto flex items-center justify-between">
           {/* 로고 */}
           <Link href="/" className="shrink-0 flex items-center gap-2">
             <img
@@ -88,10 +88,10 @@ export default function Header() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "px-5 py-2 text-[15px] font-medium transition-colors rounded focus:outline-none focus:ring-2 focus:ring-primary-500/30",
+                  "px-5 py-2 text-[15px] font-medium transition-colors rounded focus:outline-none focus:ring-2 focus:ring-brand-blue/30",
                   pathname === item.href
-                    ? "text-primary-600"
-                    : "text-gray-700 hover:text-primary-600"
+                    ? "text-brand-blue"
+                    : "text-gray-700 hover:text-brand-blue"
                 )}
               >
                 {item.label}
@@ -105,7 +105,7 @@ export default function Header() {
               href={buttonUrl}
               target={isExternalHref(buttonUrl) ? "_blank" : undefined}
               rel={isExternalHref(buttonUrl) ? "noopener noreferrer" : undefined}
-              className="hidden md:inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white text-sm font-medium rounded hover:bg-primary-600 transition-colors"
+              className="hidden md:inline-flex items-center gap-2 px-5 py-2.5 bg-brand-blue text-white text-sm font-medium rounded-sm uppercase tracking-widest hover:bg-brand-lightBlue transition-colors"
             >
               {buttonText}
               <Search size={16} />
@@ -113,7 +113,7 @@ export default function Header() {
 
             {/* 알림 벨 */}
             {user && (
-              <Link href="/community?tab=notice" className="relative p-2 text-gray-600 hover:text-primary-600 transition-colors" aria-label="알림">
+              <Link href="/community?tab=notice" className="relative p-2 text-gray-600 hover:text-brand-blue transition-colors" aria-label="알림">
                 <Bell size={20} />
                 {unreadCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -128,18 +128,18 @@ export default function Header() {
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                  className="flex items-center gap-2 px-3 py-2 rounded-sm hover:bg-brand-gray transition-colors focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
                   aria-expanded={userMenuOpen}
                   aria-haspopup="true"
                   aria-label="사용자 메뉴"
                 >
                   <div className="relative w-8 h-8">
-                    <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-brand-gray flex items-center justify-center">
                       {user.photoURL ? (
                          
                         <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
                       ) : (
-                        <span className="text-sm font-bold text-primary-600">
+                        <span className="text-sm font-bold text-brand-blue">
                           {(user.displayName || user.email || "U").charAt(0)}
                         </span>
                       )}
@@ -155,9 +155,9 @@ export default function Header() {
                 {userMenuOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                    <div className="absolute right-0 top-12 z-50 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2">
+                    <div className="absolute right-0 top-12 z-50 w-48 bg-white rounded-sm shadow-lg border border-brand-border py-2">
                       <div className="px-4 py-2 border-b border-gray-100">
-                        <p className="text-sm font-medium text-gray-900 truncate">{user.displayName || "사용자"}</p>
+                        <p className="text-sm font-medium text-brand-dark truncate">{user.displayName || "사용자"}</p>
                         <p className="text-xs text-gray-400 truncate">{user.email}</p>
                       </div>
                       <Link
@@ -185,7 +185,7 @@ export default function Header() {
             ) : (
               <button
                 onClick={handleGoogleLogin}
-                className="inline-flex items-center gap-2 px-3 md:px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+                className="inline-flex items-center gap-2 px-3 md:px-4 py-2 border border-gray-300 rounded-sm hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
               >
                 <User size={16} />
                 <span className="hidden md:inline">로그인 / 회원가입</span>
@@ -193,7 +193,7 @@ export default function Header() {
               </button>
             )}
 
-            <Link href="/programs" className="lg:hidden p-2 text-gray-700 hover:text-primary-600" aria-label="검색">
+            <Link href="/programs" className="lg:hidden p-2 text-gray-700 hover:text-brand-blue" aria-label="검색">
               <Search size={20} />
             </Link>
             <button
@@ -217,18 +217,18 @@ export default function Header() {
             onClick={() => setIsMobileMenuOpen(false)}
           />
           {/* 메뉴 패널 - bottom sheet */}
-          <div className="fixed bottom-0 left-0 right-0 z-[56] lg:hidden bg-white rounded-t-2xl shadow-lg max-h-[70vh] overflow-y-auto animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 z-[56] lg:hidden bg-white rounded-t-sm shadow-lg max-h-[70vh] overflow-y-auto animate-slide-up">
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-2" />
-            <nav className="w-[90%] max-w-[1400px] mx-auto py-4 space-y-1">
+            <nav className="w-[90%] max-w-[1440px] mx-auto py-4 space-y-1">
               {NAV_ITEMS.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={cn(
-                    "flex items-center justify-between px-4 py-3.5 text-base font-medium transition-colors rounded-lg",
+                    "flex items-center justify-between px-4 py-3.5 text-base font-medium transition-colors rounded-sm",
                     pathname === item.href
-                      ? "text-primary-600 bg-primary-50"
+                      ? "text-brand-blue bg-brand-gray"
                       : "text-gray-700 hover:bg-gray-50"
                   )}
                 >
@@ -260,7 +260,7 @@ export default function Header() {
                 {!user && (
                   <button
                     onClick={() => { handleGoogleLogin(); setIsMobileMenuOpen(false); }}
-                    className="block w-full py-3.5 rounded-lg border-2 border-primary-500 text-primary-600 text-center text-base font-semibold hover:bg-primary-50 transition-colors"
+                    className="block w-full py-3.5 rounded-sm border-2 border-brand-blue text-brand-blue text-center text-base font-semibold hover:bg-brand-gray transition-colors"
                   >
                     Google로 로그인 / 회원가입
                   </button>
@@ -269,7 +269,7 @@ export default function Header() {
                   href={buttonUrl}
                   target={isExternalHref(buttonUrl) ? "_blank" : undefined}
                   rel={isExternalHref(buttonUrl) ? "noopener noreferrer" : undefined}
-                  className="block w-full py-3.5 rounded-lg bg-primary-500 text-white text-center text-base font-semibold hover:bg-primary-600 transition-colors"
+                  className="block w-full py-3.5 rounded-sm bg-brand-blue text-white text-center text-base font-semibold uppercase tracking-widest hover:bg-brand-lightBlue transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {buttonText}

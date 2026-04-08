@@ -8,7 +8,7 @@ import { COLLECTIONS, updateDocFields } from "@/lib/firestore";
 import { COHORT_OPTIONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-const INPUT_CLASS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600/20 focus:border-primary-600 transition-colors";
+const INPUT_CLASS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
 
 export default function ProfilePage() {
   const { user, profile, loading, isProfileComplete, refreshProfile, deleteAccount } = useAuth();
@@ -88,7 +88,7 @@ export default function ProfilePage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-3 border-brand-blue border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -120,8 +120,8 @@ export default function ProfilePage() {
                  
                 <img src={profile.photoURL} alt="" className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                  <span className="text-primary-700 font-bold">{(profile?.displayName || profile?.email || "?")[0]}</span>
+                <div className="w-10 h-10 rounded-full bg-brand-gray flex items-center justify-center">
+                  <span className="text-brand-blue font-bold">{(profile?.displayName || profile?.email || "?")[0]}</span>
                 </div>
               )}
               <div>
@@ -234,7 +234,7 @@ export default function ProfilePage() {
                 onChange={(e) => setForm({ ...form, bio: e.target.value })}
                 rows={3}
                 placeholder="간단한 자기소개를 작성해 주세요"
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 resize-none"
               />
             </div>
           </div>
@@ -248,7 +248,7 @@ export default function ProfilePage() {
                 {form.interests.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-medium"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-gray text-brand-blue text-xs font-medium"
                   >
                     {tag}
                     <button
@@ -324,7 +324,7 @@ export default function ProfilePage() {
             disabled={saving}
             className={cn(
               "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              "bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50"
+              "bg-brand-blue text-white hover:bg-brand-dark disabled:opacity-50"
             )}
           >
             <Save size={16} />

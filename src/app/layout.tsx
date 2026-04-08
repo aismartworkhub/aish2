@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import { SITE_NAME, SITE_FULL_NAME, SITE_DESCRIPTION } from "@/lib/constants";
 import Providers from "@/components/Providers";
 import "./globals.css";
+
+const inter = Inter({
+ subsets: ["latin"],
+ weight: ["300", "400", "700", "800"],
+ display: "swap",
+});
 
 export const metadata: Metadata = {
  title: {
@@ -19,7 +26,7 @@ export default function RootLayout({
 }) {
  return (
    <html lang="ko">
-     <body>
+     <body className={inter.className}>
        <Providers>{children}</Providers>
      </body>
    </html>

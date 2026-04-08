@@ -182,7 +182,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
                 placeholder="댓글을 입력하세요..."
                 rows={3}
                 className={cn(
-                  "w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/40 text-sm",
+                  "w-full bg-white/10 border border-white/20 rounded-sm px-4 py-3 text-white placeholder-white/40 text-sm",
                   "focus:outline-none focus:border-white/50 resize-none"
                 )}
               />
@@ -191,7 +191,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
                   onClick={handleSubmit}
                   disabled={!newComment.trim() || submitting}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm rounded-lg",
+                    "flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm rounded-sm",
                     "disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   )}
                 >
@@ -207,7 +207,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
               requireLogin(() => {}, "댓글을 작성하려면 로그인이 필요합니다.")
             }
             className={cn(
-              "w-full py-4 border border-dashed border-white/30 rounded-xl text-white/60 hover:text-white hover:border-white/50 transition-colors text-sm"
+              "w-full py-4 border border-dashed border-white/30 rounded-sm text-white/60 hover:text-white hover:border-white/50 transition-colors text-sm"
             )}
           >
             로그인하고 댓글 작성하기
@@ -234,7 +234,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
             <div
               key={comment.id}
               className={cn(
-                "flex gap-3 bg-white/5 rounded-xl p-4 border border-white/10"
+                "flex gap-3 bg-white/5 rounded-sm p-4 border border-white/10"
               )}
             >
               <div
@@ -369,7 +369,7 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
-              "flex gap-4 bg-white/5 border border-white/10 rounded-xl p-4",
+              "flex gap-4 bg-white/5 border border-white/10 rounded-sm p-4",
               "hover:bg-white/10 hover:border-white/20 transition-all group"
             )}
           >
@@ -503,7 +503,7 @@ export default function InstructorsPage() {
       <div className={cn("max-w-5xl mx-auto px-4")}>
         {/* Header */}
         <div className={cn("text-center mb-12")}>
-          <h1 className={cn("text-3xl font-bold text-gray-900 mb-3")}>
+          <h1 className={cn("text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3")}>
             전문 강사진
           </h1>
           <p className={cn("text-lg text-gray-500")}>
@@ -516,7 +516,7 @@ export default function InstructorsPage() {
           <div className={cn("flex justify-center py-12")}>
             <div
               className={cn(
-                "w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin"
+                "w-8 h-8 border-4 border-brand-border border-t-brand-blue rounded-full animate-spin"
               )}
             />
           </div>
@@ -532,12 +532,12 @@ export default function InstructorsPage() {
                 key={inst.id}
                 onClick={() => setSelectedInstructor(inst)}
                 className={cn(
-                  "bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover-lift group",
+                  "bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden hover-lift group",
                   "cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
                 )}
               >
                 {/* Image */}
-                <div className={cn("relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-primary-200 to-primary-50")}>
+                <div className={cn("relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-brand-gray to-gray-200")}>
                   {imageSrc(inst) ? (
                     <DriveOrExternalImage
                       src={imageSrc(inst)!}
@@ -546,8 +546,8 @@ export default function InstructorsPage() {
                       quiet
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200">
-                      <span className="text-5xl font-bold text-primary-400">{inst.name.charAt(0)}</span>
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-gray to-gray-200">
+                      <span className="text-5xl font-bold text-brand-blue">{inst.name.charAt(0)}</span>
                     </div>
                   )}
                   <div
@@ -570,7 +570,7 @@ export default function InstructorsPage() {
                       <span
                         key={s}
                         className={cn(
-                          "text-xs bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full"
+                          "text-xs bg-brand-gray text-brand-blue px-2 py-0.5 rounded-full"
                         )}
                       >
                         {s}
@@ -588,7 +588,7 @@ export default function InstructorsPage() {
                   )}
                 </div>
                 <div className="px-5 pb-4">
-                  <span className="text-xs text-primary-600 font-medium group-hover:underline">프로필 보기 →</span>
+                  <span className="text-xs text-brand-blue font-medium group-hover:underline">프로필 보기 →</span>
                 </div>
               </div>
             ))}
@@ -597,14 +597,14 @@ export default function InstructorsPage() {
 
       {/* Detail Modal */}
       {selectedInstructor && (
-        <div className={cn("fixed inset-0 z-50 bg-[#0a3a7a] overflow-y-auto")} role="dialog" aria-modal="true">
+        <div className={cn("fixed inset-0 z-50 bg-brand-blue overflow-y-auto")} role="dialog" aria-modal="true">
           {/* Top buttons */}
           <div className={cn("absolute top-4 right-4 z-10 flex items-center gap-2")}>
             {isAdmin && (
               <a
                 href={`/admin/instructors`}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-lg transition-colors text-sm"
+                  "flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-sm transition-colors text-sm"
                 )}
                 title="강사 정보 수정"
               >
@@ -722,7 +722,7 @@ export default function InstructorsPage() {
                 )}
                 style={{ animationDelay: "200ms" }}
               >
-                <div className={cn("relative rounded-2xl overflow-hidden shadow-2xl")}>
+                <div className={cn("relative rounded-sm overflow-hidden shadow-2xl")}>
                   {imageSrc(selectedInstructor) ? (
                     <DriveOrExternalImage
                       src={imageSrc(selectedInstructor)!}
@@ -748,12 +748,12 @@ export default function InstructorsPage() {
                 {/* Floating name card */}
                 <div
                   className={cn(
-                    "relative -mt-8 mx-auto w-[90%] bg-white text-center rounded-3xl p-6 shadow-2xl"
+                    "relative -mt-8 mx-auto w-[90%] bg-white text-center rounded-sm p-6 shadow-2xl"
                   )}
                 >
                   <p
                     className={cn(
-                      "text-xl font-serif font-bold text-[#0a3a7a]"
+                      "text-xl font-serif font-bold text-brand-blue"
                     )}
                   >
                     {selectedInstructor.name}
@@ -854,7 +854,7 @@ export default function InstructorsPage() {
                       <span
                         key={cert}
                         className={cn(
-                          "px-3 py-1.5 rounded-lg bg-white/10 text-white text-sm"
+                          "px-3 py-1.5 rounded-sm bg-white/10 text-white text-sm"
                         )}
                       >
                         {cert}

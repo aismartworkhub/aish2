@@ -80,7 +80,7 @@ export default function ProgramsPage() {
     <div className="py-16">
       <div className="max-w-6xl mx-auto px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">교육 프로그램</h1>
+          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">교육 프로그램</h1>
           <p className="text-lg text-gray-500">AISH의 다양한 AI 교육 과정을 확인하세요.</p>
         </div>
 
@@ -92,7 +92,7 @@ export default function ProgramsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="프로그램 검색..."
-              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full pl-9 pr-4 py-2.5 border border-brand-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
             />
           </div>
           {!useFallback && categoryOptions.length > 0 && (
@@ -100,8 +100,8 @@ export default function ProgramsPage() {
               <button
                 onClick={() => setFilter("ALL")}
                 className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium",
-                  filter === "ALL" ? "bg-primary-600 text-white" : "bg-gray-100 text-gray-600"
+                  "px-4 py-2 rounded-sm text-sm font-medium",
+                  filter === "ALL" ? "bg-brand-blue text-white" : "bg-gray-100 text-gray-600"
                 )}
               >
                 전체
@@ -111,9 +111,9 @@ export default function ProgramsPage() {
                   key={cat.category_id}
                   onClick={() => setFilter(String(cat.category_id))}
                   className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium",
+                    "px-4 py-2 rounded-sm text-sm font-medium",
                     filter === String(cat.category_id)
-                      ? "bg-primary-600 text-white"
+                      ? "bg-brand-blue text-white"
                       : "bg-gray-100 text-gray-600"
                   )}
                 >
@@ -126,7 +126,7 @@ export default function ProgramsPage() {
 
         {loading && (
           <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-brand-border border-t-brand-blue rounded-full animate-spin" />
           </div>
         )}
 
@@ -134,7 +134,7 @@ export default function ProgramsPage() {
         {!loading && !useFallback && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {(filtered as RunmoaContent[]).map((c) => (
-              <div key={c.content_id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover-lift">
+              <div key={c.content_id} className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden flex flex-col hover-lift hover:border-t-4 hover:border-t-brand-blue">
                 {c.featured_image ? (
                   <div className="aspect-[16/9] overflow-hidden relative">
                     <img
@@ -146,7 +146,7 @@ export default function ProgramsPage() {
                     />
                   </div>
                 ) : (
-                  <div className="aspect-[16/9] bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
+                  <div className="aspect-[16/9] bg-gradient-to-br from-brand-gray to-blue-50 flex items-center justify-center">
                     <span className="text-4xl">📚</span>
                   </div>
                 )}
@@ -181,12 +181,12 @@ export default function ProgramsPage() {
                     ) : null}
                   </div>
                 </div>
-                <div className="px-5 pb-5 pt-0 mt-auto border-t border-gray-100">
+                <div className="px-5 pb-5 pt-0 mt-auto border-t border-brand-border">
                   <a
                     href={`${RUNMOA_BASE}/classes/${c.content_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+                    className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-sm bg-brand-blue text-white text-sm font-semibold uppercase tracking-widest hover:bg-brand-blue transition-colors"
                   >
                     자세히 보기
                     <ExternalLink size={16} />
@@ -201,8 +201,8 @@ export default function ProgramsPage() {
         {!loading && useFallback && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {(filtered as typeof DEMO_PROGRAMS).map((program) => (
-              <div key={program.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover-lift">
-                <div className="aspect-[16/9] bg-gradient-to-br from-primary-50 to-blue-50 flex items-center justify-center">
+              <div key={program.id} className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden flex flex-col hover-lift hover:border-t-4 hover:border-t-brand-blue">
+                <div className="aspect-[16/9] bg-gradient-to-br from-brand-gray to-blue-50 flex items-center justify-center">
                   <span className="text-4xl">📚</span>
                 </div>
                 <div className="p-5 flex-1 flex flex-col">
@@ -218,7 +218,7 @@ export default function ProgramsPage() {
                       href={program.ctaLink.trim()}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-auto w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+                      className="mt-auto w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-sm bg-brand-blue text-white text-sm font-semibold uppercase tracking-widest hover:bg-brand-blue transition-colors"
                     >
                       {program.ctaText?.trim() || "교육과정 보기"}
                       <ExternalLink size={16} />

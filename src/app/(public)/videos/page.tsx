@@ -52,15 +52,15 @@ export default function VideosPage() {
     <div className="py-16">
       <div className="max-w-5xl mx-auto px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">영상 콘텐츠</h1>
+          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">영상 콘텐츠</h1>
           <p className="text-lg text-gray-500">AISH의 다양한 영상 콘텐츠를 만나보세요.</p>
         </div>
 
         <div className="flex justify-center gap-2 mb-8 flex-wrap">
           <button
             onClick={() => setFilter("ALL")}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              filter === "ALL" ? "bg-primary-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors ${
+              filter === "ALL" ? "bg-brand-blue text-white" : "bg-brand-gray text-gray-600 hover:bg-gray-200"
             }`}
           >
             전체
@@ -69,8 +69,8 @@ export default function VideosPage() {
             <button
               key={key}
               onClick={() => setFilter(key)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                filter === key ? "bg-primary-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors ${
+                filter === key ? "bg-brand-blue text-white" : "bg-brand-gray text-gray-600 hover:bg-gray-200"
               }`}
             >
               {label}
@@ -80,7 +80,7 @@ export default function VideosPage() {
 
         {loading && (
           <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-brand-border border-t-brand-blue rounded-full animate-spin" />
           </div>
         )}
 
@@ -95,11 +95,11 @@ export default function VideosPage() {
               <Wrapper
                 key={video.id}
                 {...wrapperProps}
-                className={`group bg-white rounded-xl border border-gray-100 overflow-hidden transition-shadow ${
+                className={`group bg-white rounded-sm border border-brand-border overflow-hidden transition-shadow ${
                   hasUrl ? "hover:shadow-md cursor-pointer" : "opacity-60 cursor-not-allowed"
                 }`}
               >
-                <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                <div className="aspect-video bg-brand-gray relative overflow-hidden">
                   <YouTubeThumbnailImage
                     videoUrl={video.youtubeUrl}
                     alt={video.title}
@@ -108,7 +108,7 @@ export default function VideosPage() {
                   />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
                     <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Play className="text-primary-600 ml-1" size={28} />
+                      <Play className="text-brand-blue ml-1" size={28} />
                     </div>
                   </div>
                   {!hasUrl && (
@@ -118,10 +118,10 @@ export default function VideosPage() {
                   )}
                 </div>
                 <div className="p-4">
-                  <span className="text-xs bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-brand-gray text-brand-blue px-2 py-0.5 rounded-full">
                     {VIDEO_CATEGORY_LABELS[video.category] || video.category}
                   </span>
-                  <h3 className="font-semibold text-gray-900 mt-2 group-hover:text-primary-600 transition-colors">
+                  <h3 className="font-semibold text-gray-900 mt-2 group-hover:text-brand-blue transition-colors">
                     {video.title}
                   </h3>
                   <p className="text-xs text-gray-400 mt-1">{video.publishedAt || video.date}</p>

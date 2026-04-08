@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
 @theme {
+ /* Brand Colors — 산업 기술 전문성 */
+ --color-brand-blue: #004B93;
+ --color-brand-lightBlue: #005EB8;
+ --color-brand-dark: #0A0A0A;
+ --color-brand-gray: #F3F4F6;
+ --color-brand-border: #E5E7EB;
+
+ /* 기존 primary 유지 (관리자 페이지 호환) */
  --color-primary-50: #eff6ff;
  --color-primary-100: #dbeafe;
  --color-primary-200: #bfdbfe;
@@ -17,7 +25,7 @@
  --color-accent-500: #22c55e;
  --color-accent-600: #16a34a;
 
- --font-sans: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+ --font-sans: "Inter", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
 }
 
 html {
@@ -25,66 +33,64 @@ html {
 }
 
 body {
- @apply antialiased text-gray-900;
+ @apply antialiased text-brand-dark;
 }
 
 @layer utilities {
  .text-gradient {
-   @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-primary-400;
+   @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-blue to-brand-lightBlue;
  }
 
  .section-padding {
-   @apply py-16 md:py-24;
+   @apply py-24;
  }
 
  .container-custom {
-   @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+   @apply max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8;
  }
 
- /* 카드/뱃지 */
-
- /* 카드/뱃지 */
  .card-base {
-   @apply bg-white rounded-2xl border border-gray-100 shadow-sm;
+   @apply bg-white rounded-sm border border-brand-border shadow-sm;
  }
  .badge-base {
    @apply text-xs px-2.5 py-0.5 rounded-full font-medium;
  }
 
- /* 호버 리프트 */
  .hover-lift {
    @apply transition-all duration-300 hover:shadow-md hover:-translate-y-1;
+   transition-timing-function: cubic-bezier(0.165, 0.84, 0.44, 1);
  }
 
- /* 스크롤바 숨김 */
  .scrollbar-hide::-webkit-scrollbar { display: none; }
  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
-/* 버튼 시스템 */
+/* 버튼 시스템 — 산업 스타일 */
 .btn {
- @apply inline-flex items-center justify-center gap-2 font-semibold transition-all;
+ @apply inline-flex items-center justify-center gap-2 font-semibold;
+ transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 .btn-primary {
- @apply inline-flex items-center justify-center gap-2 font-semibold transition-all bg-primary-600 text-white hover:bg-primary-700 rounded-lg;
+ @apply inline-flex items-center justify-center gap-2 font-semibold bg-brand-blue text-white hover:bg-brand-dark rounded-sm uppercase tracking-widest;
+ transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 .btn-primary:active { transform: scale(0.97); }
 .btn-secondary {
- @apply inline-flex items-center justify-center gap-2 font-semibold transition-all border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 rounded-lg;
+ @apply inline-flex items-center justify-center gap-2 font-semibold border border-brand-border text-brand-dark bg-white hover:bg-brand-gray rounded-sm;
+ transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 .btn-secondary:active { transform: scale(0.97); }
 .btn-sm { @apply text-sm px-3 py-2; }
 .btn-md { @apply text-sm px-5 py-2.5; }
 .btn-lg { @apply text-base px-6 py-3; }
 
-/* 애니메이션 */
+/* 애니메이션 — 기계적 이징 */
 @keyframes fadeInUp {
  from { opacity: 0; transform: translateY(20px); }
  to { opacity: 1; transform: translateY(0); }
 }
-
 .animate-fade-in-up {
- animation: fadeInUp 0.6s ease-out both;
+ animation: fadeInUp 0.6s cubic-bezier(0.165, 0.84, 0.44, 1) both;
 }
 
 @keyframes slideUp {
@@ -92,7 +98,7 @@ body {
  to { transform: translateY(0); }
 }
 .animate-slide-up {
- animation: slideUp 0.3s ease-out both;
+ animation: slideUp 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) both;
 }
 
 @keyframes imgFadeIn {
@@ -100,7 +106,7 @@ body {
  to { opacity: 1; }
 }
 .img-fade-in {
- animation: imgFadeIn 0.4s ease-out both;
+ animation: imgFadeIn 0.4s cubic-bezier(0.165, 0.84, 0.44, 1) both;
 }
 
 .skeleton {

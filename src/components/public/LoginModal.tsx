@@ -49,7 +49,7 @@ export default function LoginModal({ isOpen, onClose, message }: LoginModalProps
         <div className="px-6 py-6">
           {/* Logo */}
           <div className="text-center mb-5">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-600 to-primary-400 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-sm bg-brand-blue flex items-center justify-center mx-auto mb-3">
               <span className="text-white font-bold text-lg">AI</span>
             </div>
             <p className="text-sm text-gray-600">
