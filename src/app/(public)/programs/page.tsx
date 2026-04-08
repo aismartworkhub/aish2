@@ -25,7 +25,12 @@ function formatPrice(price: number): string {
 
 export default function ProgramsPage() {
   const [filter, setFilter] = useState("ALL");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("q") || "";
+    }
+    return "";
+  });
   const debouncedSearch = useDebounce(search);
   const [contents, setContents] = useState<RunmoaContent[]>([]);
   const [categories, setCategories] = useState<RunmoaCategory[]>([]);

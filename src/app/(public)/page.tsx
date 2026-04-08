@@ -338,12 +338,6 @@ export default function HomePage() {
                 {primaryCtaLabel}
                 <ArrowRight size={18} />
               </a>
-              <Link
-                href="/programs"
-                className="inline-flex items-center gap-2 px-8 py-3.5 border border-white/50 text-white text-base font-medium rounded-sm hover:bg-white hover:text-brand-blue transition-all"
-              >
-                교육 과정 보기 +
-              </Link>
             </div>
             {heroSlides.length > 1 && (
               <div className="mt-8 flex gap-2">
