@@ -114,6 +114,9 @@ function CommentSection({ instructorId }: { instructorId: string }) {
       setNewComment("");
       invalidateCache(COLLECTIONS.INSTRUCTOR_COMMENTS);
       await loadComments();
+    } catch (err) {
+      console.error("댓글 작성 실패:", err);
+      alert("댓글 작성에 실패했습니다. 다시 시도해 주세요.");
     } finally {
       setSubmitting(false);
     }
