@@ -8,6 +8,7 @@ import {
 import { cn, toDirectImageUrl } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc, updateDocFields } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
+import { useRunmoaContents } from "@/hooks/useRunmoaContents";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -72,7 +73,7 @@ export default function AdminInstructorsPage() {
   const { toast } = useToast();
   const { data: items, setData: setItems, loading, error, refresh } =
     useFirestoreCollection<Instructor>(COLLECTIONS.INSTRUCTORS, instructorSort);
-  const { data: programList } = useFirestoreCollection<{id: string; title: string}>(COLLECTIONS.PROGRAMS);
+  const { data: programList } = useRunmoaContents({ limit: 100 });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -641,7 +642,7 @@ export default function AdminInstructorsPage() {
                     >
                       <option value="">프로그램 선택...</option>
                       {programList?.map((p) => (
-                        <option key={p.id} value={p.title}>{p.title}</option>
+                        <option key={p.content_id || p.title} value={p.title}>{p.title}</option>
                       ))}
                     </select>
                     <input
