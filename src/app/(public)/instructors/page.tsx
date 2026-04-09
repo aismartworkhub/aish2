@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Fragment, useCallback } from "react";
+import Link from "next/link";
 import { DEMO_INSTRUCTORS } from "@/lib/demo-data";
 import {
   getCollection,
@@ -38,12 +39,12 @@ import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import type { InstructorComment } from "@/types/firestore";
 import type { RunmoaContent } from "@/types/runmoa";
 
-type InstructorItem = (typeof DEMO_INSTRUCTORS)[0] & {
+type InstructorItem = Omit<(typeof DEMO_INSTRUCTORS)[0], "programs" | "experience" | "education" | "certifications"> & {
   id: string | number;
   imageUrl?: string;
-  experience?: { period: string; description: string }[];
   education?: { degree: string; institution: string; year: string }[];
   certifications?: string[];
+  programs?: (string | { title: string; url?: string })[];
   contactEmail?: string;
   isActive?: boolean;
   displayOrder?: number;
@@ -777,38 +778,6 @@ export default function InstructorsPage() {
               </div>
             </div>
 
-            {/* Experience */}
-            {selectedInstructor.experience &&
-              selectedInstructor.experience.length > 0 && (
-                <div
-                  className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
-                  style={{ animationDelay: "300ms" }}
-                >
-                  <h3
-                    className={cn(
-                      "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
-                    )}
-                  >
-                    <Briefcase size={24} />
-                    Experience
-                  </h3>
-                  <div
-                    className={cn("grid grid-cols-[auto_1fr] gap-x-6 gap-y-6")}
-                  >
-                    {selectedInstructor.experience.map((exp, i) => (
-                      <Fragment key={i}>
-                        <span className={cn("font-bold text-white")}>
-                          {exp.period}
-                        </span>
-                        <span className={cn("text-blue-100 font-light")}>
-                          {exp.description}
-                        </span>
-                      </Fragment>
-                    ))}
-                  </div>
-                </div>
-              )}
-
             {/* Education */}
             {selectedInstructor.education &&
               selectedInstructor.education.length > 0 && (
@@ -887,16 +856,33 @@ export default function InstructorsPage() {
                   담당 프로그램
                 </h3>
                 <div className={cn("flex flex-wrap gap-3")}>
-                  {selectedInstructor.programs.map((p) => (
-                    <span
-                      key={p}
-                      className={cn(
-                        "px-4 py-2 rounded-sm bg-white/10 text-white text-sm font-medium"
-                      )}
-                    >
-                      {p}
-                    </span>
-                  ))}
+                  {(selectedInstructor.programs || []).map((p, i) => {
+                    const isObj = typeof p !== 'string';
+                    const title = isObj ? p.title : p;
+                    const url = isObj ? p.url : null;
+                    const content = (
+                      <span
+                        className={cn(
+                          "px-4 py-2 rounded-sm bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors inline-block",
+                          url && "cursor-pointer ring-1 ring-white/50"
+                        )}
+                      >
+                        {title}
+                      </span>
+                    );
+
+                    return (
+                      <Fragment key={i}>
+                        {url ? (
+                          <Link href={url} target="_blank" rel="noopener noreferrer">
+                            {content}
+                          </Link>
+                        ) : (
+                          content
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </div>
               </div>
             )}

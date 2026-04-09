@@ -7,7 +7,7 @@ import {
   Bell, FolderOpen, Award, HelpCircle, Handshake, Images, FileText,
   ChevronDown, ChevronUp, ExternalLink, Mail, Phone, Building,
   Star, Download, Eye, Pin, Search, X,
-  MessageCircle, Send, Trash2, User, Heart, BookmarkPlus, Plus,
+  MessageCircle, Send, Trash2, User, Heart, BookmarkPlus, Plus, Play,
 } from "lucide-react";
 import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
@@ -25,13 +25,13 @@ type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "galle
 
 const FIXED_TABS: { key: TabKey; label: string; icon: React.ElementType; color: string }[] = [
   { key: "notice", label: "공지사항", icon: Bell, color: "text-blue-600 bg-blue-50" },
-  { key: "resource", label: "자료실", icon: FolderOpen, color: "text-green-600 bg-green-50" },
-  { key: "certificate", label: "수료증 발급", icon: Award, color: "text-purple-600 bg-purple-50" },
-  { key: "faq", label: "FAQ", icon: HelpCircle, color: "text-yellow-600 bg-yellow-50" },
-  { key: "inquiry", label: "협력 문의", icon: Handshake, color: "text-red-600 bg-red-50" },
   { key: "gallery", label: "갤러리", icon: Images, color: "text-pink-600 bg-pink-50" },
-  { key: "free", label: "자유게시판", icon: MessageCircle, color: "text-indigo-600 bg-indigo-50" },
+  { key: "resource", label: "자료실", icon: FolderOpen, color: "text-green-600 bg-green-50" },
   { key: "review", label: "수강 후기", icon: Star, color: "text-orange-600 bg-orange-50" },
+  { key: "free", label: "묻고답하기", icon: MessageCircle, color: "text-indigo-600 bg-indigo-50" },
+  { key: "faq", label: "FAQ", icon: HelpCircle, color: "text-yellow-600 bg-yellow-50" },
+  { key: "certificate", label: "수료증 발급", icon: Award, color: "text-purple-600 bg-purple-50" },
+  { key: "inquiry", label: "협력 문의", icon: Handshake, color: "text-red-600 bg-red-50" },
 ];
 
 const NOTICES: { id: string | number; title: string; date: string; views: number; pinned: boolean }[] = [
@@ -49,7 +49,7 @@ const RESOURCES: { id: string | number; title: string; author: string; date: str
   { id: 4, title: "바이브 코딩 입문 자료", author: "제갈정", date: "2026.03.05", downloads: 54, type: "PDF" },
 ];
 
-const GALLERY_IMAGES: { id: string | number; title: string; category: string; imageUrl: string }[] = [
+const GALLERY_IMAGES: { id: string | number; title: string; category: string; imageUrl: string; isVideo?: boolean; youtubeUrl?: string; date?: string }[] = [
   { id: 1, title: "AI 기초 정규과정 10기 수료식", category: "교육", imageUrl: "/images/defaults/spec-community.jpg" },
   { id: 2, title: "제3회 스마트워크톤 현장", category: "워크톤", imageUrl: "/images/defaults/workathon-bg.jpg" },
   { id: 3, title: "데이터 분석 실습 현장", category: "교육", imageUrl: "/images/defaults/edu-data.jpg" },
@@ -227,6 +227,7 @@ function CommunityContent() {
 
   const [faqList, setFaqList] = useState(DEMO_FAQ);
   const [noticeList, setNoticeList] = useState(NOTICES);
+  const [noticeSort, setNoticeSort] = useState<"latest" | "views" | "title">("latest");
   const [resourceList, setResourceList] = useState(RESOURCES);
   const [galleryList, setGalleryList] = useState(GALLERY_IMAGES);
   const [customBoards, setCustomBoards] = useState<{ boardType: string; posts: { id: string; title: string; date: string; views: number; pinned: boolean; content?: string }[] }[]>([]);
@@ -244,7 +245,7 @@ function CommunityContent() {
   const [likeCounts, setLikeCounts] = useState<Map<string, number>>(new Map());
   const [bookmarks, setBookmarks] = useState<Map<string, boolean>>(new Map());
 
-  // 자유게시판
+  // 묻고답하기
   const [freePosts, setFreePosts] = useState<{ id: string; title: string; content: string; authorName: string; date: string; views: number; isApproved: boolean; authorUid: string }[]>([]);
   const [showFreePostForm, setShowFreePostForm] = useState(false);
   const [freePostTitle, setFreePostTitle] = useState("");
@@ -258,6 +259,24 @@ function CommunityContent() {
   // 통합 검색
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
+
+  const sortedNotices = useMemo(() => {
+    return [...noticeList].sort((a, b) => {
+      if (a.pinned !== b.pinned) {
+        return a.pinned ? -1 : 1;
+      }
+      if (noticeSort === "latest") {
+        return new Date(b.date.replace(/\./g, "-")).getTime() - new Date(a.date.replace(/\./g, "-")).getTime();
+      }
+      if (noticeSort === "views") {
+        return b.views - a.views;
+      }
+      if (noticeSort === "title") {
+        return a.title.localeCompare(b.title);
+      }
+      return 0;
+    });
+  }, [noticeList, noticeSort]);
 
   const searchResults = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -312,8 +331,9 @@ function CommunityContent() {
     Promise.all([
       getCollection<typeof DEMO_FAQ[0]>(COLLECTIONS.FAQ),
       getCollection<{ id: string; type?: string; boardType?: string; title: string; category?: string; createdAt?: string; date?: string; views?: number; pinned?: boolean; isPinned?: boolean; author?: string; downloads?: number; fileType?: string }>(COLLECTIONS.POSTS),
-      getCollection<{ id: number | string; title: string; category: string; imageUrl: string }>(COLLECTIONS.GALLERY),
-    ]).then(([faq, posts, gallery]) => {
+      getCollection<{ id: number | string; title: string; category: string; imageUrl: string; date?: string }>(COLLECTIONS.GALLERY),
+      getCollection<{ id: string; title: string; category: string; youtubeUrl: string; thumbnailUrl?: string; date?: string; publishedAt?: string }>(COLLECTIONS.VIDEOS),
+    ]).then(([faq, posts, gallery, videos]) => {
       if (faq.length > 0) {
         const sortedFaq = [...faq].sort(
           (a, b) =>
@@ -356,13 +376,29 @@ function CommunityContent() {
           })));
         }
       }
+      
+      let unifiedMedia: typeof GALLERY_IMAGES = [];
       if (gallery.length > 0) {
-        const sortedGallery = [...gallery].sort((a, b) => {
-          const da = String((a as { date?: string }).date || "");
-          const db = String((b as { date?: string }).date || "");
+        unifiedMedia = [...unifiedMedia, ...gallery.map(g => ({ ...g, isVideo: false }))];
+      }
+      if (videos.length > 0) {
+        unifiedMedia = [...unifiedMedia, ...videos.map(v => ({
+          id: v.id,
+          title: v.title,
+          category: v.category,
+          imageUrl: v.thumbnailUrl || "",
+          youtubeUrl: v.youtubeUrl,
+          date: v.date || v.publishedAt || "",
+          isVideo: true
+        }))];
+      }
+      if (unifiedMedia.length > 0) {
+        const sortedMedia = unifiedMedia.sort((a, b) => {
+          const da = String(a.date || "");
+          const db = String(b.date || "");
           return db.localeCompare(da);
         });
-        setGalleryList(sortedGallery);
+        setGalleryList(sortedMedia);
       }
     }).catch(console.error);
     getCollection<{ id: string; authorName: string; authorCohort: string; content: string; rating: number; programTitle: string; isApproved?: boolean; authorUid?: string }>(COLLECTIONS.REVIEWS)
@@ -620,12 +656,21 @@ function CommunityContent() {
 
         {/* 공지사항 */}
         {activeTab === "notice" && (
-          <div className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-brand-border">
+          <div className="card-base overflow-hidden">
+            <div className="p-6 border-b border-brand-border flex items-center justify-between">
               <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">공지사항</h2>
+              <select 
+                value={noticeSort} 
+                onChange={(e) => setNoticeSort(e.target.value as "latest" | "views" | "title")}
+                className="px-3 py-1.5 text-sm border border-brand-border rounded-sm focus:outline-none focus:border-brand-blue"
+              >
+                <option value="latest">최신순</option>
+                <option value="views">조회순</option>
+                <option value="title">제목순</option>
+              </select>
             </div>
-            <div className="divide-y divide-gray-50">
-              {noticeList.map((notice) => (
+            <div className="divide-y divide-brand-border/50">
+              {sortedNotices.map((notice) => (
                 <div key={notice.id}>
                   <button
                     onClick={() => setExpandedNoticeId(expandedNoticeId === notice.id ? null : notice.id)}
@@ -951,38 +996,53 @@ function CommunityContent() {
         {activeTab === "gallery" && (
           <div>
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">갤러리</h2>
-              <p className="text-sm text-gray-500 mt-1">교육 현장과 행사 사진을 둘러보세요.</p>
+              <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">갤러리 & 영상</h2>
+              <p className="text-sm text-gray-500 mt-1">교육 현장 사진과 다양한 영상을 둘러보세요.</p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {galleryList.map((img) => (
+              {galleryList.map((media) => (
                 <div
-                  key={img.id}
+                  key={media.id}
                   className="group relative rounded-sm overflow-hidden aspect-[4/3] cursor-pointer bg-brand-gray"
-                  onClick={() => setLightboxImage({ imageUrl: img.imageUrl, title: img.title })}
+                  onClick={() => {
+                    if (media.isVideo && media.youtubeUrl) {
+                      window.open(media.youtubeUrl, "_blank");
+                    } else {
+                      setLightboxImage({ imageUrl: media.imageUrl, title: media.title });
+                    }
+                  }}
                 >
                   <DriveOrExternalImage
-                    src={img.imageUrl}
-                    alt={img.title}
+                    src={media.imageUrl}
+                    alt={media.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     quiet
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  
+                  {media.isVideo && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center group-hover:bg-brand-blue transition-colors">
+                        <Play className="w-5 h-5 text-white ml-1" />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="absolute bottom-0 left-0 w-full p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-xs px-2 py-0.5 rounded bg-white/20 backdrop-blur">{img.category}</span>
-                    <p className="text-sm font-medium mt-1">{img.title}</p>
+                    <span className="text-xs px-2 py-0.5 rounded bg-white/20 backdrop-blur">{media.category}</span>
+                    <p className="text-sm font-medium mt-1 line-clamp-1">{media.title}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         )}
-        {/* 자유게시판 */}
+        {/* 묻고답하기 */}
         {activeTab === "free" && (
           <div className="card-base overflow-hidden">
             <div className="p-6 border-b border-brand-border flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">자유게시판</h2>
+                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">묻고답하기</h2>
                 <p className="text-sm text-gray-500 mt-1">수강생 간 질문과 정보를 나눠보세요.</p>
               </div>
               {user && (

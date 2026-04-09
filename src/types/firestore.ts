@@ -53,8 +53,7 @@ export interface Instructor {
     github: string | null;
     personalSite: string | null;
   };
-  programs: string[];
-  experience: { period: string; description: string }[];
+  programs: (string | { title: string; url?: string })[];
   education: { degree: string; institution: string; year: string }[];
   certifications: string[];
   contactEmail: string;

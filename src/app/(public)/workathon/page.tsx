@@ -38,16 +38,31 @@ export default function WorkathonPage() {
   }
 
   return (
-    <div className="py-16">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Hero */}
-        <div className="text-center mb-12">
-          <span className="inline-block bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-sm font-medium mb-4">
+    <div>
+      {/* Hero Banner Image */}
+      <div 
+        className="w-full h-[300px] md:h-[400px] bg-cover bg-center relative"
+        style={{ backgroundImage: "url('/images/defaults/workathon-bg.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-center px-4">
+          <span className="inline-block bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium mb-4">
             {w.status === "REGISTRATION_OPEN" ? "참가 신청 중" : w.status}
           </span>
-          <h1 className="text-4xl font-bold text-brand-dark uppercase tracking-tight mb-4">{w.title}</h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto">{w.description}</p>
+          <h1 className="text-4xl md:text-5xl font-bold text-white uppercase tracking-tight mb-4">
+            {w.title}
+          </h1>
+          <p className="text-lg md:text-xl text-gray-200 max-w-2xl mx-auto">
+            AISH 경연대회 제{w.edition}회 스마트워크톤
+          </p>
         </div>
+      </div>
+
+      <div className="py-16">
+        <div className="max-w-4xl mx-auto px-4">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-4">{w.description}</h2>
+          </div>
 
         {/* Info Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
@@ -133,6 +148,7 @@ export default function WorkathonPage() {
           );
         })()}
       </div>
+    </div>
     </div>
   );
 }

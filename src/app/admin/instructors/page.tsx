@@ -26,28 +26,26 @@ interface Instructor {
   specialties: string[];
   isActive: boolean;
   displayOrder: number;
-  experience: { period: string; description: string }[];
   education: { degree: string; institution: string; year: string }[];
   certifications: string[];
   contactEmail: string;
   socialLinks: { linkedin: string; youtube: string; instagram: string; github: string; personalSite: string };
-  programs: string[];
+  programs: (string | { title: string; url?: string })[];
 }
 
 interface InstructorForm {
   name: string; title: string; organization: string; bio: string; imageUrl: string;
   specialties: string[]; isActive: boolean; displayOrder: number;
-  experience: { period: string; description: string }[];
   education: { degree: string; institution: string; year: string }[];
   certifications: string[]; contactEmail: string;
   socialLinks: { linkedin: string; youtube: string; instagram: string; github: string; personalSite: string };
-  programs: string[];
+  programs: (string | { title: string; url?: string })[];
 }
 
 const EMPTY_FORM: InstructorForm = {
   name: "", title: "", organization: "", bio: "", imageUrl: "",
   specialties: [], isActive: true, displayOrder: 0,
-  experience: [], education: [], certifications: [], contactEmail: "",
+  education: [], certifications: [], contactEmail: "",
   socialLinks: { linkedin: "", youtube: "", instagram: "", github: "", personalSite: "" },
   programs: [],
 };
@@ -59,7 +57,7 @@ function formFromInstructor(item: Instructor): InstructorForm {
     name: item.name, title: item.title, organization: item.organization || "",
     bio: item.bio, imageUrl: item.imageUrl, specialties: item.specialties || [],
     isActive: item.isActive, displayOrder: item.displayOrder,
-    experience: item.experience || [], education: item.education || [],
+    education: item.education || [],
     certifications: item.certifications || [], contactEmail: item.contactEmail || "",
     socialLinks: {
       linkedin: item.socialLinks?.linkedin || "", youtube: item.socialLinks?.youtube || "",
@@ -74,6 +72,7 @@ export default function AdminInstructorsPage() {
   const { toast } = useToast();
   const { data: items, setData: setItems, loading, error, refresh } =
     useFirestoreCollection<Instructor>(COLLECTIONS.INSTRUCTORS, instructorSort);
+  const { data: programList } = useFirestoreCollection<{id: string; title: string}>(COLLECTIONS.PROGRAMS);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -86,6 +85,7 @@ export default function AdminInstructorsPage() {
   const [specInput, setSpecInput] = useState("");
   const [certInput, setCertInput] = useState("");
   const [progInput, setProgInput] = useState("");
+  const [progUrlInput, setProgUrlInput] = useState("");
 
   // AI
   const [aiSource, setAiSource] = useState<"url" | "file" | "text">("url");
@@ -220,23 +220,45 @@ export default function AdminInstructorsPage() {
   };
 
   // Tag helpers
-  const addTag = (field: "specialties" | "certifications" | "programs", value: string, setter: (v: string) => void) => {
+  const addTag = (field: "specialties" | "certifications", value: string, setter: (v: string) => void) => {
     const trimmed = value.trim();
     if (trimmed && !form[field].includes(trimmed)) {
       setForm({ ...form, [field]: [...form[field], trimmed] });
       setter("");
     }
   };
-  const removeTag = (field: "specialties" | "certifications" | "programs", value: string) => {
+  const removeTag = (field: "specialties" | "certifications", value: string) => {
     setForm({ ...form, [field]: form[field].filter((x) => x !== value) });
   };
 
-  // Experience / Education helpers
-  const addExperience = () => setForm({ ...form, experience: [...form.experience, { period: "", description: "" }] });
-  const removeExperience = (idx: number) => setForm({ ...form, experience: form.experience.filter((_, i) => i !== idx) });
-  const updateExperience = (idx: number, field: "period" | "description", value: string) => {
-    const updated = form.experience.map((e, i) => i === idx ? { ...e, [field]: value } : e);
-    setForm({ ...form, experience: updated });
+  const addProgram = () => {
+    const trimmedTitle = progInput.trim();
+    if (!trimmedTitle) return;
+    const url = progUrlInput.trim() || undefined;
+    
+    // Check if already exists
+    const exists = form.programs.some(p => 
+      typeof p === 'string' ? p === trimmedTitle : p.title === trimmedTitle
+    );
+    
+    if (!exists) {
+      setForm({
+        ...form,
+        programs: [...form.programs, url ? { title: trimmedTitle, url } : trimmedTitle]
+      });
+      setProgInput("");
+      setProgUrlInput("");
+    }
+  };
+
+  const removeProgram = (titleToRemove: string) => {
+    setForm({
+      ...form,
+      programs: form.programs.filter((p) => {
+        const title = typeof p === 'string' ? p : p.title;
+        return title !== titleToRemove;
+      })
+    });
   };
 
   const addEducation = () => setForm({ ...form, education: [...form.education, { degree: "", institution: "", year: "" }] });
@@ -568,25 +590,6 @@ export default function AdminInstructorsPage() {
                 </div>
               </div>
 
-              {/* Experience */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-gray-700">경력</label>
-                  <button onClick={addExperience} className="text-xs text-primary-600 hover:text-primary-700 font-medium">+ 추가</button>
-                </div>
-                <div className="space-y-2">
-                  {form.experience.map((exp, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <input value={exp.period} onChange={(e) => updateExperience(idx, "period", e.target.value)}
-                        className="w-36 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" placeholder="2020 - 현재" />
-                      <input value={exp.description} onChange={(e) => updateExperience(idx, "description", e.target.value)}
-                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" placeholder="직책/역할, 기관" />
-                      <button onClick={() => removeExperience(idx)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><X size={14} /></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               {/* Education */}
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -630,17 +633,40 @@ export default function AdminInstructorsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">담당 프로그램</label>
                 <div className="flex gap-2 mb-2">
-                  <input value={progInput} onChange={(e) => setProgInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag("programs", progInput, setProgInput))}
-                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" placeholder="프로그램 입력 후 Enter" />
-                  <button onClick={() => addTag("programs", progInput, setProgInput)} className="px-3 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200">추가</button>
+                  <div className="flex-1 flex flex-col gap-2">
+                    <select
+                      value={progInput}
+                      onChange={(e) => setProgInput(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    >
+                      <option value="">프로그램 선택...</option>
+                      {programList?.map((p) => (
+                        <option key={p.id} value={p.title}>{p.title}</option>
+                      ))}
+                    </select>
+                    <input
+                      value={progUrlInput}
+                      onChange={(e) => setProgUrlInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addProgram())}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      placeholder="CTA 외부 링크 URL (선택사항)"
+                    />
+                  </div>
+                  <button onClick={addProgram} className="px-3 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 self-start mt-[1px]">추가</button>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {form.programs.map((p) => (
-                    <span key={p} className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">
-                      {p} <button onClick={() => removeTag("programs", p)} className="text-green-400 hover:text-green-700">&times;</button>
-                    </span>
-                  ))}
+                <div className="flex flex-col gap-1">
+                  {form.programs.map((p, idx) => {
+                    const isObj = typeof p !== 'string';
+                    const title = isObj ? p.title : p;
+                    const url = isObj ? p.url : null;
+                    return (
+                      <div key={idx} className="flex items-center gap-2 text-sm bg-green-50 text-green-700 px-3 py-1.5 rounded-md">
+                        <span className="font-medium">{title}</span>
+                        {url && <span className="text-xs text-green-600 truncate max-w-[200px] border-l border-green-200 pl-2 ml-1">{url}</span>}
+                        <button onClick={() => removeProgram(title)} className="text-green-400 hover:text-green-700 ml-auto">&times;</button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
