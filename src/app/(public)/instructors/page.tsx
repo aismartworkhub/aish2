@@ -368,7 +368,7 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
         {classes.map((cls) => (
           <a
             key={cls.content_id}
-            href={`${RUNMOA_BASE}/contents/${cls.content_id}`}
+            href={`${RUNMOA_BASE}/classes/${cls.content_id}`}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
@@ -866,6 +866,35 @@ export default function InstructorsPage() {
                   </div>
                 </div>
               )}
+
+            {/* Programs (담당 프로그램) */}
+            {(selectedInstructor.programs || []).length > 0 && (
+              <div
+                className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
+                style={{ animationDelay: "500ms" }}
+              >
+                <h3
+                  className={cn(
+                    "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
+                  )}
+                >
+                  <BookOpen size={24} />
+                  담당 프로그램
+                </h3>
+                <div className={cn("flex flex-wrap gap-3")}>
+                  {selectedInstructor.programs.map((p) => (
+                    <span
+                      key={p}
+                      className={cn(
+                        "px-4 py-2 rounded-sm bg-white/10 text-white text-sm font-medium"
+                      )}
+                    >
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Class History */}
             <ClassHistorySection
