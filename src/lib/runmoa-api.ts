@@ -47,12 +47,10 @@ async function apiFetch<T>(path: string, params?: Record<string, string>): Promi
   const cached = fromCache<T>(cacheKey);
   if (cached) return cached;
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-      Accept: "application/json",
-    },
-  });
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (API_KEY) headers.Authorization = `Bearer ${API_KEY}`;
+
+  const res = await fetch(url.toString(), { headers });
 
   if (!res.ok) {
     throw new Error(`Runmoa API ${res.status}: ${res.statusText}`);

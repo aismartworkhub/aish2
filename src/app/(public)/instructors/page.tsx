@@ -308,17 +308,22 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getRunmoaContents({ limit: 100 })
+    const q = instructorName.trim();
+    // Use Runmoa search param first, then fallback to case-insensitive local match
+    getRunmoaContents({ limit: 100, search: q })
       .then((res) => {
-        // Match by instructor name in title or description
-        const matched = res.data.filter(
-          (c) =>
-            c.title.includes(instructorName) ||
-            c.description_html.includes(instructorName)
-        );
+        const lower = q.toLowerCase();
+        const matched = res.data.filter((c) => {
+          const title = (c.title || "").toLowerCase();
+          const desc = (c.description_html || "").toLowerCase();
+          return title.includes(lower) || desc.includes(lower);
+        });
         setClasses(matched);
       })
-      .catch(() => setClasses([]))
+      .catch((err) => {
+        console.error("Runmoa contents fetch failed:", err);
+        setClasses([]);
+      })
       .finally(() => setLoading(false));
   }, [instructorName]);
 
