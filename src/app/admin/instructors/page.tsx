@@ -15,6 +15,8 @@ import {
   analyzeInstructorUrl, analyzeInstructorFile, analyzeInstructorText,
   type GeminiInstructorResult,
 } from "@/lib/gemini";
+import { getRunmoaContents } from "@/lib/runmoa-api";
+import type { RunmoaContent } from "@/types/runmoa";
 
 interface Instructor {
   id: string;
@@ -86,6 +88,11 @@ export default function AdminInstructorsPage() {
   const [specInput, setSpecInput] = useState("");
   const [certInput, setCertInput] = useState("");
   const [progInput, setProgInput] = useState("");
+  const [runmoaSearchQuery, setRunmoaSearchQuery] = useState("");
+  const [runmoaResults, setRunmoaResults] = useState<RunmoaContent[]>([]);
+  const [runmoaLoading, setRunmoaLoading] = useState(false);
+  const [runmoaError, setRunmoaError] = useState<string | null>(null);
+  const [runmoaSearched, setRunmoaSearched] = useState(false);
 
   // AI
   const [aiSource, setAiSource] = useState<"url" | "file" | "text">("url");
@@ -229,6 +236,42 @@ export default function AdminInstructorsPage() {
   };
   const removeTag = (field: "specialties" | "certifications" | "programs", value: string) => {
     setForm({ ...form, [field]: form[field].filter((x) => x !== value) });
+  };
+
+  const addRunmoaProgram = (program: RunmoaContent) => {
+    const title = program.title.trim();
+    if (!title) return;
+    if (form.programs.includes(title)) {
+      toast("이미 추가된 프로그램입니다.", "info");
+      return;
+    }
+    setForm({ ...form, programs: [...form.programs, title] });
+    toast("담당 프로그램에 추가되었습니다.", "success");
+  };
+
+  const searchRunmoaPrograms = async () => {
+    const query = runmoaSearchQuery.trim();
+    if (!query) {
+      setRunmoaResults([]);
+      setRunmoaError("검색어를 입력해 주세요.");
+      setRunmoaSearched(false);
+      return;
+    }
+    setRunmoaLoading(true);
+    setRunmoaError(null);
+    setRunmoaSearched(true);
+    try {
+      const res = await getRunmoaContents({ status: "publish", limit: 30, search: query });
+      setRunmoaResults(res.data);
+      if (res.data.length === 0) {
+        setRunmoaError("검색 결과가 없습니다.");
+      }
+    } catch (error) {
+      setRunmoaResults([]);
+      setRunmoaError(error instanceof Error ? error.message : "검색 중 오류가 발생했습니다.");
+    } finally {
+      setRunmoaLoading(false);
+    }
   };
 
   // Experience / Education helpers
@@ -635,12 +678,63 @@ export default function AdminInstructorsPage() {
                     className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" placeholder="프로그램 입력 후 Enter" />
                   <button onClick={() => addTag("programs", progInput, setProgInput)} className="px-3 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200">추가</button>
                 </div>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1 mb-3">
                   {form.programs.map((p) => (
                     <span key={p} className="inline-flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">
                       {p} <button onClick={() => removeTag("programs", p)} className="text-green-400 hover:text-green-700">&times;</button>
                     </span>
                   ))}
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Runmoa 클래스 검색</p>
+                      <p className="text-xs text-gray-500">Runmoa 강의를 검색하여 담당 프로그램에 바로 추가할 수 있습니다.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input value={runmoaSearchQuery} onChange={(e) => setRunmoaSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), searchRunmoaPrograms())}
+                        className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        placeholder="Runmoa 클래스 검색어 입력" />
+                      <button onClick={searchRunmoaPrograms}
+                        className="px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors">
+                        검색
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {runmoaLoading ? (
+                      <p className="text-sm text-gray-500">검색 중입니다...</p>
+                    ) : runmoaError ? (
+                      <p className="text-sm text-red-500">{runmoaError}</p>
+                    ) : runmoaSearched && runmoaResults.length === 0 ? (
+                      <p className="text-sm text-gray-500">검색 결과가 없습니다.</p>
+                    ) : null}
+                    {runmoaResults.length > 0 && (
+                      <div className="space-y-2">
+                        {runmoaResults.map((program) => (
+                          <div key={program.content_id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg border border-gray-200 bg-white">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{program.title}</p>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mt-1">
+                                <span className="px-2 py-0.5 rounded-full bg-gray-100">{program.content_type}</span>
+                                <a href={`https://aish.runmoa.com/classes/${program.content_id}`} target="_blank" rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-primary-600 hover:underline">
+                                  <Link size={12} />Runmoa 열기
+                                </a>
+                              </div>
+                            </div>
+                            <button onClick={() => addRunmoaProgram(program)}
+                              className={cn("inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
+                                form.programs.includes(program.title) ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-primary-600 text-white hover:bg-primary-700")}
+                              disabled={form.programs.includes(program.title)}>
+                              {form.programs.includes(program.title) ? "추가됨" : "추가"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
