@@ -1,5 +1,5 @@
 export const SITE_NAME = "AISH";
-export const SITE_FULL_NAME = "AI Smart Hub";
+export const SITE_FULL_NAME = "AI Smartwork Hub";
 export const SITE_DESCRIPTION = "미래를 선도하는 교육 플랫폼 AISH - 체계적인 교육(SYSTEM)과 실무 중심 연구(PRACTICE)";
 export const SITE_DOMAIN = "aish.co.kr";
 
