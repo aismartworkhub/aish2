@@ -172,8 +172,7 @@ function deepMergePageContent<T extends PageContentBase>(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = { ...defaults, hero: mergedHero, sections };
+  const result = { ...defaults, hero: mergedHero, sections } as unknown as Record<string, unknown>;
 
   if (Array.isArray(raw.values) && raw.values.length > 0) {
     result.values = raw.values as ValueItem[];
