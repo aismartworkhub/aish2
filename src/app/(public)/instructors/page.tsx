@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, Fragment, useCallback } from "react";
-import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
 import { DEMO_INSTRUCTORS } from "@/lib/demo-data";
 import {
   getCollection,
@@ -458,7 +457,205 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
     </div>
   );
 }
+/* ── Instructor Programs Section ── */
+function InstructorProgramsSection({
+  programs,
+}: {
+  programs: (string | { title: string; url?: string })[];
+}) {
+  const [programContents, setProgramContents] = useState<
+    Map<string, RunmoaContent | null>
+  >(new Map());
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const parsedItems = (programs || []).map((p) =>
+      typeof p === "string" ? { title: p, url: null } : { title: p.title, url: p.url ?? null }
+    );
+    if (parsedItems.length === 0) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    Promise.allSettled(
+      parsedItems.map(({ title }) =>
+        getRunmoaContents({ search: title, limit: 10 })
+          .then((res) => {
+            const lower = title.toLowerCase();
+            const match = res.data.find((c) => {
+              const ct = c.title.toLowerCase();
+              return ct.includes(lower) || lower.includes(ct);
+            });
+            return { title, content: match ?? null };
+          })
+          .catch(() => ({ title, content: null as RunmoaContent | null }))
+      )
+    )
+      .then((results) => {
+        const map = new Map<string, RunmoaContent | null>();
+        results.forEach((r) => {
+          if (r.status === "fulfilled") {
+            map.set(r.value.title, r.value.content);
+          }
+        });
+        setProgramContents(map);
+      })
+      .finally(() => setLoading(false));
+  }, [programs]);
+
+  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+
+  const parsed = (programs || []).map((p) =>
+    typeof p === "string" ? { title: p, url: null } : { title: p.title, url: p.url ?? null }
+  );
+
+  return (
+    <div
+      className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
+      style={{ animationDelay: "500ms" }}
+    >
+      <h3
+        className={cn(
+          "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
+        )}
+      >
+        <Briefcase size={24} />
+        담당 프로그램 ({parsed.length})
+      </h3>
+      {loading ? (
+        <div className={cn("flex justify-center py-8")}>
+          <div
+            className={cn(
+              "w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"
+            )}
+          />
+        </div>
+      ) : (
+        <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4")}>
+          {parsed.map(({ title, url }, i) => {
+            const content = programContents.get(title);
+            const href = content
+              ? `${RUNMOA_BASE}/classes/${content.content_id}`
+              : url ?? null;
+
+            const card = (
+              <div
+                className={cn(
+                  "flex gap-4 bg-white/5 border border-white/10 rounded-sm p-4",
+                  "hover:bg-white/10 hover:border-white/20 transition-all group"
+                )}
+              >
+                {/* 미니 썸네일 (원본 비율) */}
+                {content?.featured_image ? (
+                  <div className={cn("w-20 flex-shrink-0 self-start")}>
+                    <img
+                      src={content.featured_image}
+                      alt={title}
+                      className={cn("w-full h-auto rounded")}
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      "w-20 h-16 flex-shrink-0 bg-white/10 rounded flex items-center justify-center"
+                    )}
+                  >
+                    <BookOpen size={20} className={cn("text-white/30")} />
+                  </div>
+                )}
+                {/* 정보 */}
+                <div className={cn("flex-1 min-w-0")}>
+                  <div className={cn("flex items-start justify-between gap-2")}>
+                    <h4
+                      className={cn(
+                        "text-sm font-semibold text-white line-clamp-2"
+                      )}
+                    >
+                      {title}
+                    </h4>
+                    {href && (
+                      <ExternalLink
+                        size={14}
+                        className={cn(
+                          "text-white/30 group-hover:text-white/60 flex-shrink-0 mt-0.5 transition-colors"
+                        )}
+                      />
+                    )}
+                  </div>
+                  {content ? (
+                    <>
+                      <p className={cn("text-xs text-white/50 mt-1 line-clamp-2")}>
+                        {stripHtml(content.description_html).slice(0, 100)}
+                      </p>
+                      <div className={cn("flex items-center gap-2 mt-2 flex-wrap")}>
+                        <span
+                          className={cn(
+                            "text-xs px-2 py-0.5 rounded-full",
+                            content.content_type === "offline"
+                              ? "bg-green-500/20 text-green-300"
+                              : content.content_type === "live"
+                                ? "bg-blue-500/20 text-blue-300"
+                                : content.content_type === "vod"
+                                  ? "bg-purple-500/20 text-purple-300"
+                                  : "bg-gray-500/20 text-gray-300"
+                          )}
+                        >
+                          {content.content_type === "offline"
+                            ? "오프라인"
+                            : content.content_type === "live"
+                              ? "라이브"
+                              : content.content_type === "vod"
+                                ? "VOD"
+                                : "디지털콘텐츠"}
+                        </span>
+                        {content.is_free ? (
+                          <span
+                            className={cn(
+                              "text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300"
+                            )}
+                          >
+                            무료
+                          </span>
+                        ) : (
+                          <span className={cn("text-xs text-white/40")}>
+                            ₩
+                            {(
+                              content.is_on_sale
+                                ? content.sale_price
+                                : content.base_price
+                            ).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <p className={cn("text-xs text-white/40 mt-1")}>
+                      프로그램 상세 정보가 없습니다
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+
+            return href ? (
+              <a
+                key={i}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {card}
+              </a>
+            ) : (
+              <div key={i}>{card}</div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 /* ── Main Page ── */
 export default function InstructorsPage() {
   const [instructors, setInstructors] = useState<InstructorItem[]>([]);
@@ -843,48 +1040,9 @@ export default function InstructorsPage() {
 
             {/* Programs (담당 프로그램) */}
             {(selectedInstructor.programs || []).length > 0 && (
-              <div
-                className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
-                style={{ animationDelay: "500ms" }}
-              >
-                <h3
-                  className={cn(
-                    "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
-                  )}
-                >
-                  <BookOpen size={24} />
-                  담당 프로그램
-                </h3>
-                <div className={cn("flex flex-wrap gap-3")}>
-                  {(selectedInstructor.programs || []).map((p, i) => {
-                    const isObj = typeof p !== 'string';
-                    const title = isObj ? p.title : p;
-                    const url = isObj ? p.url : null;
-                    const content = (
-                      <span
-                        className={cn(
-                          "px-4 py-2 rounded-sm bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors inline-block",
-                          url && "cursor-pointer ring-1 ring-white/50"
-                        )}
-                      >
-                        {title}
-                      </span>
-                    );
-
-                    return (
-                      <Fragment key={i}>
-                        {url ? (
-                          <Link href={url} target="_blank" rel="noopener noreferrer">
-                            {content}
-                          </Link>
-                        ) : (
-                          content
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </div>
-              </div>
+              <InstructorProgramsSection
+                programs={selectedInstructor.programs || []}
+              />
             )}
 
             {/* Class History */}
