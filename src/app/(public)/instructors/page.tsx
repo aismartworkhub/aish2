@@ -765,10 +765,10 @@ export default function InstructorsPage() {
 
                 {/* Info: 참고 디자인 기반 — 이름+직책 / 경력 bullet / 소개 인용 */}
                 <div className={cn("px-6 py-5")}>
-                  {/* 0. 이름 + 직책 1줄 */}
-                  <div className={cn("flex items-baseline gap-2 mb-4")}>
-                    <h3 className={cn("text-xl font-bold text-gray-900 tracking-tight")}>{inst.name}</h3>
-                    <span className={cn("text-sm font-bold text-brand-blue")}>{inst.title}</span>
+                  {/* 0. 이름 + 직책 1줄 (넘치면 생략) */}
+                  <div className={cn("flex items-baseline gap-2 mb-4 min-w-0")}>
+                    <h3 className={cn("text-xl font-bold text-gray-900 tracking-tight shrink-0")}>{inst.name}</h3>
+                    <span className={cn("text-sm font-bold text-brand-blue truncate")}>{inst.title}</span>
                   </div>
 
                   {/* 1. 주요경력 bullet — specialties 최대 3줄 */}
@@ -783,9 +783,9 @@ export default function InstructorsPage() {
                     </div>
                   )}
 
-                  {/* 2. 소개 인용 박스 — bio 최대 3줄 */}
+                  {/* 2. 소개 인용 박스 — bio 최대 3줄, 높이 고정 */}
                   {inst.bio && (
-                    <div className={cn("bg-brand-gray/60 rounded-xl px-4 py-3.5")}>
+                    <div className={cn("bg-brand-gray/60 rounded-xl px-4 py-3.5 max-h-[5.5rem] overflow-hidden")}>
                       <p className={cn(
                         "text-[13px] text-gray-600 italic leading-[1.7] text-center tracking-tight font-medium",
                         "line-clamp-3 break-keep"
