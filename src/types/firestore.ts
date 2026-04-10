@@ -46,6 +46,7 @@ export interface Instructor {
   imageUrl?: string;
   specialties: string[];
   bio: string;
+  detailedHtml?: string;
   socialLinks: {
     linkedin: string | null;
     youtube: string | null;
