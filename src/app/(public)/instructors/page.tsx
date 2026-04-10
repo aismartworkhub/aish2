@@ -30,10 +30,9 @@ import {
   Send,
   Trash2,
   BookOpen,
-  MessageCircle, ChevronRight,
+  MessageCircle,
   User,
 } from "lucide-react";
-import DOMPurify from "dompurify";
 import { toDirectImageUrl, cn } from "@/lib/utils";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import type { InstructorComment } from "@/types/firestore";
@@ -46,7 +45,6 @@ type InstructorItem = Omit<(typeof DEMO_INSTRUCTORS)[0], "programs" | "experienc
   certifications?: string[];
   programs?: (string | { title: string; url?: string })[];
   contactEmail?: string;
-  detailedHtml?: string;
   isActive?: boolean;
   displayOrder?: number;
 };
@@ -148,12 +146,12 @@ function CommentSection({ instructorId }: { instructorId: string }) {
 
   return (
     <div
-      className={cn("mt-8 animate-fade-in-up")}
+      className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
       style={{ animationDelay: "600ms" }}
     >
       <h3
         className={cn(
-          "text-2xl font-bold text-gray-900 border-b-2 border-gray-300 pb-3 mb-8 flex items-center gap-3"
+          "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
         )}
       >
         <MessageCircle size={24} />
@@ -166,7 +164,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
           <div className={cn("flex gap-3")}>
             <div
               className={cn(
-                "w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center"
+                "w-10 h-10 rounded-full bg-white/20 flex-shrink-0 overflow-hidden flex items-center justify-center"
               )}
             >
               {user.photoURL ? (
@@ -177,7 +175,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <User size={18} className={cn("text-gray-500")} />
+                <User size={18} className={cn("text-white/60")} />
               )}
             </div>
             <div className={cn("flex-1")}>
@@ -187,8 +185,8 @@ function CommentSection({ instructorId }: { instructorId: string }) {
                 placeholder="댓글을 입력하세요..."
                 rows={3}
                 className={cn(
-                  "w-full bg-gray-100 border border-gray-200 rounded-sm px-4 py-3 text-gray-900 placeholder-white/40 text-sm",
-                  "focus:outline-none focus:border-gray-400 resize-none"
+                  "w-full bg-white/10 border border-white/20 rounded-sm px-4 py-3 text-white placeholder-white/40 text-sm",
+                  "focus:outline-none focus:border-white/50 resize-none"
                 )}
               />
               <div className={cn("flex justify-end mt-2")}>
@@ -196,7 +194,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
                   onClick={handleSubmit}
                   disabled={!newComment.trim() || submitting}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 text-sm rounded-sm",
+                    "flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm rounded-sm",
                     "disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   )}
                 >
@@ -212,7 +210,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
               requireLogin(() => {}, "댓글을 작성하려면 로그인이 필요합니다.")
             }
             className={cn(
-              "w-full py-4 border border-dashed border-gray-300 rounded-sm text-gray-500 hover:text-gray-900 hover:border-gray-400 transition-colors text-sm"
+              "w-full py-4 border border-dashed border-white/30 rounded-sm text-white/60 hover:text-white hover:border-white/50 transition-colors text-sm"
             )}
           >
             로그인하고 댓글 작성하기
@@ -225,12 +223,12 @@ function CommentSection({ instructorId }: { instructorId: string }) {
         <div className={cn("flex justify-center py-8")}>
           <div
             className={cn(
-              "w-6 h-6 border-2 border-gray-200 border-t-white rounded-full animate-spin"
+              "w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"
             )}
           />
         </div>
       ) : comments.length === 0 ? (
-        <p className={cn("text-center text-gray-400 py-8 text-sm")}>
+        <p className={cn("text-center text-white/40 py-8 text-sm")}>
           아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!
         </p>
       ) : (
@@ -239,12 +237,12 @@ function CommentSection({ instructorId }: { instructorId: string }) {
             <div
               key={comment.id}
               className={cn(
-                "flex gap-3 bg-gray-50 rounded-sm p-4 border border-gray-100"
+                "flex gap-3 bg-white/5 rounded-sm p-4 border border-white/10"
               )}
             >
               <div
                 className={cn(
-                  "w-9 h-9 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden flex items-center justify-center"
+                  "w-9 h-9 rounded-full bg-white/20 flex-shrink-0 overflow-hidden flex items-center justify-center"
                 )}
               >
                 {comment.authorPhotoURL ? (
@@ -255,25 +253,25 @@ function CommentSection({ instructorId }: { instructorId: string }) {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <User size={16} className={cn("text-gray-500")} />
+                  <User size={16} className={cn("text-white/60")} />
                 )}
               </div>
               <div className={cn("flex-1 min-w-0")}>
                 <div
                   className={cn("flex items-center justify-between gap-2 mb-1")}
                 >
-                  <span className={cn("text-sm font-medium text-gray-900")}>
+                  <span className={cn("text-sm font-medium text-white")}>
                     {comment.authorName}
                   </span>
                   <div className={cn("flex items-center gap-2")}>
-                    <span className={cn("text-xs text-gray-400")}>
+                    <span className={cn("text-xs text-white/40")}>
                       {formatTime(comment.createdAt)}
                     </span>
                     {(user?.uid === comment.authorUid || isAdmin) && (
                       <button
                         onClick={() => handleDelete(comment.id!)}
                         className={cn(
-                          "text-gray-400 hover:text-red-400 transition-colors"
+                          "text-white/30 hover:text-red-400 transition-colors"
                         )}
                         title="삭제"
                       >
@@ -284,7 +282,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
                 </div>
                 <p
                   className={cn(
-                    "text-sm text-gray-700 leading-relaxed whitespace-pre-wrap"
+                    "text-sm text-white/80 leading-relaxed whitespace-pre-wrap"
                   )}
                 >
                   {comment.content}
@@ -332,12 +330,12 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
   if (loading) {
     return (
       <div
-        className={cn("mt-8 animate-fade-in-up")}
+        className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
         style={{ animationDelay: "550ms" }}
       >
         <h3
           className={cn(
-            "text-2xl font-bold text-gray-900 border-b-2 border-gray-300 pb-3 mb-8 flex items-center gap-3"
+            "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
           )}
         >
           <BookOpen size={24} />
@@ -346,7 +344,7 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
         <div className={cn("flex justify-center py-8")}>
           <div
             className={cn(
-              "w-6 h-6 border-2 border-gray-200 border-t-white rounded-full animate-spin"
+              "w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"
             )}
           />
         </div>
@@ -360,12 +358,12 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
 
   return (
     <div
-      className={cn("mt-8 animate-fade-in-up")}
+      className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
       style={{ animationDelay: "550ms" }}
     >
       <h3
         className={cn(
-          "text-2xl font-bold text-gray-900 border-b-2 border-gray-300 pb-3 mb-8 flex items-center gap-3"
+          "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
         )}
       >
         <BookOpen size={24} />
@@ -379,8 +377,8 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
-              "flex gap-4 bg-gray-50 border border-gray-100 rounded-sm p-4",
-              "hover:bg-gray-100 hover:border-gray-200 transition-all group"
+              "flex gap-4 bg-white/5 border border-white/10 rounded-sm p-4",
+              "hover:bg-white/10 hover:border-white/20 transition-all group"
             )}
           >
             {cls.featured_image && (
@@ -397,7 +395,7 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
               <div className={cn("flex items-start justify-between gap-2")}>
                 <h4
                   className={cn(
-                    "text-sm font-semibold text-gray-900 line-clamp-2"
+                    "text-sm font-semibold text-white line-clamp-2"
                   )}
                 >
                   {cls.title}
@@ -405,13 +403,13 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
                 <ExternalLink
                   size={14}
                   className={cn(
-                    "text-gray-400 group-hover:text-gray-500 flex-shrink-0 mt-0.5 transition-colors"
+                    "text-white/30 group-hover:text-white/60 flex-shrink-0 mt-0.5 transition-colors"
                   )}
                 />
               </div>
               <p
                 className={cn(
-                  "text-xs text-gray-500 mt-1 line-clamp-2"
+                  "text-xs text-white/50 mt-1 line-clamp-2"
                 )}
               >
                 {stripHtml(cls.description_html).slice(0, 100)}
@@ -423,7 +421,7 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
                     cls.content_type === "offline"
                       ? "bg-green-500/20 text-green-300"
                       : cls.content_type === "live"
-                        ? "bg-blue-500/20 text-brand-blue"
+                        ? "bg-blue-500/20 text-blue-300"
                         : cls.content_type === "vod"
                           ? "bg-purple-500/20 text-purple-300"
                           : "bg-gray-500/20 text-gray-300"
@@ -446,7 +444,7 @@ function ClassHistorySection({ instructorName }: { instructorName: string }) {
                     무료
                   </span>
                 ) : (
-                  <span className={cn("text-xs text-gray-400")}>
+                  <span className={cn("text-xs text-white/40")}>
                     ₩
                     {(cls.is_on_sale ? cls.sale_price : cls.base_price).toLocaleString()}
                   </span>
@@ -513,12 +511,12 @@ function InstructorProgramsSection({
 
   return (
     <div
-      className={cn("mt-8 animate-fade-in-up")}
+      className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
       style={{ animationDelay: "500ms" }}
     >
       <h3
         className={cn(
-          "text-2xl font-bold text-gray-900 border-b-2 border-gray-300 pb-3 mb-8 flex items-center gap-3"
+          "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
         )}
       >
         <Briefcase size={24} />
@@ -528,7 +526,7 @@ function InstructorProgramsSection({
         <div className={cn("flex justify-center py-8")}>
           <div
             className={cn(
-              "w-6 h-6 border-2 border-gray-200 border-t-white rounded-full animate-spin"
+              "w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"
             )}
           />
         </div>
@@ -543,8 +541,8 @@ function InstructorProgramsSection({
             const card = (
               <div
                 className={cn(
-                  "flex gap-4 bg-gray-50 border border-gray-100 rounded-sm p-4",
-                  "hover:bg-gray-100 hover:border-gray-200 transition-all group"
+                  "flex gap-4 bg-white/5 border border-white/10 rounded-sm p-4",
+                  "hover:bg-white/10 hover:border-white/20 transition-all group"
                 )}
               >
                 {/* 미니 썸네일 (원본 비율) */}
@@ -560,10 +558,10 @@ function InstructorProgramsSection({
                 ) : (
                   <div
                     className={cn(
-                      "w-20 h-16 flex-shrink-0 bg-gray-100 rounded flex items-center justify-center"
+                      "w-20 h-16 flex-shrink-0 bg-white/10 rounded flex items-center justify-center"
                     )}
                   >
-                    <BookOpen size={20} className={cn("text-gray-400")} />
+                    <BookOpen size={20} className={cn("text-white/30")} />
                   </div>
                 )}
                 {/* 정보 */}
@@ -571,7 +569,7 @@ function InstructorProgramsSection({
                   <div className={cn("flex items-start justify-between gap-2")}>
                     <h4
                       className={cn(
-                        "text-sm font-semibold text-gray-900 line-clamp-2"
+                        "text-sm font-semibold text-white line-clamp-2"
                       )}
                     >
                       {title}
@@ -580,14 +578,14 @@ function InstructorProgramsSection({
                       <ExternalLink
                         size={14}
                         className={cn(
-                          "text-gray-400 group-hover:text-gray-500 flex-shrink-0 mt-0.5 transition-colors"
+                          "text-white/30 group-hover:text-white/60 flex-shrink-0 mt-0.5 transition-colors"
                         )}
                       />
                     )}
                   </div>
                   {content ? (
                     <>
-                      <p className={cn("text-xs text-gray-500 mt-1 line-clamp-2")}>
+                      <p className={cn("text-xs text-white/50 mt-1 line-clamp-2")}>
                         {stripHtml(content.description_html).slice(0, 100)}
                       </p>
                       <div className={cn("flex items-center gap-2 mt-2 flex-wrap")}>
@@ -597,7 +595,7 @@ function InstructorProgramsSection({
                             content.content_type === "offline"
                               ? "bg-green-500/20 text-green-300"
                               : content.content_type === "live"
-                                ? "bg-blue-500/20 text-brand-blue"
+                                ? "bg-blue-500/20 text-blue-300"
                                 : content.content_type === "vod"
                                   ? "bg-purple-500/20 text-purple-300"
                                   : "bg-gray-500/20 text-gray-300"
@@ -620,7 +618,7 @@ function InstructorProgramsSection({
                             무료
                           </span>
                         ) : (
-                          <span className={cn("text-xs text-gray-400")}>
+                          <span className={cn("text-xs text-white/40")}>
                             ₩
                             {(
                               content.is_on_sale
@@ -632,7 +630,7 @@ function InstructorProgramsSection({
                       </div>
                     </>
                   ) : (
-                    <p className={cn("text-xs text-gray-400 mt-1")}>
+                    <p className={cn("text-xs text-white/40 mt-1")}>
                       프로그램 상세 정보가 없습니다
                     </p>
                   )}
@@ -658,12 +656,12 @@ function InstructorProgramsSection({
     </div>
   );
 }
-/* ── /* ── Main Page ── */
+/* ── Main Page ── */
 export default function InstructorsPage() {
   const [instructors, setInstructors] = useState<InstructorItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedInstructor, setSelectedInstructor] = useState<InstructorItem | null>(null);
-  const [activeTab, setActiveTab] = useState<"profile" | "programs" | "comments">("profile");
+  const [selectedInstructor, setSelectedInstructor] =
+    useState<InstructorItem | null>(null);
   const { isAdmin } = useAuth();
 
   useEffect(() => {
@@ -676,20 +674,22 @@ export default function InstructorsPage() {
         const active = data
           .filter((i) => i.isActive !== false)
           .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
-        setInstructors(active.length > 0 ? active : (DEMO_INSTRUCTORS as InstructorItem[]));
+        setInstructors(
+          active.length > 0 ? active : (DEMO_INSTRUCTORS as InstructorItem[])
+        );
       })
-      .catch(() => setInstructors(DEMO_INSTRUCTORS as InstructorItem[]))
+      .catch(() => {
+        setInstructors(DEMO_INSTRUCTORS as InstructorItem[]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    if (selectedInstructor) {
-      document.body.style.overflow = "hidden";
-      setActiveTab("profile"); // reset active tab on open
-    } else {
+    if (selectedInstructor) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => {
       document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
+    };
   }, [selectedInstructor]);
 
   useEffect(() => {
@@ -701,312 +701,363 @@ export default function InstructorsPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedInstructor]);
 
-  const imageSrc = (inst: InstructorItem) => inst.imageUrl || inst.profileImageUrl;
+  const imageSrc = (inst: InstructorItem) =>
+    inst.imageUrl || inst.profileImageUrl;
 
   return (
-    <div className={cn("min-h-screen bg-gray-50")}>
-      {/* ── HERO SECTION ── */}
-      <div className={cn("bg-brand-blue pb-20 pt-28 px-4")}>
-        <div className={cn("max-w-5xl mx-auto text-center animate-fade-in-up")}>
-          <h1 className={cn("text-4xl md:text-5xl font-bold text-white tracking-tight mb-4")}>
-            <span className="font-serif">AI</span> 산업 기술의 전문가들 지정
+    <div className={cn("py-16")}>
+      <div className={cn("max-w-5xl mx-auto px-4")}>
+        {/* Header */}
+        <div className={cn("text-center mb-12")}>
+          <h1 className={cn("text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3")}>
+            전문 강사진
           </h1>
-          <p className={cn("text-lg text-blue-100 max-w-2xl mx-auto mb-8")}>
-            현업 최고의 전문 강사진이 여러분의 성공적인 AI 도입과 성장을 이끌어 드립니다.
+          <p className={cn("text-lg text-gray-500")}>
+            각 분야 최고의 전문가들이 여러분의 성장을 이끕니다.
           </p>
         </div>
-      </div>
 
-      {/* ── CARD GRID ── */}
-      <div className={cn("max-w-6xl mx-auto px-4 -mt-16 pb-24")}>
+        {/* Loading */}
         {loading && (
-          <div className={cn("flex justify-center py-24")}>
-            <div className={cn("w-10 h-10 border-4 border-gray-200 border-t-brand-blue rounded-full animate-spin")} />
+          <div className={cn("flex justify-center py-12")}>
+            <div
+              className={cn(
+                "w-8 h-8 border-4 border-brand-border border-t-brand-blue rounded-full animate-spin"
+              )}
+            />
           </div>
         )}
 
-        <div className={cn("grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6")}>
-          {!loading && instructors.map((inst, i) => (
-            <div
-              key={inst.id}
-              onClick={() => setSelectedInstructor(inst)}
-              className={cn(
-                "bg-white rounded-xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] border border-gray-100 p-6 flex flex-col items-center text-center cursor-pointer group hover:-translate-y-1.5 transition-all duration-300 animate-fade-in-up"
-              )}
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              {/* 아바타 프로필 */}
-              <div className={cn("relative w-28 h-28 rounded-full overflow-hidden mb-5 border-4 border-white shadow-md group-hover:shadow-xl transition-all duration-300 ring-2 ring-gray-50")}>
-                {imageSrc(inst) ? (
-                  <DriveOrExternalImage
-                    src={imageSrc(inst)!}
-                    alt={inst.name}
-                    className={cn("w-full h-full object-cover")}
-                    quiet
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-brand-gray to-gray-200 flex items-center justify-center">
-                    <span className="text-3xl font-bold text-brand-blue">{inst.name.charAt(0)}</span>
-                  </div>
+        {/* Card Grid */}
+        <div
+          className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6")}
+        >
+          {!loading &&
+            instructors.map((inst) => (
+              <div
+                key={inst.id}
+                onClick={() => setSelectedInstructor(inst)}
+                className={cn(
+                  "bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden hover-lift group",
+                  "cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
                 )}
-              </div>
+              >
+                {/* Image */}
+                <div className={cn("relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-brand-gray to-gray-200")}>
+                  {imageSrc(inst) ? (
+                    <DriveOrExternalImage
+                      src={imageSrc(inst)!}
+                      alt={inst.name}
+                      className={cn("w-full h-full object-cover object-top")}
+                      quiet
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-gray to-gray-200">
+                      <span className="text-5xl font-bold text-brand-blue">{inst.name.charAt(0)}</span>
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent"
+                    )}
+                  />
+                </div>
 
-              {/* 기본 정보 */}
-              <h3 className={cn("text-xl font-bold text-gray-900 mb-1 group-hover:text-brand-blue transition-colors")}>
-                {inst.name}
-              </h3>
-              <p className={cn("text-sm text-gray-500 font-medium mb-4")}>
-                {inst.title} · {inst.organization}
-              </p>
-
-              {/* 스킬 뱃지 */}
-              <div className={cn("flex flex-wrap justify-center gap-1.5 mb-5")}>
-                {(inst.specialties || []).slice(0, 3).map((s) => (
-                  <span key={s} className={cn("px-2.5 py-1 bg-brand-lightBlue/10 text-brand-blue text-[11px] font-semibold rounded-md border border-brand-lightBlue/20")}>
-                    {s}
-                  </span>
-                ))}
+                {/* Info */}
+                <div className={cn("p-5")}>
+                  <h3 className={cn("text-lg font-bold text-gray-900")}>
+                    {inst.name}
+                  </h3>
+                  <p className={cn("text-sm text-gray-500")}>
+                    {inst.title} · {inst.organization}
+                  </p>
+                  <div className={cn("flex flex-wrap gap-1.5 mt-3")}>
+                    {(inst.specialties || []).slice(0, 3).map((s) => (
+                      <span
+                        key={s}
+                        className={cn(
+                          "text-xs bg-brand-gray text-brand-blue px-2 py-0.5 rounded-full"
+                        )}
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                  {inst.bio && (
+                    <p
+                      className={cn(
+                        "text-xs text-gray-400 mt-2 line-clamp-2"
+                      )}
+                    >
+                      {inst.bio}
+                    </p>
+                  )}
+                </div>
+                <div className="px-5 pb-4">
+                  <span className="text-xs text-brand-blue font-medium group-hover:underline">프로필 보기 →</span>
+                </div>
               </div>
-              
-              <div className="mt-auto pt-4 border-t border-gray-100 w-full">
-                <span className="text-sm font-medium text-gray-400 group-hover:text-brand-blue transition-colors inline-flex items-center gap-1">
-                  프로필 상세 보기 <ChevronRight size={14}/>
-                </span>
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
 
-      {/* ── DRAWER (우측 슬라이드 탭 상세 모달) ── */}
+      {/* Detail Modal */}
       {selectedInstructor && (
-        <>
-          {/* Backdrop */}
-          <div
-            className={cn("fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity")}
-            onClick={() => setSelectedInstructor(null)}
-            aria-hidden="true"
-          />
-
-          {/* Drawer Panel */}
-          <div
-            className={cn(
-              "fixed inset-y-0 right-0 z-50 w-full sm:w-[500px] md:w-[600px] lg:w-[700px] bg-white shadow-2xl flex flex-col animate-slide-in-right overflow-hidden"
-            )}
-            role="dialog"
-            aria-modal="true"
-          >
-            {/* Header (Drawer 상단 툴바) */}
-            <div className={cn("flex items-center justify-between px-6 py-4 border-b border-gray-100")}>
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-bold text-gray-900">상세 프로필</h2>
-                {isAdmin && (
-                  <a
-                    href={`/admin/instructors`}
-                    className={cn("flex items-center gap-1.5 px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-md transition-colors text-xs font-semibold")}
-                    title="강사 정보 수정"
-                  >
-                    <Pencil size={14} /> 편집
-                  </a>
+        <div className={cn("fixed inset-0 z-50 bg-brand-blue overflow-y-auto")} role="dialog" aria-modal="true">
+          {/* Top buttons */}
+          <div className={cn("absolute top-4 right-4 z-10 flex items-center gap-2")}>
+            {isAdmin && (
+              <a
+                href={`/admin/instructors`}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-sm transition-colors text-sm"
                 )}
-              </div>
-              <button
-                onClick={() => setSelectedInstructor(null)}
-                className={cn("p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors")}
-                aria-label="닫기"
+                title="강사 정보 수정"
               >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* 커스텀 탭 네비게이션 */}
-            <div className={cn("flex border-b border-gray-100 px-2")}>
-              {[
-                { id: "profile", label: "소개 & 이력" },
-                { id: "programs", label: "담당 프로그램" },
-                { id: "comments", label: "수강평" }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={cn(
-                    "flex-1 py-4 px-4 text-sm font-semibold text-center border-b-2 transition-colors",
-                    activeTab === tab.id
-                      ? "border-brand-blue text-brand-blue"
-                      : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-200"
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* 탭 내용 (스크롤 영역) */}
-            <div className={cn("flex-1 overflow-y-auto bg-gray-50 p-6")}>
-              
-              {/* Tab 1: Profile & Bio */}
-              {activeTab === "profile" && (
-                <div className="animate-fade-in-up space-y-10">
-                  
-                  {/* 상단 요약 (아바타 & 기본스펙) */}
-                  <div className="flex flex-col md:flex-row gap-6 items-start bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <div className="w-24 h-24 md:w-32 md:h-32 flex-shrink-0 relative rounded-full overflow-hidden border-2 border-gray-100 shadow-sm">
-                      {imageSrc(selectedInstructor) ? (
-                        <DriveOrExternalImage
-                          src={imageSrc(selectedInstructor)!}
-                          alt={selectedInstructor.name}
-                          className="w-full h-full object-cover"
-                          quiet
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-brand-gray flex items-center justify-center">
-                          <span className="text-4xl text-brand-blue font-bold">{selectedInstructor.name.charAt(0)}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-3xl font-bold text-gray-900 mb-2">{selectedInstructor.name}</h2>
-                      <p className="text-brand-blue font-medium mb-3">{selectedInstructor.title} · {selectedInstructor.organization}</p>
-                      
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {(selectedInstructor.specialties || []).map((s) => (
-                          <span key={s} className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded-md">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        {selectedInstructor.contactEmail?.trim() && (
-                          <a href={`mailto:${selectedInstructor.contactEmail}`} className="text-gray-500 hover:text-brand-blue transition-colors" title="이메일">
-                            <Mail size={18} />
-                          </a>
-                        )}
-                        {(Object.entries(selectedInstructor.socialLinks || {}) as [keyof typeof SOCIAL_ICONS, string | null][]).map(([key, url]) => {
-                          if (!url?.trim()) return null;
-                          const Icon = SOCIAL_ICONS[key];
-                          if (!Icon) return null;
-                          return (
-                            <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-brand-blue transition-colors">
-                              <Icon size={18} />
-                            </a>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* DOMPurify 상세 HTML 영역 (있는경우) + 기본 Bio (없을경우) */}
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-3 flex items-center gap-2">
-                       <User size={20} className="text-brand-blue" />
-                       소개
-                    </h3>
-                    
-                    {selectedInstructor.detailedHtml ? (
-                      <div 
-                        className="prose prose-sm sm:prose max-w-none prose-a:text-brand-blue hover:prose-a:text-brand-dark prose-headings:font-bold prose-img:rounded-xl"
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedInstructor.detailedHtml) }}
-                      />
-                    ) : (
-                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                        {selectedInstructor.bio}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* 이력 세부 (Education & Certifications) */}
-                  {( (selectedInstructor.education && selectedInstructor.education.length > 0) || 
-                     (selectedInstructor.certifications && selectedInstructor.certifications.length > 0) ) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {selectedInstructor.education && selectedInstructor.education.length > 0 && (
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <GraduationCap size={20} className="text-brand-blue" />
-                            학력
-                          </h3>
-                          <div className="space-y-4">
-                            {selectedInstructor.education.map((edu, i) => (
-                              <div key={i} className="pl-3 border-l-2 border-brand-blue/30">
-                                <p className="font-bold text-gray-900 text-sm">{edu.degree}</p>
-                                <p className="text-gray-600 text-sm mt-0.5">{edu.institution}</p>
-                                <p className="text-gray-400 text-xs mt-1">{edu.year}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedInstructor.certifications && selectedInstructor.certifications.length > 0 && (
-                        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                            <Award size={20} className="text-brand-blue" />
-                            자격 및 활동
-                          </h3>
-                          <ul className="space-y-2">
-                            {selectedInstructor.certifications.map((cert) => (
-                              <li key={cert} className="flex items-start gap-2 text-sm text-gray-700">
-                                <span className="text-brand-blue mt-0.5">•</span>
-                                <span>{cert}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                </div>
+                <Pencil size={16} />
+                수정
+              </a>
+            )}
+            <button
+              onClick={() => setSelectedInstructor(null)}
+              className={cn(
+                "text-white/80 hover:text-white transition-colors p-1"
               )}
-
-              {/* Tab 2: Programs */}
-              {activeTab === "programs" && (
-                <div className="animate-fade-in-up space-y-10">
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    {(selectedInstructor.programs || []).length > 0 ? (
-                      <InstructorProgramsSection programs={selectedInstructor.programs || []} />
-                    ) : (
-                      <div className="text-center py-10">
-                        <Briefcase size={40} className="mx-auto text-gray-300 mb-3" />
-                        <p className="text-gray-500">등록된 프로그램이 없습니다.</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    <ClassHistorySection instructorName={selectedInstructor.name} />
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 3: Comments */}
-              {activeTab === "comments" && (
-                <div className="animate-fade-in-up space-y-6">
-                  <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                    {typeof selectedInstructor.id === "string" ? (
-                      <CommentSection instructorId={selectedInstructor.id} />
-                    ) : (
-                      <p className="text-gray-500 text-center py-10">댓글을 불러올 수 없습니다.</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-            </div>
+              aria-label="닫기"
+            >
+              <X size={28} />
+            </button>
           </div>
 
-          <style dangerouslySetInnerHTML={{
-            __html: `
-              @keyframes slideInRight {
-                from { transform: translateX(100%); }
-                to { transform: translateX(0); }
-              }
-              .animate-slide-in-right {
-                animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-              }
-            `
-          }} />
-        </>
+          <div className={cn("max-w-7xl mx-auto px-5 py-16 sm:px-12 lg:px-20")}>
+            {/* Hero */}
+            <div
+              className={cn(
+                "grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-24 items-center"
+              )}
+              style={{ animationDelay: "0ms" }}
+            >
+              {/* Left: Text */}
+              <div
+                className={cn("lg:col-span-7 order-2 lg:order-1 animate-fade-in-up")}
+                style={{ animationDelay: "100ms" }}
+              >
+                <p
+                  className={cn(
+                    "text-sm uppercase tracking-widest text-blue-200 mb-4"
+                  )}
+                >
+                  Meet The Instructor
+                </p>
+                <h2
+                  className={cn(
+                    "text-4xl sm:text-5xl lg:text-6xl font-serif text-white tracking-tight mb-4"
+                  )}
+                >
+                  {selectedInstructor.name}
+                </h2>
+                <p className={cn("text-lg text-blue-100 mb-6")}>
+                  {selectedInstructor.title} · {selectedInstructor.organization}
+                </p>
+                <p
+                  className={cn(
+                    "text-base text-blue-100/80 leading-relaxed mb-8"
+                  )}
+                >
+                  {selectedInstructor.bio}
+                </p>
+
+                {/* Specialty badges */}
+                <div className={cn("flex flex-wrap gap-2 mb-8")}>
+                  {(selectedInstructor.specialties || []).map((s) => (
+                    <span
+                      key={s}
+                      className={cn(
+                        "px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs"
+                      )}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Social links */}
+                {selectedInstructor.socialLinks && (
+                  <div className={cn("flex items-center gap-4 mb-4")}>
+                    {(
+                      Object.entries(selectedInstructor.socialLinks) as [
+                        keyof typeof SOCIAL_ICONS,
+                        string | null,
+                      ][]
+                    ).map(([key, url]) => {
+                      if (!url?.trim()) return null;
+                      const Icon = SOCIAL_ICONS[key];
+                      if (!Icon) return null;
+                      return (
+                        <a
+                          key={key}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            "text-white hover:text-blue-300 transition-colors"
+                          )}
+                        >
+                          <Icon size={20} />
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Contact email */}
+                {selectedInstructor.contactEmail?.trim() && (
+                  <div className={cn("flex items-center gap-2 text-blue-200")}>
+                    <Mail size={16} />
+                    <span className={cn("text-sm")}>
+                      {selectedInstructor.contactEmail}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Image */}
+              <div
+                className={cn(
+                  "lg:col-span-5 order-1 lg:order-2 animate-fade-in-up"
+                )}
+                style={{ animationDelay: "200ms" }}
+              >
+                <div className={cn("relative rounded-sm overflow-hidden shadow-2xl")}>
+                  {imageSrc(selectedInstructor) ? (
+                    <DriveOrExternalImage
+                      src={imageSrc(selectedInstructor)!}
+                      alt={selectedInstructor.name}
+                      className={cn("object-cover object-top w-full aspect-[4/5]")}
+                      quiet
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        "w-full aspect-[4/5] bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center"
+                      )}
+                    >
+                      <GraduationCap className={cn("w-24 h-24 text-white/40")} />
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
+                    )}
+                  />
+                </div>
+                {/* Floating name card */}
+                <div
+                  className={cn(
+                    "relative -mt-8 mx-auto w-[90%] bg-white text-center rounded-sm p-6 shadow-2xl"
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "text-xl font-serif font-bold text-brand-blue"
+                    )}
+                  >
+                    {selectedInstructor.name}
+                  </p>
+                  <p
+                    className={cn(
+                      "uppercase tracking-widest text-xs text-gray-500 mt-1"
+                    )}
+                  >
+                    {selectedInstructor.title}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Education */}
+            {selectedInstructor.education &&
+              selectedInstructor.education.length > 0 && (
+                <div
+                  className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
+                  style={{ animationDelay: "400ms" }}
+                >
+                  <h3
+                    className={cn(
+                      "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
+                    )}
+                  >
+                    <GraduationCap size={24} />
+                    Education
+                  </h3>
+                  <div className={cn("space-y-4")}>
+                    {selectedInstructor.education.map((edu, i) => (
+                      <div key={i}>
+                        <p className={cn("font-bold text-white")}>
+                          {edu.degree}
+                        </p>
+                        <p className={cn("text-blue-100")}>
+                          {edu.institution}
+                        </p>
+                        <p className={cn("text-blue-200 text-sm")}>
+                          {edu.year}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Certifications */}
+            {selectedInstructor.certifications &&
+              selectedInstructor.certifications.length > 0 && (
+                <div
+                  className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
+                  style={{ animationDelay: "500ms" }}
+                >
+                  <h3
+                    className={cn(
+                      "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
+                    )}
+                  >
+                    <Award size={24} />
+                    Certifications
+                  </h3>
+                  <div className={cn("flex flex-wrap gap-2")}>
+                    {selectedInstructor.certifications.map((cert) => (
+                      <span
+                        key={cert}
+                        className={cn(
+                          "px-3 py-1.5 rounded-sm bg-white/10 text-white text-sm"
+                        )}
+                      >
+                        {cert}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Programs (담당 프로그램) */}
+            {(selectedInstructor.programs || []).length > 0 && (
+              <InstructorProgramsSection
+                programs={selectedInstructor.programs || []}
+              />
+            )}
+
+            {/* Class History */}
+            <ClassHistorySection
+              instructorName={selectedInstructor.name}
+            />
+
+            {/* Comments */}
+            {typeof selectedInstructor.id === "string" && (
+              <CommentSection
+                instructorId={selectedInstructor.id}
+              />
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

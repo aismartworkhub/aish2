@@ -32,7 +32,6 @@ interface Instructor {
   contactEmail: string;
   socialLinks: { linkedin: string; youtube: string; instagram: string; github: string; personalSite: string };
   programs: (string | { title: string; url?: string })[];
-  detailedHtml?: string;
 }
 
 interface InstructorForm {
@@ -42,7 +41,6 @@ interface InstructorForm {
   certifications: string[]; contactEmail: string;
   socialLinks: { linkedin: string; youtube: string; instagram: string; github: string; personalSite: string };
   programs: (string | { title: string; url?: string })[];
-  detailedHtml?: string;
 }
 
 const EMPTY_FORM: InstructorForm = {
@@ -51,7 +49,6 @@ const EMPTY_FORM: InstructorForm = {
   education: [], certifications: [], contactEmail: "",
   socialLinks: { linkedin: "", youtube: "", instagram: "", github: "", personalSite: "" },
   programs: [],
-  detailedHtml: "",
 };
 
 const instructorSort = (a: Instructor, b: Instructor) => (a.displayOrder || 0) - (b.displayOrder || 0);
@@ -69,7 +66,6 @@ function formFromInstructor(item: Instructor): InstructorForm {
       personalSite: item.socialLinks?.personalSite || "",
     },
     programs: item.programs || [],
-    detailedHtml: item.detailedHtml || "",
   };
 }
 
@@ -571,19 +567,10 @@ export default function AdminInstructorsPage() {
 
               {/* Bio */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">짧은 소개 (Bio)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">소개</label>
                 <textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })}
                   rows={3} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
-                  placeholder="목록에 표시될 짧은 강사 소개" />
-              </div>
-
-              {/* Detailed HTML */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">상세 프로필 (HTML 입력 가능)</label>
-                <textarea value={form.detailedHtml || ""} onChange={(e) => setForm({ ...form, detailedHtml: e.target.value })}
-                  rows={6} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 font-mono"
-                  placeholder="<div><p>상세한 강사 소개나 이력을 HTML 형태로 꾸밀 수 있습니다. (스타일 태그 등 포함 가능)</p></div>" />
-                <p className="text-xs text-gray-400 mt-1">상세 페이지에서 탭 메뉴 내부에 이 HTML이 정화(DOMPurify)되어 안전하게 렌더링됩니다.</p>
+                  placeholder="강사 소개" />
               </div>
 
               {/* Specialties */}
