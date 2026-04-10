@@ -32,11 +32,6 @@ export const DEMO_INSTRUCTORS = [
    organization: "AISH",
    profileImageUrl: "/images/placeholder-profile.jpg",
    specialties: ["AI 기초", "프롬프트 엔지니어링"],
-   highlights: [
-     { title: "AI·스마트워크 교육", description: "구글 기반 협업툴, 노션, ChatGPT·Claude 등 생성형 AI 도구의 실무 적용" },
-     { title: "대표 리더십 컨설팅", description: "AI 전환기 중소기업 대표를 위한 조직 안정화 리더십 강의·코칭" },
-     { title: "기업 맞춤형 자동화", description: "GPTs 기반 업무 자동화 프롬프트 시스템 개발 및 운영" },
-   ],
    bio: "15년 이상의 AI/ML 분야 경력을 바탕으로, 초보자부터 실무자까지 쉽게 이해할 수 있는 교육 커리큘럼을 설계합니다.",
    socialLinks: {
      linkedin: "",
@@ -66,10 +61,6 @@ export const DEMO_INSTRUCTORS = [
    organization: "AISH",
    profileImageUrl: "/images/placeholder-profile.jpg",
    specialties: ["바이브 코딩", "웹 개발", "크리에이티브 코딩"],
-   highlights: [
-     { title: "크리에이티브 코딩", description: "코드와 예술의 접점에서 인터랙티브 작품을 구현하는 실습 교육" },
-     { title: "웹 프론트엔드", description: "React, Three.js 등 최신 프레임워크를 활용한 웹 개발" },
-   ],
    bio: "코드와 예술의 경계를 허무는 바이브 코딩의 선구자. 창의적인 접근방식으로 프로그래밍의 즐거움을 전달합니다.",
    socialLinks: {
      linkedin: "",
@@ -90,10 +81,6 @@ export const DEMO_INSTRUCTORS = [
    organization: "AISH",
    profileImageUrl: "/images/placeholder-profile.jpg",
    specialties: ["데이터 분석", "시각화", "Python"],
-   highlights: [
-     { title: "데이터 분석 실무", description: "Python 기반 대규모 데이터 처리 및 시각화 프로젝트 수행" },
-     { title: "비즈니스 인텔리전스", description: "의사결정을 위한 데이터 분석 보고서 작성 및 대시보드 구축" },
-   ],
    bio: "대규모 데이터 분석 프로젝트를 다수 수행한 경험을 바탕으로, 실무에서 바로 활용 가능한 데이터 분석 기법을 교육합니다.",
    socialLinks: {
      linkedin: "",

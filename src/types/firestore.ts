@@ -45,7 +45,6 @@ export interface Instructor {
   profileImageUrl: string;
   imageUrl?: string;
   specialties: string[];
-  highlights?: { title: string; description: string }[];
   bio: string;
   socialLinks: {
     linkedin: string | null;

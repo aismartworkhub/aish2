@@ -704,30 +704,6 @@ export default function InstructorsPage() {
   const imageSrc = (inst: InstructorItem) =>
     inst.imageUrl || inst.profileImageUrl;
 
-  /** specialties 길이 기준 태그/bullet 자동 분류 — 모든 강사에 동일 적용 */
-  const TAG_MAX_LEN = 20;
-  const splitSpecialties = (inst: InstructorItem) => {
-    const specs = inst.specialties || [];
-    const tags: string[] = [];
-    const longItems: { title: string; description: string }[] = [];
-
-    for (const s of specs) {
-      if (s.length <= TAG_MAX_LEN) {
-        tags.push(s);
-      } else {
-        const sepIdx = s.includes(' - ') ? s.indexOf(' - ') : -1;
-        if (sepIdx > 0) {
-          longItems.push({ title: s.slice(0, sepIdx).trim(), description: s.slice(sepIdx + 3).trim() });
-        } else {
-          longItems.push({ title: s, description: "" });
-        }
-      }
-    }
-    // highlights 가 명시적으로 있으면 우선
-    const hl = inst.highlights || [];
-    return { tags, bullets: hl.length > 0 ? hl : longItems };
-  };
-
   return (
     <div className={cn("py-16")}>
       <div className={cn("max-w-5xl mx-auto px-4")}>
@@ -787,45 +763,39 @@ export default function InstructorsPage() {
                   />
                 </div>
 
-                {/* Info */}
-                <div className={cn("p-5")}>
-                  <h3 className={cn("text-lg font-bold text-gray-900")}>
-                    {inst.name}
-                  </h3>
-                  <p className={cn("text-sm text-gray-500")}>
-                    {inst.title} · {inst.organization}
-                  </p>
-                  {(() => {
-                    const { tags, bullets } = splitSpecialties(inst);
-                    return (
-                      <>
-                        {tags.length > 0 && (
-                          <div className={cn("flex flex-wrap gap-1.5 mt-3")}>
-                            {tags.slice(0, 4).map((s) => (
-                              <span key={s} className={cn("text-xs bg-brand-gray text-brand-blue px-2 py-0.5 rounded-full")}>{s}</span>
-                            ))}
-                          </div>
-                        )}
-                        {bullets.length > 0 ? (
-                          <ul className={cn("mt-3 space-y-1")}>
-                            {bullets.slice(0, 3).map((h, i) => (
-                              <li key={h.title || i} className={cn("text-xs text-gray-500 flex gap-1.5")}>
-                                <span className="text-brand-blue font-semibold shrink-0 mt-px">·</span>
-                                <span className="line-clamp-1">
-                                  <span className="font-medium text-gray-700">{h.title}</span>
-                                  {h.description ? ` — ${h.description}` : ""}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : inst.bio ? (
-                          <p className={cn("text-xs text-gray-400 mt-2 line-clamp-2")}>{inst.bio}</p>
-                        ) : null}
-                      </>
-                    );
-                  })()}
+                {/* Info: 참고 디자인 기반 — 이름+직책 / 경력 bullet / 소개 인용 */}
+                <div className={cn("px-6 py-5")}>
+                  {/* 0. 이름 + 직책 1줄 */}
+                  <div className={cn("flex items-baseline gap-2 mb-4")}>
+                    <h3 className={cn("text-xl font-bold text-gray-900 tracking-tight")}>{inst.name}</h3>
+                    <span className={cn("text-sm font-bold text-brand-blue")}>{inst.title}</span>
+                  </div>
+
+                  {/* 1. 주요경력 bullet — specialties 최대 3줄 */}
+                  {(inst.specialties || []).length > 0 && (
+                    <div className={cn("space-y-1 mb-4")}>
+                      {(inst.specialties || []).slice(0, 3).map((s, i) => (
+                        <div key={i} className={cn("flex items-center gap-2.5 py-0.5")}>
+                          <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-brand-blue" />
+                          <span className={cn("text-[13px] text-gray-700 font-medium truncate tracking-tight")}>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 2. 소개 인용 박스 — bio 최대 3줄 */}
+                  {inst.bio && (
+                    <div className={cn("bg-brand-gray/60 rounded-xl px-4 py-3.5")}>
+                      <p className={cn(
+                        "text-[13px] text-gray-600 italic leading-[1.7] text-center tracking-tight font-medium",
+                        "line-clamp-3 break-keep"
+                      )}>
+                        &ldquo;{inst.bio}&rdquo;
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <div className="px-5 pb-4">
+                <div className="px-6 pb-4">
                   <span className="text-xs text-brand-blue font-medium group-hover:underline">프로필 보기 →</span>
                 </div>
               </div>
@@ -891,45 +861,29 @@ export default function InstructorsPage() {
                 <p className={cn("text-lg text-blue-100 mb-6")}>
                   {selectedInstructor.title} · {selectedInstructor.organization}
                 </p>
-                <p
-                  className={cn(
-                    "text-base text-blue-100/80 leading-relaxed mb-8"
-                  )}
-                >
-                  {selectedInstructor.bio}
-                </p>
 
-                {/* Specialty tags + 핵심 역량 (통합 렌더링) */}
-                {(() => {
-                  const { tags, bullets } = splitSpecialties(selectedInstructor);
-                  return (
-                    <>
-                      {tags.length > 0 && (
-                        <div className={cn("flex flex-wrap gap-2 mb-6")}>
-                          {tags.map((s) => (
-                            <span key={s} className={cn("px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs")}>{s}</span>
-                          ))}
-                        </div>
-                      )}
-                      {bullets.length > 0 && (
-                        <div className={cn("mb-8")}>
-                          <h4 className={cn("text-sm uppercase tracking-widest text-blue-200 mb-4")}>핵심 역량</h4>
-                          <ul className={cn("space-y-3")}>
-                            {bullets.map((h, i) => (
-                              <li key={h.title || i} className={cn("flex items-start gap-3")}>
-                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-300 shrink-0" />
-                                <div>
-                                  <p className={cn("text-white font-semibold text-sm")}>{h.title}</p>
-                                  {h.description && <p className={cn("text-blue-100/70 text-sm mt-0.5 leading-relaxed")}>{h.description}</p>}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
+                {/* 주요경력 bullet */}
+                {(selectedInstructor.specialties || []).length > 0 && (
+                  <div className={cn("mb-6 space-y-2")}>
+                    {(selectedInstructor.specialties || []).map((s, i) => (
+                      <div key={i} className={cn("flex items-center gap-3")}>
+                        <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-300" />
+                        <span className={cn("text-[15px] text-white font-semibold tracking-tight")}>{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 소개 인용 박스 */}
+                {selectedInstructor.bio && (
+                  <div className={cn("bg-white/10 rounded-xl px-6 py-5 mb-8")}>
+                    <p className={cn(
+                      "text-[15px] text-blue-50 italic leading-[1.8] text-center tracking-tight font-medium break-keep"
+                    )}>
+                      &ldquo;{selectedInstructor.bio}&rdquo;
+                    </p>
+                  </div>
+                )}
 
                 {/* Social links */}
                 {selectedInstructor.socialLinks && (
