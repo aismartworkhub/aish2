@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { HtmlEditor } from "@/components/admin/HtmlEditor";
 import { useToast } from "@/components/ui/Toast";
 
 interface FAQItem {
@@ -129,9 +130,13 @@ export default function AdminFAQPage() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="자주 묻는 질문을 입력하세요" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">답변</label>
-                <textarea value={form.answer} onChange={(e) => setForm({ ...form, answer: e.target.value })}
-                  rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="답변을 입력하세요" />
+                <HtmlEditor
+                  label="답변"
+                  value={form.answer}
+                  onChange={(v) => setForm({ ...form, answer: v })}
+                  rows={4}
+                  placeholder="답변을 입력하세요 (HTML 사용 가능)"
+                />
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">

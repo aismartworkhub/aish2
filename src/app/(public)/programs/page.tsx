@@ -11,6 +11,8 @@ import {
 } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { loadPageContent, DEFAULT_PROGRAMS } from "@/lib/page-content-public";
+import type { PageContentBase } from "@/types/page-content";
 import type { RunmoaContent, RunmoaCategory } from "@/types/runmoa";
 
 const RUNMOA_BASE = "https://aish.runmoa.com";
@@ -24,6 +26,7 @@ function formatPrice(price: number): string {
 }
 
 export default function ProgramsPage() {
+  const [pc, setPc] = useState<PageContentBase>(DEFAULT_PROGRAMS);
   const [filter, setFilter] = useState("ALL");
   const [search, setSearch] = useState(() => {
     if (typeof window !== "undefined") {
@@ -36,6 +39,10 @@ export default function ProgramsPage() {
   const [categories, setCategories] = useState<RunmoaCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [useFallback, setUseFallback] = useState(false);
+
+  useEffect(() => {
+    loadPageContent("programs").then(setPc).catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -85,8 +92,8 @@ export default function ProgramsPage() {
     <div className="py-16">
       <div className="max-w-6xl mx-auto px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">교육 프로그램</h1>
-          <p className="text-lg text-gray-500">AISH의 다양한 AI 교육 과정을 확인하세요.</p>
+          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">{pc.hero.title}</h1>
+          <p className="text-lg text-gray-500">{pc.hero.subtitle}</p>
         </div>
 
         {/* Filters */}

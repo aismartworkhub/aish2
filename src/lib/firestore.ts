@@ -136,3 +136,5 @@ export const COLLECTIONS = {
   BOOKMARKS: "bookmarks",
   NOTIFICATIONS: "notifications",
 } as const;
+
+export const PAGE_DOC_ID = (key: string) => `page_${key}`;

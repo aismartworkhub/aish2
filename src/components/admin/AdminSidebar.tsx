@@ -7,7 +7,7 @@ import {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, ImageIcon, Handshake, Clock,
  Award, Shield, ChevronDown, ChevronRight, X,
- Megaphone, Zap, FolderOpen,
+ Megaphone, Zap, FolderOpen, LayoutTemplate,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const ICON_MAP: Record<string, React.ElementType> = {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, Image: ImageIcon, Handshake, Clock,
- Award, Shield, Megaphone, Zap, FolderOpen,
+ Award, Shield, Megaphone, Zap, FolderOpen, LayoutTemplate,
 };
 
 interface NavChild {
@@ -65,6 +65,7 @@ const NAV_ITEMS: NavItem[] = [
  { label: "파트너", href: "/admin/partners", icon: "Handshake" },
  { label: "연혁", href: "/admin/history", icon: "Clock" },
  { label: "수료증", href: "/admin/certificates", icon: "Award" },
+ { label: "페이지 관리", href: "/admin/pages", icon: "LayoutTemplate" },
  { label: "관리자", href: "/admin/admins", icon: "Shield" },
  { label: "회원관리", href: "/admin/users", icon: "Users" },
 ];

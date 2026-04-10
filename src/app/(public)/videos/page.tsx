@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Play } from "lucide-react";
 import { VIDEO_CATEGORY_LABELS } from "@/lib/constants";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
+import { loadPageContent, DEFAULT_VIDEOS } from "@/lib/page-content-public";
+import type { PageContentBase } from "@/types/page-content";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
 
 const FALLBACK_VIDEOS: VideoItem[] = [
@@ -25,9 +27,14 @@ interface VideoItem {
 }
 
 export default function VideosPage() {
+  const [pc, setPc] = useState<PageContentBase>(DEFAULT_VIDEOS);
   const [filter, setFilter] = useState("ALL");
   const [videos, setVideos] = useState<VideoItem[]>(FALLBACK_VIDEOS);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadPageContent("videos").then(setPc).catch(() => {});
+  }, []);
 
   useEffect(() => {
     getCollection<VideoItem>(COLLECTIONS.VIDEOS)
@@ -52,8 +59,8 @@ export default function VideosPage() {
     <div className="py-16">
       <div className="max-w-5xl mx-auto px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">영상 콘텐츠</h1>
-          <p className="text-lg text-gray-500">AISH의 다양한 영상 콘텐츠를 만나보세요.</p>
+          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">{pc.hero.title}</h1>
+          <p className="text-lg text-gray-500">{pc.hero.subtitle}</p>
         </div>
 
         <div className="flex justify-center gap-2 mb-8 flex-wrap">

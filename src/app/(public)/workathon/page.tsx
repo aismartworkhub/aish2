@@ -7,11 +7,18 @@ import { DEMO_WORKATHON } from "@/lib/demo-data";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
 import { useSiteCta } from "@/hooks/useSiteCta";
 import { isExternalHref } from "@/lib/utils";
+import { loadPageContent, DEFAULT_WORKATHON } from "@/lib/page-content-public";
+import type { PageContentBase } from "@/types/page-content";
 
 export default function WorkathonPage() {
+  const [pc, setPc] = useState<PageContentBase>(DEFAULT_WORKATHON);
   const [w, setW] = useState(DEMO_WORKATHON);
   const [loading, setLoading] = useState(true);
   const { buttonUrl, buttonText } = useSiteCta();
+
+  useEffect(() => {
+    loadPageContent("workathon").then(setPc).catch(() => {});
+  }, []);
 
   useEffect(() => {
     getCollection<typeof DEMO_WORKATHON & { id?: string; eventDate?: string }>(COLLECTIONS.EVENTS)
@@ -42,7 +49,7 @@ export default function WorkathonPage() {
       {/* Hero Banner Image */}
       <div 
         className="w-full h-[300px] md:h-[400px] bg-cover bg-center relative"
-        style={{ backgroundImage: "url('/images/defaults/workathon-bg.jpg')" }}
+        style={{ backgroundImage: `url('${pc.hero.imageUrl || "/images/defaults/workathon-bg.jpg"}')` }}
       >
         <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-center px-4">
           <span className="inline-block bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium mb-4">

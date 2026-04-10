@@ -37,6 +37,8 @@ import { toDirectImageUrl, cn } from "@/lib/utils";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import type { InstructorComment } from "@/types/firestore";
 import type { RunmoaContent } from "@/types/runmoa";
+import { loadPageContent, DEFAULT_INSTRUCTORS } from "@/lib/page-content-public";
+import type { PageContentBase } from "@/types/page-content";
 
 type InstructorItem = Omit<(typeof DEMO_INSTRUCTORS)[0], "programs" | "experience" | "education" | "certifications"> & {
   id: string | number;
@@ -658,11 +660,16 @@ function InstructorProgramsSection({
 }
 /* ── Main Page ── */
 export default function InstructorsPage() {
+  const [pc, setPc] = useState<PageContentBase>(DEFAULT_INSTRUCTORS);
   const [instructors, setInstructors] = useState<InstructorItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInstructor, setSelectedInstructor] =
     useState<InstructorItem | null>(null);
   const { isAdmin } = useAuth();
+
+  useEffect(() => {
+    loadPageContent("instructors").then(setPc).catch(() => {});
+  }, []);
 
   useEffect(() => {
     getCollection<InstructorItem>(COLLECTIONS.INSTRUCTORS)
@@ -710,10 +717,10 @@ export default function InstructorsPage() {
         {/* Header */}
         <div className={cn("text-center mb-12")}>
           <h1 className={cn("text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3")}>
-            전문 강사진
+            {pc.hero.title}
           </h1>
           <p className={cn("text-lg text-gray-500")}>
-            각 분야 최고의 전문가들이 여러분의 성장을 이끕니다.
+            {pc.hero.subtitle}
           </p>
         </div>
 

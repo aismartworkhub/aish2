@@ -23,6 +23,8 @@ import {
   type HeroSlidePublic,
   type SiteBannerConfig,
 } from "@/lib/site-settings-public";
+import { loadPageContent, DEFAULT_HOME } from "@/lib/page-content-public";
+import type { HomePageContent } from "@/types/page-content";
 import { calculateDDay, cn, isExternalHref, toDateString } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
@@ -125,26 +127,33 @@ export default function HomePage() {
   const [specImages, setSpecImages] = useState<Record<string, string>>({});
   const [siteBanner, setSiteBanner] = useState<SiteBannerConfig | null>(null);
   const [ctaCfg, setCtaCfg] = useState(DEFAULT_SITE_CTA);
+  const [pageContent, setPageContent] = useState<HomePageContent>(DEFAULT_HOME);
 
   const dDay = calculateDDay(workathon.eventDate);
   const revealRefs = useRef<HTMLElement[]>([]);
 
   const educationCategoriesResolved = useMemo(
     () =>
-      EDUCATION_CATEGORIES.map((cat) => ({
+      (pageContent.educationCards.length > 0 ? pageContent.educationCards : EDUCATION_CATEGORIES).map((cat) => ({
+        ...cat,
+        image: ("imageUrl" in cat ? cat.imageUrl : cat.image) as string,
+      })).map((cat) => ({
         ...cat,
         image: eduImages[cat.title] || cat.image,
       })),
-    [eduImages]
+    [eduImages, pageContent.educationCards]
   );
 
   const specialtyCardsResolved = useMemo(
     () =>
-      SPECIALTY_CARDS.map((card) => ({
+      (pageContent.specialtyCards.length > 0 ? pageContent.specialtyCards : SPECIALTY_CARDS).map((card) => ({
+        ...card,
+        image: ("imageUrl" in card ? card.imageUrl : card.image) as string,
+      })).map((card) => ({
         ...card,
         image: specImages[card.title] || card.image,
       })),
-    [specImages]
+    [specImages, pageContent.specialtyCards]
   );
 
   const currentHero = heroSlides[heroIndex] ?? heroSlides[0];
@@ -160,6 +169,10 @@ export default function HomePage() {
     }, 6500);
     return () => window.clearInterval(id);
   }, [heroSlides]);
+
+  useEffect(() => {
+    loadPageContent<HomePageContent>("home").then(setPageContent).catch(() => {});
+  }, []);
 
   // Load real data from Firestore, fallback to demo data
   useEffect(() => {
@@ -418,9 +431,11 @@ export default function HomePage() {
       {/* ── S3: Education (이미지 모자이크 그리드) ── */}
       <section className="py-24 md:py-28">
         <div className="text-center mb-16">
-          <h2 className="text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">Education</h2>
+          <h2 className="text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
+            {pageContent.sections.education?.title ?? "Education"}
+          </h2>
           <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
-            목표에 맞는 최적의 AI 교육 과정을 제공합니다.
+            {pageContent.sections.education?.description ?? "목표에 맞는 최적의 AI 교육 과정을 제공합니다."}
           </p>
         </div>
 
@@ -454,9 +469,11 @@ export default function HomePage() {
       {/* ── S4: Specialty (이미지 카드) ── */}
       <section className="py-24 md:py-28 bg-brand-gray">
         <div className="text-center mb-16">
-          <h2 className="text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">Specialty</h2>
+          <h2 className="text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
+            {pageContent.sections.specialty?.title ?? "Specialty"}
+          </h2>
           <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
-            AISH만의 차별화된 교육 가치를 경험하세요.
+            {pageContent.sections.specialty?.description ?? "AISH만의 차별화된 교육 가치를 경험하세요."}
           </p>
         </div>
 

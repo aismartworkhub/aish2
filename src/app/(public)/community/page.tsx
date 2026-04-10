@@ -12,6 +12,9 @@ import {
 import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
 import { getCollection, getFilteredCollection, createDoc, removeDoc, invalidateCache, COLLECTIONS } from "@/lib/firestore";
+import { loadPageContent, DEFAULT_COMMUNITY } from "@/lib/page-content-public";
+import type { PageContentBase } from "@/types/page-content";
+import DOMPurify from "dompurify";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import { useAuth } from "@/contexts/AuthContext";
 import LoginModal from "@/components/public/LoginModal";
@@ -215,6 +218,7 @@ function CommunityContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as TabKey | null;
+  const [pc, setPc] = useState<PageContentBase>(DEFAULT_COMMUNITY);
   const [activeTab, setActiveTab] = useState<TabKey>(tabParam || "notice");
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [inquiryForm, setInquiryForm] = useState({ name: "", email: "", phone: "", company: "", subject: "", message: "" });
@@ -300,6 +304,10 @@ function CommunityContent() {
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 150);
   };
+
+  useEffect(() => {
+    loadPageContent("community").then(setPc).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (tabParam) {
@@ -561,9 +569,9 @@ function CommunityContent() {
     <div className="py-16">
       <div className="max-w-6xl mx-auto px-4">
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">커뮤니티</h1>
+          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">{pc.hero.title}</h1>
           <p className="text-lg text-gray-500">
-            AISH 커뮤니티에서 다양한 정보와 서비스를 이용하세요.
+            {pc.hero.subtitle}
           </p>
         </div>
 
@@ -688,9 +696,14 @@ function CommunityContent() {
                   </button>
                   {expandedNoticeId === notice.id && (
                     <div className="px-6 pb-6 bg-gray-50 border-t border-brand-border space-y-4">
-                      <div className="pt-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                        {(notice as { content?: string }).content || "상세 내용은 추후 업데이트 예정입니다."}
-                      </div>
+                      <div
+                        className="pt-4 text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(
+                            (notice as { content?: string }).content || "상세 내용은 추후 업데이트 예정입니다."
+                          ),
+                        }}
+                      />
                       {user && (
                         <div className="flex items-center gap-3 py-2">
                           <button onClick={() => toggleLike(String(notice.id), "NOTICE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500">
@@ -912,7 +925,7 @@ function CommunityContent() {
                 </button>
                 {openFaqIndex === index && (
                   <div className="px-5 pb-5 border-t border-brand-border">
-                    <p className="text-sm text-gray-600 leading-relaxed pt-4">{faq.answer}</p>
+                    <div className="text-sm text-gray-600 leading-relaxed pt-4 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(faq.answer || "") }} />
                   </div>
                 )}
               </div>
@@ -1074,7 +1087,9 @@ function CommunityContent() {
                     {!post.isApproved && <span className="badge-base bg-yellow-100 text-yellow-700">승인 대기</span>}
                   </div>
                   <p className="text-xs text-gray-400">{post.authorName} · {post.date} · 조회 {post.views}</p>
-                  {post.content && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{post.content}</p>}
+                  {post.content && (
+                    <div className="text-sm text-gray-600 mt-2 line-clamp-2 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }} />
+                  )}
                   {user && (
                     <div className="flex items-center gap-3 py-2">
                       <button onClick={() => toggleLike(post.id, "FREE")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500">
@@ -1170,7 +1185,12 @@ function CommunityContent() {
                     </button>
                     {expandedCustomPostId === post.id && (
                       <div className="px-6 pb-4 text-sm text-gray-600 bg-gray-50 border-t border-brand-border">
-                        <p className="pt-3">{post.content || "상세 내용은 추후 업데이트 예정입니다."}</p>
+                        <div
+                          className="pt-3 prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(post.content || "상세 내용은 추후 업데이트 예정입니다."),
+                          }}
+                        />
                       </div>
                     )}
                   </div>

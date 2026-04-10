@@ -61,6 +61,7 @@ export const ADMIN_NAV_ITEMS = [
  { label: "파트너", href: "/admin/partners", icon: "Handshake" },
  { label: "연혁", href: "/admin/history", icon: "Clock" },
  { label: "수료증", href: "/admin/certificates", icon: "Award" },
+ { label: "페이지 관리", href: "/admin/pages", icon: "LayoutTemplate" },
  { label: "관리자", href: "/admin/admins", icon: "Shield" },
  { label: "회원관리", href: "/admin/users", icon: "Users" },
 ] as const;

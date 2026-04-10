@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import { HtmlEditor } from "@/components/admin/HtmlEditor";
 import { useToast } from "@/components/ui/Toast";
 import DriveFileUploader from "@/components/admin/DriveFileUploader";
 import type { DriveAttachment } from "@/types/firestore";
@@ -329,9 +330,13 @@ export default function AdminPostsPage() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-1.5 block">내용</label>
-                <textarea rows={5} value={editingPost.content} onChange={(e) => setEditingPost({ ...editingPost, content: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none" />
+                <HtmlEditor
+                  label="내용"
+                  value={editingPost.content}
+                  onChange={(v) => setEditingPost({ ...editingPost, content: v })}
+                  rows={6}
+                  placeholder="게시글 내용을 입력하세요 (HTML 사용 가능)"
+                />
               </div>
               {editingPost.boardType === "RESOURCE" && (
                 <div className="space-y-3 p-4 bg-green-50/50 rounded-xl border border-green-100">
