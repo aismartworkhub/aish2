@@ -22,3 +22,6 @@ export function isValidNonEmptyImageSource(value: string): boolean {
 
 export const ADMIN_SETTINGS_SAVED_PUBLIC_HINT =
   "공개 페이지는 새로고침 후(최대 약 30초 내 캐시) 반영됩니다.";
+
+export const PAGE_CONTENT_SAVED_PUBLIC_HINT =
+  "공개 페이지는 새로고침 후 반영됩니다. (방문자 탭은 브라우저 캐시로 이전 문구가 잠시 보일 수 있습니다.)";

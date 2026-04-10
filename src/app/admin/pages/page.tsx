@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Save, Plus, Trash2, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Save, Plus, Trash2, ChevronUp, ChevronDown, Loader2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, PAGE_DOC_ID, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
 import { useToast } from "@/components/ui/Toast";
 import { HtmlEditor } from "@/components/admin/HtmlEditor";
-import { PAGE_DEFAULTS } from "@/lib/page-content-public";
+import { PAGE_DEFAULTS, invalidatePageContentCache } from "@/lib/page-content-public";
+import { PAGE_CONTENT_SAVED_PUBLIC_HINT } from "@/lib/admin-validation";
 import type {
   PageKey,
   PageContentBase,
@@ -27,6 +29,16 @@ const PAGE_TABS: { key: PageKey; label: string }[] = [
   { key: "videos", label: "영상·콘텐츠" },
   { key: "community", label: "커뮤니티" },
 ];
+
+const PAGE_PUBLIC_HREF: Record<PageKey, string> = {
+  home: "/",
+  about: "/about",
+  programs: "/programs",
+  instructors: "/instructors",
+  workathon: "/workathon",
+  videos: "/videos",
+  community: "/community",
+};
 
 type FormData = PageContentBase & {
   values?: ValueItem[];
@@ -74,7 +86,9 @@ export default function AdminPagesPage() {
     setSaving(true);
     try {
       await setSingletonDoc(COLLECTIONS.SETTINGS, PAGE_DOC_ID(activeTab), form);
-      toast("저장되었습니다.", "success");
+      invalidatePageContentCache(activeTab);
+      await loadTab(activeTab);
+      toast(`저장되었습니다.\n${PAGE_CONTENT_SAVED_PUBLIC_HINT}`, "success");
     } catch {
       toast("저장에 실패했습니다.", "error");
     } finally {
@@ -105,8 +119,20 @@ export default function AdminPagesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">페이지 콘텐츠 관리</h1>
           <p className="text-gray-500 mt-1">
-            각 페이지의 배너·섹션 제목·콘텐츠를 편집합니다.
+            각 페이지의 배너·섹션 제목·콘텐츠를 편집합니다. Firestore{" "}
+            <code className="text-xs bg-gray-100 px-1 rounded">siteSettings/page_*</code> 문서에 저장됩니다.
           </p>
+          <Link
+            href={PAGE_PUBLIC_HREF[activeTab]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              "inline-flex items-center gap-1 mt-2 text-sm font-medium text-primary-600 hover:text-primary-700",
+            )}
+          >
+            <ExternalLink size={14} aria-hidden />
+            현재 탭 공개 페이지 열기
+          </Link>
         </div>
         <button
           onClick={handleSave}

@@ -138,6 +138,17 @@ export async function loadPageContent<T extends PageContentBase = PageContentBas
   return inflight.get(pageKey) as Promise<T>;
 }
 
+/** 관리자 저장 직후 해당 페이지 캐시를 비웁니다. */
+export function invalidatePageContentCache(pageKey?: PageKey): void {
+  if (pageKey !== undefined) {
+    cache.delete(pageKey);
+    inflight.delete(pageKey);
+    return;
+  }
+  cache.clear();
+  inflight.clear();
+}
+
 function deepMergePageContent<T extends PageContentBase>(
   defaults: T,
   raw: Record<string, unknown>,

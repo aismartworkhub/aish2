@@ -15,6 +15,9 @@
 .DS_Store
 *.pem
 
+# 로컬 참고용 API 문서 (커밋 제외)
+API_런모아*.txt
+
 # debug
 npm-debug.log*
 
