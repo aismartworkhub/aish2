@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight, Search, SlidersHorizontal, ChevronRight,
   Users, GraduationCap, UserCheck, Building, Star, Play,
-  BookOpen, Trophy, Bell, FolderOpen, Award, HelpCircle, Handshake, Images,
+  BookOpen, Trophy, Bell, FolderOpen, Award, HelpCircle, Handshake, Images, MessageCircle,
 } from "lucide-react";
 import { PROGRAM_CATEGORY_LABELS, EVENT_STATUS_LABELS, EVENT_STATUS_COLORS, RUNMOA_CONTENT_TYPE_LABELS } from "@/lib/constants";
 import { DEMO_STATS, DEMO_PROGRAMS, DEMO_REVIEWS, DEMO_WORKATHON } from "@/lib/demo-data";
@@ -92,11 +92,13 @@ const SPECIALTY_CARDS = [
 
 const COMMUNITY_SHORTCUTS = [
   { label: "공지사항", href: "/community?tab=notice", icon: Bell },
-  { label: "자료실", href: "/community?tab=resource", icon: FolderOpen },
-  { label: "수료증 발급", href: "/community?tab=certificate", icon: Award },
-  { label: "FAQ", href: "/community?tab=faq", icon: HelpCircle },
-  { label: "협력 문의", href: "/community?tab=inquiry", icon: Handshake },
   { label: "갤러리", href: "/community?tab=gallery", icon: Images },
+  { label: "자료실", href: "/community?tab=resource", icon: FolderOpen },
+  { label: "수강 후기", href: "/community?tab=review", icon: Star },
+  { label: "묻고답하기", href: "/community?tab=free", icon: MessageCircle },
+  { label: "FAQ", href: "/community?tab=faq", icon: HelpCircle },
+  { label: "수료증 발급", href: "/community?tab=certificate", icon: Award },
+  { label: "협력 문의", href: "/community?tab=inquiry", icon: Handshake },
 ];
 
 const RECENT_NOTICES = [
@@ -812,15 +814,15 @@ export default function HomePage() {
       {/* ── S9: 커뮤니티 아이콘 바 ── */}
       <section className="py-16 md:py-20 bg-white border-t border-brand-border">
         <div className="container-custom">
-          <div className="flex flex-wrap justify-center gap-8 md:gap-0 md:divide-x md:divide-gray-200">
+          <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 md:grid-cols-4">
             {COMMUNITY_SHORTCUTS.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className="group flex flex-col items-center gap-3 px-8 md:px-12 py-4 hover:opacity-80 transition-opacity"
+                className="group flex min-h-[112px] flex-col items-center justify-center gap-3 rounded-xl border border-brand-border bg-brand-gray/40 px-4 py-5 text-center hover:border-brand-blue/30 hover:bg-white hover:shadow-sm transition-all"
               >
-                <item.icon size={40} strokeWidth={1.2} className="text-brand-blue group-hover:text-brand-blue transition-colors" />
-                <span className="text-sm font-medium text-gray-700 group-hover:text-brand-blue transition-colors">{item.label}</span>
+                <item.icon size={34} strokeWidth={1.5} className="text-brand-blue transition-colors" />
+                <span className="text-sm font-semibold text-gray-700 group-hover:text-brand-blue transition-colors">{item.label}</span>
               </Link>
             ))}
           </div>
