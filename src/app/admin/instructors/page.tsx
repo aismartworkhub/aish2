@@ -25,6 +25,7 @@ interface Instructor {
   bio: string;
   imageUrl: string;
   specialties: string[];
+  highlights: { title: string; description: string }[];
   isActive: boolean;
   displayOrder: number;
   education: { degree: string; institution: string; year: string }[];
@@ -36,7 +37,7 @@ interface Instructor {
 
 interface InstructorForm {
   name: string; title: string; organization: string; bio: string; imageUrl: string;
-  specialties: string[]; isActive: boolean; displayOrder: number;
+  specialties: string[]; highlights: { title: string; description: string }[]; isActive: boolean; displayOrder: number;
   education: { degree: string; institution: string; year: string }[];
   certifications: string[]; contactEmail: string;
   socialLinks: { linkedin: string; youtube: string; instagram: string; github: string; personalSite: string };
@@ -45,7 +46,7 @@ interface InstructorForm {
 
 const EMPTY_FORM: InstructorForm = {
   name: "", title: "", organization: "", bio: "", imageUrl: "",
-  specialties: [], isActive: true, displayOrder: 0,
+  specialties: [], highlights: [], isActive: true, displayOrder: 0,
   education: [], certifications: [], contactEmail: "",
   socialLinks: { linkedin: "", youtube: "", instagram: "", github: "", personalSite: "" },
   programs: [],
@@ -57,6 +58,7 @@ function formFromInstructor(item: Instructor): InstructorForm {
   return {
     name: item.name, title: item.title, organization: item.organization || "",
     bio: item.bio, imageUrl: item.imageUrl, specialties: item.specialties || [],
+    highlights: item.highlights || [],
     isActive: item.isActive, displayOrder: item.displayOrder,
     education: item.education || [],
     certifications: item.certifications || [], contactEmail: item.contactEmail || "",
@@ -587,6 +589,30 @@ export default function AdminInstructorsPage() {
                     <span key={s} className="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-700 px-2 py-1 rounded-full">
                       {s} <button onClick={() => removeTag("specialties", s)} className="text-primary-400 hover:text-primary-700">&times;</button>
                     </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Highlights (핵심 역량) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">핵심 역량</label>
+                  <button onClick={() => setForm({ ...form, highlights: [...form.highlights, { title: "", description: "" }] })}
+                    className="text-xs text-primary-600 hover:text-primary-700 font-medium">+ 추가</button>
+                </div>
+                <p className="text-xs text-gray-400 mb-2">카드에 표시될 상세 역량/활동을 제목·설명 쌍으로 입력하세요.</p>
+                <div className="space-y-2">
+                  {form.highlights.map((h, idx) => (
+                    <div key={idx} className="flex gap-2 items-start">
+                      <input value={h.title}
+                        onChange={(e) => { const hl = [...form.highlights]; hl[idx] = { ...hl[idx], title: e.target.value }; setForm({ ...form, highlights: hl }); }}
+                        className="w-36 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" placeholder="제목 (예: AI 교육)" />
+                      <input value={h.description}
+                        onChange={(e) => { const hl = [...form.highlights]; hl[idx] = { ...hl[idx], description: e.target.value }; setForm({ ...form, highlights: hl }); }}
+                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" placeholder="설명 (예: 생성형 AI 도구의 실무 적용)" />
+                      <button onClick={() => setForm({ ...form, highlights: form.highlights.filter((_, i) => i !== idx) })}
+                        className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 mt-0.5"><X size={14} /></button>
+                    </div>
                   ))}
                 </div>
               </div>

@@ -776,14 +776,23 @@ export default function InstructorsPage() {
                       <span
                         key={s}
                         className={cn(
-                          "text-xs bg-brand-gray text-brand-blue px-2 py-0.5 rounded-full"
+                          "text-xs bg-brand-gray text-brand-blue px-2 py-0.5 rounded-full max-w-[180px] truncate"
                         )}
                       >
                         {s}
                       </span>
                     ))}
                   </div>
-                  {inst.bio && (
+                  {(inst.highlights || []).length > 0 ? (
+                    <ul className={cn("mt-3 space-y-1")}>
+                      {(inst.highlights || []).slice(0, 2).map((h) => (
+                        <li key={h.title} className={cn("text-xs text-gray-500 flex gap-1.5")}>
+                          <span className="text-brand-blue font-semibold shrink-0">·</span>
+                          <span><span className="font-medium text-gray-700">{h.title}</span>{h.description ? ` — ${h.description}` : ""}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : inst.bio ? (
                     <p
                       className={cn(
                         "text-xs text-gray-400 mt-2 line-clamp-2"
@@ -791,7 +800,7 @@ export default function InstructorsPage() {
                     >
                       {inst.bio}
                     </p>
-                  )}
+                  ) : null}
                 </div>
                 <div className="px-5 pb-4">
                   <span className="text-xs text-brand-blue font-medium group-hover:underline">프로필 보기 →</span>
@@ -880,6 +889,24 @@ export default function InstructorsPage() {
                     </span>
                   ))}
                 </div>
+
+                {/* Highlights (핵심 역량) */}
+                {(selectedInstructor.highlights || []).length > 0 && (
+                  <div className={cn("mb-8")}>
+                    <h4 className={cn("text-sm uppercase tracking-widest text-blue-200 mb-4")}>핵심 역량</h4>
+                    <ul className={cn("space-y-3")}>
+                      {(selectedInstructor.highlights || []).map((h) => (
+                        <li key={h.title} className={cn("flex items-start gap-3")}>
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-300 shrink-0" />
+                          <div>
+                            <p className={cn("text-white font-semibold text-sm")}>{h.title}</p>
+                            {h.description && <p className={cn("text-blue-100/70 text-sm mt-0.5 leading-relaxed")}>{h.description}</p>}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Social links */}
                 {selectedInstructor.socialLinks && (
