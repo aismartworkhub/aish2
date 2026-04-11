@@ -661,8 +661,9 @@ function InstructorProgramsSection({
 /* ── Main Page ── */
 export default function InstructorsPage() {
   const [pc, setPc] = useState<PageContentBase>(DEFAULT_INSTRUCTORS);
-  const [instructors, setInstructors] = useState<InstructorItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [instructors, setInstructors] = useState<InstructorItem[]>(
+    DEMO_INSTRUCTORS as InstructorItem[],
+  );
   const [selectedInstructor, setSelectedInstructor] =
     useState<InstructorItem | null>(null);
   const { isAdmin } = useAuth();
@@ -674,21 +675,13 @@ export default function InstructorsPage() {
   useEffect(() => {
     getCollection<InstructorItem>(COLLECTIONS.INSTRUCTORS)
       .then((data) => {
-        if (data.length === 0) {
-          setInstructors(DEMO_INSTRUCTORS as InstructorItem[]);
-          return;
-        }
+        if (data.length === 0) return;
         const active = data
           .filter((i) => i.isActive !== false)
           .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
-        setInstructors(
-          active.length > 0 ? active : (DEMO_INSTRUCTORS as InstructorItem[])
-        );
+        if (active.length > 0) setInstructors(active);
       })
-      .catch(() => {
-        setInstructors(DEMO_INSTRUCTORS as InstructorItem[]);
-      })
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -724,23 +717,11 @@ export default function InstructorsPage() {
           </p>
         </div>
 
-        {/* Loading */}
-        {loading && (
-          <div className={cn("flex justify-center py-12")}>
-            <div
-              className={cn(
-                "w-8 h-8 border-4 border-brand-border border-t-brand-blue rounded-full animate-spin"
-              )}
-            />
-          </div>
-        )}
-
         {/* Card Grid */}
         <div
           className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6")}
         >
-          {!loading &&
-            instructors.map((inst) => (
+          {instructors.map((inst) => (
               <div
                 key={inst.id}
                 onClick={() => setSelectedInstructor(inst)}

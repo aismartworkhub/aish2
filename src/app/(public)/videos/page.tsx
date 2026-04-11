@@ -30,7 +30,6 @@ export default function VideosPage() {
   const [pc, setPc] = useState<PageContentBase>(DEFAULT_VIDEOS);
   const [filter, setFilter] = useState("ALL");
   const [videos, setVideos] = useState<VideoItem[]>(FALLBACK_VIDEOS);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadPageContent("videos").then(setPc).catch(() => {});
@@ -44,13 +43,12 @@ export default function VideosPage() {
         const list = withUrl.length > 0 ? withUrl : data;
         const sorted = [...list].sort((a, b) => {
           const da = a.publishedAt || a.date || "";
-          const db = b.publishedAt || b.date || "";
-          return db.localeCompare(da);
+          const db2 = b.publishedAt || b.date || "";
+          return db2.localeCompare(da);
         });
         setVideos(sorted);
       })
-      .catch((err) => console.error('[VideosPage] Firestore fetch failed:', err))
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
 
   const filtered = filter === "ALL" ? videos : videos.filter((v) => v.category === filter);
@@ -85,14 +83,8 @@ export default function VideosPage() {
           ))}
         </div>
 
-        {loading && (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-brand-border border-t-brand-blue rounded-full animate-spin" />
-          </div>
-        )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {!loading && filtered.map((video) => {
+          {filtered.map((video) => {
             const hasUrl = !!video.youtubeUrl?.trim();
             const Wrapper = hasUrl ? "a" : "div";
             const wrapperProps = hasUrl

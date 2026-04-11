@@ -13,7 +13,6 @@ import type { PageContentBase } from "@/types/page-content";
 export default function WorkathonPage() {
   const [pc, setPc] = useState<PageContentBase>(DEFAULT_WORKATHON);
   const [w, setW] = useState(DEMO_WORKATHON);
-  const [loading, setLoading] = useState(true);
   const { buttonUrl, buttonText } = useSiteCta();
 
   useEffect(() => {
@@ -27,22 +26,10 @@ export default function WorkathonPage() {
         const sorted = [...data].sort((a, b) => (b.eventDate || "").localeCompare(a.eventDate || ""));
         setW(sorted[0]);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
 
   const progress = Math.round((w.currentParticipantCount / w.maxParticipants) * 100);
-
-  if (loading) {
-    return (
-      <div className="py-16 flex justify-center items-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-brand-border border-t-brand-blue rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div>
