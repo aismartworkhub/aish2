@@ -94,14 +94,7 @@ function clearProfileSession() {
 /** 로그인 시 users 컬렉션에 프로필 생성/업데이트 */
 async function ensureUserProfile(user: User): Promise<UserProfile> {
   const ref = doc(db, "users", user.uid);
-  // #region agent log
-  const t0 = Date.now();
-  fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H1", location: "AuthContext.tsx:ensureUserProfile", message: "before_getDoc", data: { uidTail: user.uid.slice(-4) }, timestamp: t0, runId: "pre-fix" }) }).catch(() => {});
-  // #endregion
   const snap = await getDoc(ref);
-  // #region agent log
-  fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H1", location: "AuthContext.tsx:ensureUserProfile", message: "after_getDoc", data: { uidTail: user.uid.slice(-4), exists: snap.exists(), msSinceBefore: Date.now() - t0 }, timestamp: Date.now(), runId: "pre-fix" }) }).catch(() => {});
-  // #endregion
 
   const isSuperAdmin = user.email === SUPER_ADMIN_EMAIL;
 
@@ -149,9 +142,6 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
   };
 
   await setDoc(ref, newProfile);
-  // #region agent log
-  fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H3", location: "AuthContext.tsx:ensureUserProfile", message: "new_user_initial_setDoc_done", data: { uidTail: user.uid.slice(-4) }, timestamp: Date.now(), runId: "pre-fix" }) }).catch(() => {});
-  // #endregion
 
   // 슈퍼관리자인 경우 생성 후 role 업데이트 (update 규칙에서 isSuperAdmin()으로 허용됨)
   if (isSuperAdmin) {
@@ -189,10 +179,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // #region agent log
-      const authT = Date.now();
-      fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H2", location: "AuthContext.tsx:onAuthStateChanged", message: "auth_callback", data: { hasUser: !!firebaseUser, uidTail: firebaseUser?.uid?.slice(-4) ?? null }, timestamp: authT, runId: "pre-fix" }) }).catch(() => {});
-      // #endregion
       setUser(firebaseUser);
       let closedLoadingEarly = false;
       if (firebaseUser) {
@@ -201,18 +187,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(cached);
           setLoading(false);
           closedLoadingEarly = true;
-          // #region agent log
-          fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H1", location: "AuthContext.tsx:onAuthStateChanged", message: "session_profile_cache_hit", data: { uidTail: firebaseUser.uid.slice(-4) }, timestamp: Date.now(), runId: "post-fix" }) }).catch(() => {});
-          // #endregion
         }
         try {
           const p = await ensureUserProfile(firebaseUser);
           setProfile(p);
           writeProfileSession(firebaseUser.uid, p);
-        } catch (e) {
-          // #region agent log
-          fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H5", location: "AuthContext.tsx:onAuthStateChanged", message: "ensureUserProfile_catch", data: { name: e instanceof Error ? e.name : "unknown" }, timestamp: Date.now(), runId: "pre-fix" }) }).catch(() => {});
-          // #endregion
+        } catch {
           setProfile({
             uid: firebaseUser.uid,
             email: firebaseUser.email ?? "",
@@ -228,9 +208,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         clearProfileSession();
       }
-      // #region agent log
-      fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H2", location: "AuthContext.tsx:onAuthStateChanged", message: "setLoading_false", data: { hadUser: !!firebaseUser, closedLoadingEarly }, timestamp: Date.now(), runId: "post-fix" }) }).catch(() => {});
-      // #endregion
       if (!closedLoadingEarly) {
         setLoading(false);
       }
