@@ -1,7 +1,11 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-
 
 const firebaseConfig = {
  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -20,6 +24,22 @@ const app =
       )
     : getApps()[0];
 
-export const db = getFirestore(app);
+/** 브라우저: IndexedDB 로컬 캐시로 Firestore 읽기 지연 완화. SSR/빌드: 메모리 전용. */
+function createFirestore() {
+  if (typeof window === "undefined") {
+    return getFirestore(app);
+  }
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    return getFirestore(app);
+  }
+}
+
+export const db = createFirestore();
 export const auth = getAuth(app);
 export default app;

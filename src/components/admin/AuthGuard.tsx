@@ -15,6 +15,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
 
+  // #region agent log
+  useEffect(() => {
+    if (!loading) {
+      fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H4", location: "AuthGuard.tsx", message: "guard_loading_false", data: { hasUser: !!user, hasProfile: !!profile, isAdmin }, timestamp: Date.now(), runId: "pre-fix" }) }).catch(() => {});
+    }
+  }, [loading, user, profile, isAdmin]);
+  // #endregion
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">

@@ -16,6 +16,10 @@ export default function AdminDashboardPage() {
   const [siteStats, setSiteStats] = useState(DEMO_STATS);
 
   useEffect(() => {
+    // #region agent log
+    const d0 = Date.now();
+    fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H4", location: "admin/page.tsx", message: "dashboard_fetch_start", data: {}, timestamp: d0, runId: "pre-fix" }) }).catch(() => {});
+    // #endregion
     Promise.all([
       getCollection<{ id: string }>(COLLECTIONS.PROGRAMS),
       getCollection<{ id: string }>(COLLECTIONS.REVIEWS),
@@ -23,6 +27,9 @@ export default function AdminDashboardPage() {
       getCollection<{ id: string }>(COLLECTIONS.CERTIFICATES_GRADUATES),
       getSingletonDoc<{ items: typeof DEMO_STATS }>(COLLECTIONS.SETTINGS, "stats"),
     ]).then(([programs, reviews, inquiries, graduates, statsDoc]) => {
+      // #region agent log
+      fetch("http://127.0.0.1:7724/ingest/3e7c6e79-c94d-4a95-8003-483776893f4b", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "86a510" }, body: JSON.stringify({ sessionId: "86a510", hypothesisId: "H4", location: "admin/page.tsx", message: "dashboard_fetch_done", data: { ms: Date.now() - d0 }, timestamp: Date.now(), runId: "pre-fix" }) }).catch(() => {});
+      // #endregion
       const newInquiries = inquiries.filter((i) => i.status === "NEW").length;
       setStats([
         { label: "총 수강생", value: `${graduates.length}명`, icon: Users, color: "text-blue-600 bg-blue-50" },
