@@ -1,10 +1,5 @@
 import { initializeApp, getApps } from "firebase/app";
-import {
-  getFirestore,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-} from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -16,7 +11,6 @@ const firebaseConfig = {
  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Only initialize if we have a valid config (prevents build-time crash)
 const app =
   getApps().length === 0
     ? initializeApp(
@@ -24,22 +18,6 @@ const app =
       )
     : getApps()[0];
 
-/** 브라우저: IndexedDB 로컬 캐시로 Firestore 읽기 지연 완화. SSR/빌드: 메모리 전용. */
-function createFirestore() {
-  if (typeof window === "undefined") {
-    return getFirestore(app);
-  }
-  try {
-    return initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
-      }),
-    });
-  } catch {
-    return getFirestore(app);
-  }
-}
-
-export const db = createFirestore();
+export const db = getFirestore(app);
 export const auth = getAuth(app);
 export default app;
