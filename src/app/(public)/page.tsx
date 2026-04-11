@@ -123,8 +123,6 @@ export default function HomePage() {
   const [featuredVideos, setFeaturedVideos] = useState<{ id: string; title: string; youtubeUrl: string; category?: string }[]>([]);
   const [heroSlides, setHeroSlides] = useState<HeroSlidePublic[]>(() => pickActiveHeroSlides(undefined));
   const [heroIndex, setHeroIndex] = useState(0);
-  const [eduImages, setEduImages] = useState<Record<string, string>>({});
-  const [specImages, setSpecImages] = useState<Record<string, string>>({});
   const [siteBanner, setSiteBanner] = useState<SiteBannerConfig | null>(null);
   const [ctaCfg, setCtaCfg] = useState(DEFAULT_SITE_CTA);
   const [pageContent, setPageContent] = useState<HomePageContent>(DEFAULT_HOME);
@@ -136,24 +134,18 @@ export default function HomePage() {
     () =>
       (pageContent.educationCards.length > 0 ? pageContent.educationCards : EDUCATION_CATEGORIES).map((cat) => ({
         ...cat,
-        image: ("imageUrl" in cat ? cat.imageUrl : cat.image) as string,
-      })).map((cat) => ({
-        ...cat,
-        image: eduImages[cat.title] || cat.image,
+        image: ("imageUrl" in cat ? cat.imageUrl : (cat as typeof EDUCATION_CATEGORIES[number]).image) || "",
       })),
-    [eduImages, pageContent.educationCards]
+    [pageContent.educationCards]
   );
 
   const specialtyCardsResolved = useMemo(
     () =>
       (pageContent.specialtyCards.length > 0 ? pageContent.specialtyCards : SPECIALTY_CARDS).map((card) => ({
         ...card,
-        image: ("imageUrl" in card ? card.imageUrl : card.image) as string,
-      })).map((card) => ({
-        ...card,
-        image: specImages[card.title] || card.image,
+        image: ("imageUrl" in card ? card.imageUrl : (card as typeof SPECIALTY_CARDS[number]).image) || "",
       })),
-    [specImages, pageContent.specialtyCards]
+    [pageContent.specialtyCards]
   );
 
   const currentHero = heroSlides[heroIndex] ?? heroSlides[0];
@@ -190,11 +182,7 @@ export default function HomePage() {
           firestoreVideos,
         ] = await Promise.all([
           loadSiteCta(),
-          getSingletonDoc<{
-            slides?: HeroSlidePublic[];
-            educationImages?: Record<string, string>;
-            specialtyImages?: Record<string, string>;
-          }>(COLLECTIONS.SETTINGS, "hero"),
+          getSingletonDoc<{ slides?: HeroSlidePublic[] }>(COLLECTIONS.SETTINGS, "hero"),
           getSingletonDoc<SiteBannerConfig>(COLLECTIONS.SETTINGS, "banner"),
           getCollection<typeof DEMO_PROGRAMS[0]>(COLLECTIONS.PROGRAMS),
           getCollection<typeof DEMO_REVIEWS[0]>(COLLECTIONS.REVIEWS),
@@ -205,12 +193,6 @@ export default function HomePage() {
         ]);
         setCtaCfg(ctaLoaded);
         setHeroSlides(pickActiveHeroSlides(heroDoc?.slides));
-        if (heroDoc?.educationImages && Object.keys(heroDoc.educationImages).length > 0) {
-          setEduImages(heroDoc.educationImages);
-        }
-        if (heroDoc?.specialtyImages && Object.keys(heroDoc.specialtyImages).length > 0) {
-          setSpecImages(heroDoc.specialtyImages);
-        }
         if (bannerDoc) setSiteBanner(bannerDoc);
         if (firestorePrograms.length > 0) setPrograms(firestorePrograms);
         // Runmoa 콘텐츠 + Event 로드

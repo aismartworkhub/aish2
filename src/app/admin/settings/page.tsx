@@ -73,8 +73,6 @@ function AdminSettingsInner() {
 
   // Hero
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
-  const [eduImages, setEduImages] = useState<Record<string, string>>({});
-  const [specImages, setSpecImages] = useState<Record<string, string>>({});
 
   // Stats
   const [stats, setStats] = useState<StatItem[]>([]);
@@ -93,16 +91,14 @@ function AdminSettingsInner() {
 
   useEffect(() => {
     Promise.all([
-      getSingletonDoc<{ slides: HeroSlide[]; educationImages: Record<string, string>; specialtyImages: Record<string, string> }>(COLLECTIONS.SETTINGS, "hero"),
+      getSingletonDoc<{ slides: HeroSlide[] }>(COLLECTIONS.SETTINGS, "hero"),
       getSingletonDoc<{ items: StatItem[] }>(COLLECTIONS.SETTINGS, "stats"),
       getSingletonDoc<CtaConfig>(COLLECTIONS.SETTINGS, "cta"),
       getSingletonDoc<BannerConfig>(COLLECTIONS.SETTINGS, "banner"),
       getSingletonDoc<{ googleApi: GoogleApiConfig; emailConfig: EmailConfig; driveConfig: DriveConfig; calendarConfig: CalendarConfig }>(COLLECTIONS.SETTINGS, "integrations"),
     ]).then(([heroDoc, statsDoc, ctaDoc, bannerDoc, intDoc]) => {
-      if (heroDoc) {
-        if (heroDoc.slides) setHeroSlides(heroDoc.slides);
-        if (heroDoc.educationImages) setEduImages(heroDoc.educationImages);
-        if (heroDoc.specialtyImages) setSpecImages(heroDoc.specialtyImages);
+      if (heroDoc?.slides) {
+        setHeroSlides(heroDoc.slides);
       }
       if (statsDoc?.items) setStats(statsDoc.items);
       if (ctaDoc) setCta({ buttonText: ctaDoc.buttonText ?? "", buttonUrl: ctaDoc.buttonUrl ?? "", floatingEnabled: ctaDoc.floatingEnabled ?? true });
@@ -131,16 +127,6 @@ function AdminSettingsInner() {
           return `슬라이드 ${i + 1}: CTA 링크는 https:// 또는 / 로 시작해야 합니다. (비우면 사이트 공통 CTA URL 사용)`;
         }
       }
-      for (const url of Object.values(eduImages)) {
-        if (url.trim() && !isValidNonEmptyImageSource(url)) {
-          return "Education 이미지 URL 형식을 확인하세요.";
-        }
-      }
-      for (const url of Object.values(specImages)) {
-        if (url.trim() && !isValidNonEmptyImageSource(url)) {
-          return "Specialty 이미지 URL 형식을 확인하세요.";
-        }
-      }
     }
     if (activeTab === "cta") {
       if (!isValidOptionalHttpOrPath(cta.buttonUrl)) {
@@ -164,7 +150,7 @@ function AdminSettingsInner() {
     setSaving(true);
     try {
       if (activeTab === "hero") {
-        await setSingletonDoc(COLLECTIONS.SETTINGS, "hero", { slides: heroSlides, educationImages: eduImages, specialtyImages: specImages });
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "hero", { slides: heroSlides });
       } else if (activeTab === "stats") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "stats", { items: stats });
       } else if (activeTab === "cta") {
@@ -269,40 +255,12 @@ function AdminSettingsInner() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-6">Education 섹션 이미지</h2>
-            <div className="space-y-3">
-              {Object.entries(eduImages).map(([label, url]) => (
-                <div key={label} className="flex items-center gap-4 p-3 rounded-lg border border-gray-200">
-                  <img src={url} alt={label} className="w-16 h-10 rounded object-cover shrink-0" />
-                  <span className="text-sm font-medium text-gray-700 w-24 shrink-0">{label}</span>
-                  <input type="text" value={url} onChange={(e) => setEduImages((prev) => ({ ...prev, [label]: e.target.value }))}
-                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-3 mt-4">
-              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
-              {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-6">Specialty 섹션 이미지</h2>
-            <div className="space-y-3">
-              {Object.entries(specImages).map(([label, url]) => (
-                <div key={label} className="flex items-center gap-4 p-3 rounded-lg border border-gray-200">
-                  <img src={url} alt={label} className="w-16 h-10 rounded object-cover shrink-0" />
-                  <span className="text-sm font-medium text-gray-700 w-24 shrink-0">{label}</span>
-                  <input type="text" value={url} onChange={(e) => setSpecImages((prev) => ({ ...prev, [label]: e.target.value }))}
-                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center gap-3 mt-4">
-              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
-              {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
-            </div>
+          <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm text-gray-500">
+              Education·Specialty 카드(제목·이미지)는{" "}
+              <a href="/admin/pages" className="underline font-medium text-primary-600">페이지 관리 &gt; 홈</a>
+              에서 관리합니다.
+            </p>
           </div>
         </div>
       )}

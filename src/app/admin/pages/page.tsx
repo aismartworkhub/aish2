@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Save, Plus, Trash2, ChevronUp, ChevronDown, Loader2, ExternalLink } from "lucide-react";
+import { Save, Plus, Trash2, ChevronUp, ChevronDown, Loader2, ExternalLink, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, PAGE_DOC_ID, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
 import { useToast } from "@/components/ui/Toast";
@@ -171,44 +171,60 @@ export default function AdminPagesPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Hero Section */}
-          <Card title="히어로 / 상단 배너">
-            <div className="space-y-3">
-              <Field label="배너 이미지 URL">
-                <input
-                  value={form.hero.imageUrl}
-                  onChange={(e) => updateHero("imageUrl", e.target.value)}
-                  placeholder="예: /images/defaults/hero-main.jpg 또는 https://..."
-                  className={INPUT_CLASS}
-                />
-                {form.hero.imageUrl && (
-                  <img
-                    src={form.hero.imageUrl}
-                    alt="미리보기"
-                    className="mt-2 h-32 rounded-lg object-cover"
-                  />
-                )}
-              </Field>
-              <Field label="제목">
-                <textarea
-                  value={form.hero.title}
-                  onChange={(e) => updateHero("title", e.target.value)}
-                  placeholder="페이지 대제목"
-                  rows={2}
-                  className={INPUT_CLASS}
-                />
-              </Field>
-              <Field label="부제">
-                <textarea
-                  value={form.hero.subtitle}
-                  onChange={(e) => updateHero("subtitle", e.target.value)}
-                  placeholder="페이지 부제목"
-                  rows={2}
-                  className={INPUT_CLASS}
-                />
-              </Field>
+          {/* Hero Section — 홈은 사이트 설정 슬라이드로 관리 */}
+          {activeTab === "home" ? (
+            <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <Info size={18} className="text-blue-600 mt-0.5 shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-semibold mb-1">홈 히어로는 슬라이드 캐러셀로 운영됩니다.</p>
+                <p>
+                  슬라이드 이미지·제목·CTA는{" "}
+                  <Link href="/admin/settings?tab=hero" className="underline font-medium">
+                    사이트 설정 &gt; 히어로 섹션
+                  </Link>
+                  에서 관리합니다.
+                </p>
+              </div>
             </div>
-          </Card>
+          ) : (
+            <Card title="히어로 / 상단 배너">
+              <div className="space-y-3">
+                <Field label="배너 이미지 URL">
+                  <input
+                    value={form.hero.imageUrl}
+                    onChange={(e) => updateHero("imageUrl", e.target.value)}
+                    placeholder="예: /images/defaults/hero-main.jpg 또는 https://..."
+                    className={INPUT_CLASS}
+                  />
+                  {form.hero.imageUrl && (
+                    <img
+                      src={form.hero.imageUrl}
+                      alt="미리보기"
+                      className="mt-2 h-32 rounded-lg object-cover"
+                    />
+                  )}
+                </Field>
+                <Field label="제목">
+                  <textarea
+                    value={form.hero.title}
+                    onChange={(e) => updateHero("title", e.target.value)}
+                    placeholder="페이지 대제목"
+                    rows={2}
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+                <Field label="부제">
+                  <textarea
+                    value={form.hero.subtitle}
+                    onChange={(e) => updateHero("subtitle", e.target.value)}
+                    placeholder="페이지 부제목"
+                    rows={2}
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+              </div>
+            </Card>
+          )}
 
           {/* Sections */}
           {Object.keys(form.sections).length > 0 && (
