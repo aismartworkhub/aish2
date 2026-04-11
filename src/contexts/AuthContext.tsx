@@ -61,31 +61,37 @@ const AuthContext = createContext<AuthContextType>({
   deleteAccount: async () => {},
 });
 
-const PROFILE_SESSION_KEY = "aish_profile_cache_v1";
+const PROFILE_CACHE_KEY = "aish_profile_v2";
+const PROFILE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
 
-function readProfileSession(uid: string): UserProfile | null {
+function readProfileCache(uid?: string): { uid: string; profile: UserProfile } | null {
   try {
-    const raw = sessionStorage.getItem(PROFILE_SESSION_KEY);
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { uid: string; profile: UserProfile };
-    if (parsed.uid !== uid || !parsed.profile?.role) return null;
-    return parsed.profile;
+    const parsed = JSON.parse(raw) as { uid: string; profile: UserProfile; ts: number };
+    if (!parsed.profile?.role) return null;
+    if (Date.now() - parsed.ts > PROFILE_CACHE_TTL) {
+      localStorage.removeItem(PROFILE_CACHE_KEY);
+      return null;
+    }
+    if (uid && parsed.uid !== uid) return null;
+    return parsed;
   } catch {
     return null;
   }
 }
 
-function writeProfileSession(uid: string, profile: UserProfile) {
+function writeProfileCache(uid: string, profile: UserProfile) {
   try {
-    sessionStorage.setItem(PROFILE_SESSION_KEY, JSON.stringify({ uid, profile }));
+    localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ uid, profile, ts: Date.now() }));
   } catch {
     /* quota / private mode */
   }
 }
 
-function clearProfileSession() {
+function clearProfileCache() {
   try {
-    sessionStorage.removeItem(PROFILE_SESSION_KEY);
+    localStorage.removeItem(PROFILE_CACHE_KEY);
   } catch {
     /* ignore */
   }
@@ -153,16 +159,18 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // onAuthStateChanged 전이라도 localStorage 캐시가 있으면 즉시 사용
+  const preflight = typeof window !== "undefined" ? readProfileCache() : null;
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<UserProfile | null>(preflight?.profile ?? null);
+  const [loading, setLoading] = useState(!preflight);
 
   const refreshProfile = useCallback(async () => {
     if (!user) return;
     try {
       const p = await ensureUserProfile(user);
       setProfile(p);
-      writeProfileSession(user.uid, p);
+      writeProfileCache(user.uid, p);
     } catch {
       setProfile({
         uid: user.uid,
@@ -180,51 +188,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
-      let closedLoadingEarly = false;
       if (firebaseUser) {
-        const cached = readProfileSession(firebaseUser.uid);
+        const cached = readProfileCache(firebaseUser.uid);
         if (cached) {
-          setProfile(cached);
+          setProfile(cached.profile);
           setLoading(false);
-          closedLoadingEarly = true;
         }
         try {
           const p = await ensureUserProfile(firebaseUser);
           setProfile(p);
-          writeProfileSession(firebaseUser.uid, p);
+          writeProfileCache(firebaseUser.uid, p);
         } catch {
-          setProfile({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email ?? "",
-            displayName: firebaseUser.displayName ?? "",
-            photoURL: firebaseUser.photoURL ?? null,
-            role: firebaseUser.email === SUPER_ADMIN_EMAIL ? "superadmin" : "user",
-            isActive: true,
-            createdAt: null,
-            lastLoginAt: null,
-          });
+          if (!cached) {
+            setProfile({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email ?? "",
+              displayName: firebaseUser.displayName ?? "",
+              photoURL: firebaseUser.photoURL ?? null,
+              role: firebaseUser.email === SUPER_ADMIN_EMAIL ? "superadmin" : "user",
+              isActive: true,
+              createdAt: null,
+              lastLoginAt: null,
+            });
+          }
         }
+        setLoading(false);
       } else {
         setProfile(null);
-        clearProfileSession();
-      }
-      if (!closedLoadingEarly) {
         setLoading(false);
+        clearProfileCache();
       }
     });
     return () => unsubscribe();
   }, []);
 
   const signOut = async () => {
-    clearProfileSession();
+    clearProfileCache();
     await firebaseSignOut(auth);
     setProfile(null);
   };
 
   const deleteAccount = async () => {
     if (!user) throw new Error("로그인되지 않았습니다.");
-    // Firestore 프로필 삭제
-    clearProfileSession();
+    clearProfileCache();
     await deleteDoc(doc(db, "users", user.uid));
     // Firebase Auth 계정 삭제 (본인만 가능)
     await deleteUser(user);
