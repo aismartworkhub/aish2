@@ -73,12 +73,13 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     const role: UserRole = isSuperAdmin ? "superadmin" : (data.role ?? "user");
     const needsRoleUpdate = isSuperAdmin && data.role !== "superadmin";
 
-    await setDoc(ref, {
+    // non-blocking: 프로필 반환을 지연시키지 않도록 await 하지 않음
+    setDoc(ref, {
       ...(needsRoleUpdate ? { role: "superadmin" } : {}),
       displayName: user.displayName ?? data.displayName ?? "",
       photoURL: user.photoURL ?? data.photoURL ?? null,
       lastLoginAt: serverTimestamp(),
-    }, { merge: true });
+    }, { merge: true }).catch(() => {});
 
     return {
       uid: user.uid,
@@ -88,7 +89,7 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       role,
       isActive: data.isActive ?? true,
       createdAt: data.createdAt,
-      lastLoginAt: serverTimestamp(),
+      lastLoginAt: data.lastLoginAt,
       name: data.name ?? "",
       cohort: data.cohort ?? "",
       phone: data.phone ?? "",

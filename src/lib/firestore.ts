@@ -19,11 +19,17 @@ import { db } from "./firebase";
 // In-memory cache (stale-while-revalidate)
 const CACHE_TTL = 30_000; // 30초 내 재요청은 캐시 반환
 const _cache = new Map<string, { data: unknown[]; ts: number }>();
+const _singletonCache = new Map<string, { data: unknown; ts: number }>();
 
 export function invalidateCache(col: string) {
   for (const key of _cache.keys()) {
     if (key === col || key.startsWith(`${col}__`)) {
       _cache.delete(key);
+    }
+  }
+  for (const key of _singletonCache.keys()) {
+    if (key.startsWith(`${col}/`)) {
+      _singletonCache.delete(key);
     }
   }
 }
@@ -99,7 +105,14 @@ export async function getDocById<T>(col: string, id: string): Promise<T | null> 
 }
 
 export async function getSingletonDoc<T>(col: string, id: string): Promise<T | null> {
-  return getDocById<T>(col, id);
+  const cacheKey = `${col}/${id}`;
+  const cached = _singletonCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    return cached.data as T | null;
+  }
+  const result = await getDocById<T>(col, id);
+  _singletonCache.set(cacheKey, { data: result, ts: Date.now() });
+  return result;
 }
 
 export async function setSingletonDoc<T extends DocumentData>(col: string, id: string, data: WithFieldValue<T>): Promise<void> {

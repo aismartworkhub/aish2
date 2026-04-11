@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ImageIcon, Hash, MousePointerClick, Megaphone,
   Save, Plus, Trash2, GripVertical,
-  Key, Mail, Cloud, Calendar, Database, Shield,
+  Key, Mail, Cloud, Calendar, Database, Shield, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, getSingletonDoc, setSingletonDoc, upsertDoc } from "@/lib/firestore";
@@ -63,6 +63,7 @@ function AdminSettingsInner() {
   const [activeTab, setActiveTab] = useState<SettingsTab>(tabParam || "hero");
   const [saveMessage, setSaveMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [tabLoading, setTabLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -89,32 +90,41 @@ function AdminSettingsInner() {
   const [driveConfig, setDriveConfig] = useState<DriveConfig>({ folderId: "", autoSyncEnabled: false });
   const [calendarConfig, setCalendarConfig] = useState<CalendarConfig>({ calendarId: "", autoRegisterEnabled: false });
 
-  useEffect(() => {
-    Promise.all([
-      getSingletonDoc<{ slides: HeroSlide[] }>(COLLECTIONS.SETTINGS, "hero"),
-      getSingletonDoc<{ items: StatItem[] }>(COLLECTIONS.SETTINGS, "stats"),
-      getSingletonDoc<CtaConfig>(COLLECTIONS.SETTINGS, "cta"),
-      getSingletonDoc<BannerConfig>(COLLECTIONS.SETTINGS, "banner"),
-      getSingletonDoc<{ googleApi: GoogleApiConfig; emailConfig: EmailConfig; driveConfig: DriveConfig; calendarConfig: CalendarConfig }>(COLLECTIONS.SETTINGS, "integrations"),
-    ]).then(([heroDoc, statsDoc, ctaDoc, bannerDoc, intDoc]) => {
-      if (heroDoc?.slides) {
-        setHeroSlides(heroDoc.slides);
+  const loadTabData = useCallback(async (tab: SettingsTab) => {
+    setTabLoading(true);
+    try {
+      if (tab === "hero") {
+        const heroDoc = await getSingletonDoc<{ slides: HeroSlide[] }>(COLLECTIONS.SETTINGS, "hero");
+        if (heroDoc?.slides) setHeroSlides(heroDoc.slides);
+      } else if (tab === "stats") {
+        const statsDoc = await getSingletonDoc<{ items: StatItem[] }>(COLLECTIONS.SETTINGS, "stats");
+        if (statsDoc?.items) setStats(statsDoc.items);
+      } else if (tab === "cta") {
+        const ctaDoc = await getSingletonDoc<CtaConfig>(COLLECTIONS.SETTINGS, "cta");
+        if (ctaDoc) setCta({ buttonText: ctaDoc.buttonText ?? "", buttonUrl: ctaDoc.buttonUrl ?? "", floatingEnabled: ctaDoc.floatingEnabled ?? true });
+      } else if (tab === "banner") {
+        const bannerDoc = await getSingletonDoc<BannerConfig>(COLLECTIONS.SETTINGS, "banner");
+        if (bannerDoc) setBanner({ enabled: bannerDoc.enabled ?? true, title: bannerDoc.title ?? "", dDayDate: bannerDoc.dDayDate ?? "", link: bannerDoc.link ?? "" });
+      } else if (tab === "integrations") {
+        const intDoc = await getSingletonDoc<{ googleApi: GoogleApiConfig; emailConfig: EmailConfig; driveConfig: DriveConfig; calendarConfig: CalendarConfig }>(COLLECTIONS.SETTINGS, "integrations");
+        if (intDoc) {
+          if (intDoc.googleApi) setGoogleApi({
+            ...intDoc.googleApi,
+            clientSecret: maskSensitive(intDoc.googleApi.clientSecret),
+            apiKey: maskSensitive(intDoc.googleApi.apiKey),
+          });
+          if (intDoc.emailConfig) setEmailConfig(intDoc.emailConfig);
+          if (intDoc.driveConfig) setDriveConfig(intDoc.driveConfig);
+          if (intDoc.calendarConfig) setCalendarConfig(intDoc.calendarConfig);
+        }
       }
-      if (statsDoc?.items) setStats(statsDoc.items);
-      if (ctaDoc) setCta({ buttonText: ctaDoc.buttonText ?? "", buttonUrl: ctaDoc.buttonUrl ?? "", floatingEnabled: ctaDoc.floatingEnabled ?? true });
-      if (bannerDoc) setBanner({ enabled: bannerDoc.enabled ?? true, title: bannerDoc.title ?? "", dDayDate: bannerDoc.dDayDate ?? "", link: bannerDoc.link ?? "" });
-      if (intDoc) {
-        if (intDoc.googleApi) setGoogleApi({
-          ...intDoc.googleApi,
-          clientSecret: maskSensitive(intDoc.googleApi.clientSecret),
-          apiKey: maskSensitive(intDoc.googleApi.apiKey),
-        });
-        if (intDoc.emailConfig) setEmailConfig(intDoc.emailConfig);
-        if (intDoc.driveConfig) setDriveConfig(intDoc.driveConfig);
-        if (intDoc.calendarConfig) setCalendarConfig(intDoc.calendarConfig);
-      }
-    }).catch(console.error);
+    } catch { /* 로드 실패 시 기본값 유지 */ }
+    setTabLoading(false);
   }, []);
+
+  useEffect(() => {
+    loadTabData(activeTab);
+  }, [activeTab, loadTabData]);
 
   const validateBeforeSave = (): string | null => {
     if (activeTab === "hero") {
@@ -209,6 +219,12 @@ function AdminSettingsInner() {
       </div>
 
       <AdminSettingsPublicHint tab={activeTab} />
+
+      {tabLoading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 size={32} className="animate-spin text-gray-400" />
+        </div>
+      ) : (<>
 
       {/* 히어로 */}
       {activeTab === "hero" && (
@@ -508,6 +524,8 @@ function AdminSettingsInner() {
           </div>
         </div>
       )}
+
+      </>)}
     </div>
   );
 }
