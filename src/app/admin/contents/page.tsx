@@ -416,9 +416,29 @@ export default function AdminContentsPage() {
                         {editing.mediaType && editing.mediaType !== "none" && (
                           <p className="mt-1 text-xs text-gray-400">
                             자동 감지: {editing.mediaType}
+                            {editing.thumbnailUrl && " · 썸네일 자동 생성됨"}
+                          </p>
+                        )}
+                        {editing.mediaUrl && /drive\.google\.com/.test(editing.mediaUrl) && (
+                          <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                            Google Drive 파일은 &quot;링크가 있는 모든 사용자&quot;로 공유해야 미리보기가 표시됩니다.
                           </p>
                         )}
                       </div>
+                      {editing.thumbnailUrl && (
+                        <div className="rounded-lg border border-gray-100 bg-gray-50 p-2">
+                          <p className="mb-1 text-[11px] text-gray-400">썸네일 미리보기</p>
+                          <div className="h-24 w-40 overflow-hidden rounded bg-white">
+                            <MediaPreview
+                              mediaUrl={editing.mediaUrl}
+                              mediaType={editing.mediaType as MediaType}
+                              thumbnailUrl={editing.thumbnailUrl}
+                              title="미리보기"
+                              className="h-full w-full"
+                            />
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">썸네일 URL (선택)</label>
                         <input

@@ -229,6 +229,11 @@ export async function getUserReactions(
 
 // ── URL → 미디어 타입 자동 감지 ──
 
+const IMAGE_EXT = /\.(jpe?g|png|webp|svg|bmp)(\?|$)/;
+const GIF_EXT = /\.gif(\?|$)/;
+const PDF_EXT = /\.pdf(\?|$)/;
+const DOC_EXT = /\.(docx?|pptx?|xlsx?|hwp|hwpx)(\?|$)/;
+
 export function detectMediaType(url: string): {
   mediaType: Content["mediaType"];
   thumbnailUrl?: string;
@@ -236,6 +241,7 @@ export function detectMediaType(url: string): {
 } {
   if (!url) return { mediaType: "none" };
 
+  // YouTube
   const ytMatch = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/,
   );
@@ -248,11 +254,42 @@ export function detectMediaType(url: string): {
     };
   }
 
+  // Google Drive 링크 → 이미지로 처리 + 썸네일 자동 생성
+  const driveFileId = extractDriveFileId(url);
+  if (driveFileId) {
+    return {
+      mediaType: "image",
+      thumbnailUrl: `https://drive.google.com/thumbnail?id=${driveFileId}&sz=w800`,
+    };
+  }
+
+  // googleusercontent 직접 링크
+  const gucMatch = url.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)/);
+  if (gucMatch) {
+    return {
+      mediaType: "image",
+      thumbnailUrl: `https://drive.google.com/thumbnail?id=${gucMatch[1]}&sz=w800`,
+    };
+  }
+
   const lower = url.toLowerCase();
-  if (/\.gif(\?|$)/.test(lower)) return { mediaType: "gif" };
-  if (/\.(jpe?g|png|webp|svg|bmp)(\?|$)/.test(lower))
-    return { mediaType: "image" };
-  if (/\.pdf(\?|$)/.test(lower)) return { mediaType: "pdf" };
+  if (GIF_EXT.test(lower)) return { mediaType: "gif" };
+  if (IMAGE_EXT.test(lower)) return { mediaType: "image" };
+  if (PDF_EXT.test(lower)) return { mediaType: "pdf" };
+  if (DOC_EXT.test(lower)) return { mediaType: "link" };
 
   return { mediaType: "link" };
+}
+
+/** Google Drive 공유 URL에서 파일 ID 추출 */
+function extractDriveFileId(url: string): string | null {
+  const m1 = url.match(/drive\.google\.com\/(?:drive\/[^/]+\/)?file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m1) return m1[1];
+  const m2 = url.match(/drive\.google\.com\/open\?[^#]*id=([a-zA-Z0-9_-]+)/);
+  if (m2) return m2[1];
+  const m3 = url.match(/drive\.google\.com\/uc\?[^#]*id=([a-zA-Z0-9_-]+)/);
+  if (m3) return m3[1];
+  const m4 = url.match(/drive\.google\.com\/thumbnail\?[^#]*id=([a-zA-Z0-9_-]+)/);
+  if (m4) return m4[1];
+  return null;
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Play, Image as ImageIcon, FileText, Link2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, extractGoogleDriveFileId, googleDriveThumbnailUrl, toDirectImageUrl } from "@/lib/utils";
 import type { MediaType } from "@/types/content";
 import { detectMediaType } from "@/lib/content-engine";
 
@@ -25,6 +25,32 @@ const FALLBACK_ICON: Record<MediaType, typeof Play> = {
   none: ImageIcon,
 };
 
+/** mediaUrl / thumbnailUrl에서 시도할 이미지 URL 후보 목록을 생성 */
+function buildImageCandidates(mediaUrl?: string, thumbnailUrl?: string): string[] {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const add = (u: string) => {
+    if (u && !seen.has(u)) { seen.add(u); candidates.push(u); }
+  };
+
+  if (thumbnailUrl) add(thumbnailUrl);
+
+  for (const raw of [mediaUrl, thumbnailUrl]) {
+    if (!raw) continue;
+    const fileId = extractGoogleDriveFileId(raw);
+    if (fileId) {
+      add(toDirectImageUrl(raw));
+      add(googleDriveThumbnailUrl(fileId, 800));
+    }
+  }
+
+  if (mediaUrl && !extractGoogleDriveFileId(mediaUrl)) {
+    add(mediaUrl);
+  }
+
+  return candidates;
+}
+
 export default function MediaPreview({
   mediaUrl,
   mediaType: typeProp,
@@ -42,8 +68,25 @@ export default function MediaPreview({
   const thumbnailUrl = thumbProp || detected?.thumbnailUrl;
   const embedUrl = detected?.embedUrl;
 
-  const [imgError, setImgError] = useState(false);
+  const candidates = useMemo(
+    () => buildImageCandidates(mediaUrl, thumbnailUrl),
+    [mediaUrl, thumbnailUrl],
+  );
 
+  const [imgIdx, setImgIdx] = useState(0);
+  const [allFailed, setAllFailed] = useState(false);
+
+  useEffect(() => {
+    setImgIdx(0);
+    setAllFailed(false);
+  }, [mediaUrl, thumbnailUrl]);
+
+  const handleImgError = () => {
+    if (imgIdx < candidates.length - 1) setImgIdx((i) => i + 1);
+    else setAllFailed(true);
+  };
+
+  // YouTube 임베드
   if (embed && mediaType === "youtube" && embedUrl) {
     return (
       <div className={cn("relative aspect-video w-full overflow-hidden rounded-lg bg-black", className)}>
@@ -58,23 +101,7 @@ export default function MediaPreview({
     );
   }
 
-  if (mediaType === "image" || mediaType === "gif") {
-    const src = mediaUrl || thumbnailUrl;
-    if (src && !imgError) {
-      return (
-        <img
-          src={src}
-          alt={title}
-          className={cn("h-full w-full object-cover", className)}
-          loading="lazy"
-          decoding="async"
-          referrerPolicy="no-referrer"
-          onError={() => setImgError(true)}
-        />
-      );
-    }
-  }
-
+  // PDF 임베드
   if (mediaType === "pdf" && mediaUrl && embed) {
     return (
       <div className={cn("relative aspect-[4/3] w-full overflow-hidden rounded-lg", className)}>
@@ -83,18 +110,20 @@ export default function MediaPreview({
     );
   }
 
-  if (thumbnailUrl && !imgError) {
+  // 이미지 후보가 있고 아직 모두 실패하지 않았으면 순차 시도
+  if (candidates.length > 0 && !allFailed) {
+    const currentSrc = candidates[Math.min(imgIdx, candidates.length - 1)];
     const Icon = FALLBACK_ICON[mediaType];
     return (
       <div className={cn("relative overflow-hidden", className)}>
         <img
-          src={thumbnailUrl}
+          src={currentSrc}
           alt={title}
           className="h-full w-full object-cover"
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          onError={() => setImgError(true)}
+          onError={handleImgError}
         />
         {mediaType === "youtube" && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -110,6 +139,7 @@ export default function MediaPreview({
     );
   }
 
+  // 최종 폴백: 타입별 아이콘
   const Icon = FALLBACK_ICON[mediaType];
   return (
     <div className={cn(
