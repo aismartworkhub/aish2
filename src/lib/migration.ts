@@ -2,8 +2,8 @@
  * 레거시 컬렉션 → contents 컬렉션 일괄 마이그레이션
  * 관리자 도구에서 호출. 이미 존재하는 ID는 건너뛴다.
  */
-import { collection, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "./firebase";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "./firebase";
 import { COLLECTIONS } from "./firestore";
 import {
   loadLegacyVideosAsContent,
@@ -59,6 +59,11 @@ async function migrateContents(items: Content[], label: string): Promise<Migrati
 export async function runFullMigration(
   onProgress?: (msg: string) => void,
 ): Promise<MigrationResult> {
+  if (!auth.currentUser) {
+    throw new Error("로그인 상태가 아닙니다. 다시 로그인 후 시도해주세요.");
+  }
+  await auth.currentUser.getIdToken(true);
+
   const total: MigrationResult = { total: 0, created: 0, skipped: 0, errors: 0, details: [] };
 
   const merge = (r: MigrationResult) => {
