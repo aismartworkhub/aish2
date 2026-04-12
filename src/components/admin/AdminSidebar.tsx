@@ -8,6 +8,7 @@ import {
  Star, Trophy, HelpCircle, Mail, ImageIcon, Handshake, Clock,
  Award, Shield, ChevronDown, ChevronRight, X,
  Megaphone, Zap, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
+ Archive,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, Image: ImageIcon, Handshake, Clock,
  Award, Shield, Megaphone, Zap, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
+ Archive,
 };
 
 interface NavChild {
@@ -32,44 +34,88 @@ interface NavItem {
  children?: NavChild[];
 }
 
-const NAV_ITEMS: NavItem[] = [
- { label: "대시보드", href: "/admin", icon: "LayoutDashboard" },
+interface NavGroup {
+ title: string;
+ items: NavItem[];
+ collapsible?: boolean;
+ defaultOpen?: boolean;
+}
+
+const NAV_GROUPS: NavGroup[] = [
  {
-   label: "사이트 설정", href: "/admin/settings", icon: "Settings",
-   children: [
-     { label: "히어로 섹션", href: "/admin/settings?tab=hero" },
-     { label: "실적 수치", href: "/admin/settings?tab=stats" },
-     { label: "CTA 설정", href: "/admin/settings?tab=cta" },
-     { label: "배너 관리", href: "/admin/settings?tab=banner" },
+   title: "",
+   items: [
+     { label: "대시보드", href: "/admin", icon: "LayoutDashboard" },
    ],
  },
- { label: "퀵배너 관리", href: "/admin/banners", icon: "Megaphone" },
- { label: "프로그램 관리", href: "/admin/programs", icon: "BookOpen" },
- { label: "Event", href: "/admin/event", icon: "Zap" },
- { label: "강사 관리", href: "/admin/instructors", icon: "Users" },
- { label: "통합 콘텐츠", href: "/admin/contents", icon: "Layers" },
- { label: "게시판 설정", href: "/admin/boards", icon: "LayoutGrid" },
  {
-   label: "게시판", href: "/admin/posts", icon: "FileText",
-   children: [
-     { label: "공지사항", href: "/admin/posts?type=NOTICE" },
+   title: "콘텐츠 관리",
+   items: [
+     { label: "통합 콘텐츠", href: "/admin/contents", icon: "Layers" },
+     { label: "게시판 설정", href: "/admin/boards", icon: "LayoutGrid" },
+     { label: "자료실", href: "/admin/resources", icon: "FolderOpen" },
    ],
  },
- { label: "자료실", href: "/admin/resources", icon: "FolderOpen" },
- { label: "영상 관리", href: "/admin/videos", icon: "Video" },
- { label: "후기 관리", href: "/admin/reviews", icon: "Star" },
  {
-   label: "행사관리", href: "/admin/workathon", icon: "Trophy",
+   title: "교육 운영",
+   items: [
+     { label: "프로그램 관리", href: "/admin/programs", icon: "BookOpen" },
+     { label: "강사 관리", href: "/admin/instructors", icon: "Users" },
+     { label: "수료증", href: "/admin/certificates", icon: "Award" },
+     {
+       label: "행사관리", href: "/admin/workathon", icon: "Trophy",
+     },
+     { label: "Event", href: "/admin/event", icon: "Zap" },
+   ],
  },
- { label: "FAQ", href: "/admin/faq", icon: "HelpCircle" },
- { label: "문의 관리", href: "/admin/inquiries", icon: "Mail" },
- { label: "갤러리", href: "/admin/gallery", icon: "Image" },
- { label: "파트너", href: "/admin/partners", icon: "Handshake" },
- { label: "연혁", href: "/admin/history", icon: "Clock" },
- { label: "수료증", href: "/admin/certificates", icon: "Award" },
- { label: "페이지 관리", href: "/admin/pages", icon: "LayoutTemplate" },
- { label: "관리자", href: "/admin/admins", icon: "Shield" },
- { label: "회원관리", href: "/admin/users", icon: "Users" },
+ {
+   title: "커뮤니티",
+   items: [
+     { label: "문의 관리", href: "/admin/inquiries", icon: "Mail" },
+   ],
+ },
+ {
+   title: "사이트 관리",
+   items: [
+     {
+       label: "사이트 설정", href: "/admin/settings", icon: "Settings",
+       children: [
+         { label: "히어로 섹션", href: "/admin/settings?tab=hero" },
+         { label: "실적 수치", href: "/admin/settings?tab=stats" },
+         { label: "CTA 설정", href: "/admin/settings?tab=cta" },
+         { label: "배너 관리", href: "/admin/settings?tab=banner" },
+       ],
+     },
+     { label: "퀵배너 관리", href: "/admin/banners", icon: "Megaphone" },
+     { label: "페이지 관리", href: "/admin/pages", icon: "LayoutTemplate" },
+     { label: "파트너", href: "/admin/partners", icon: "Handshake" },
+     { label: "연혁", href: "/admin/history", icon: "Clock" },
+   ],
+ },
+ {
+   title: "사용자 관리",
+   items: [
+     { label: "관리자", href: "/admin/admins", icon: "Shield" },
+     { label: "회원관리", href: "/admin/users", icon: "Users" },
+   ],
+ },
+ {
+   title: "레거시 (통합 예정)",
+   collapsible: true,
+   defaultOpen: false,
+   items: [
+     {
+       label: "게시판 (구)", href: "/admin/posts", icon: "FileText",
+       children: [
+         { label: "공지사항", href: "/admin/posts?type=NOTICE" },
+       ],
+     },
+     { label: "영상 관리 (구)", href: "/admin/videos", icon: "Video" },
+     { label: "후기 관리 (구)", href: "/admin/reviews", icon: "Star" },
+     { label: "FAQ (구)", href: "/admin/faq", icon: "HelpCircle" },
+     { label: "갤러리 (구)", href: "/admin/gallery", icon: "Image" },
+   ],
+ },
 ];
 
 function SidebarItem({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
@@ -130,6 +176,47 @@ function SidebarItem({ item, onNavigate }: { item: NavItem; onNavigate?: () => v
  );
 }
 
+function SidebarGroup({ group, onNavigate }: { group: NavGroup; onNavigate?: () => void }) {
+ const pathname = usePathname();
+ const hasActiveChild = group.items.some(
+   (item) => pathname === item.href || pathname.startsWith(item.href + "/")
+ );
+ const [isOpen, setIsOpen] = useState(group.defaultOpen ?? !group.collapsible);
+
+ const showHeader = group.title.length > 0;
+
+ return (
+   <div>
+     {showHeader && (
+       group.collapsible ? (
+         <button
+           onClick={() => setIsOpen(!isOpen)}
+           className={cn(
+             "w-full flex items-center gap-2 px-2 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+             hasActiveChild ? "text-primary-600" : "text-gray-400 hover:text-gray-500"
+           )}
+         >
+           <Archive size={12} />
+           <span className="flex-1 text-left">{group.title}</span>
+           {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+         </button>
+       ) : (
+         <div className="px-2 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+           {group.title}
+         </div>
+       )
+     )}
+     {(!group.collapsible || isOpen) && (
+       <div className="space-y-0.5">
+         {group.items.map((item) => (
+           <SidebarItem key={item.href} item={item} onNavigate={onNavigate} />
+         ))}
+       </div>
+     )}
+   </div>
+ );
+}
+
 interface AdminSidebarProps {
   mobileOpen: boolean;
   onClose: () => void;
@@ -161,9 +248,9 @@ export default function AdminSidebar({ mobileOpen, onClose }: AdminSidebarProps)
        </button>
      </div>
 
-     <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-       {NAV_ITEMS.map((item) => (
-         <SidebarItem key={item.href} item={item} onNavigate={onClose} />
+     <nav className="flex-1 overflow-y-auto p-3 space-y-4">
+       {NAV_GROUPS.map((group) => (
+         <SidebarGroup key={group.title || "_top"} group={group} onNavigate={onClose} />
        ))}
      </nav>
 
