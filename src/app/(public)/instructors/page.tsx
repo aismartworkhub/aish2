@@ -817,7 +817,7 @@ export default function InstructorsPage() {
             <button
               onClick={() => setSelectedInstructor(null)}
               className={cn(
-                "text-white/80 hover:text-white transition-colors p-1"
+                "text-white/80 hover:text-white transition-colors p-2.5"
               )}
               aria-label="닫기"
             >

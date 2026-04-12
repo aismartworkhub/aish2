@@ -1083,7 +1083,7 @@ function CommunityContent() {
                 </div>
               ) : (
                 <form onSubmit={handleInquirySubmit} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1.5 block">이름 *</label>
                       <input type="text" required value={inquiryForm.name} onChange={(e) => setInquiryForm({ ...inquiryForm, name: e.target.value })}
@@ -1095,7 +1095,7 @@ function CommunityContent() {
                         className="w-full px-4 py-2.5 rounded-sm border border-brand-border text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1.5 block">연락처</label>
                       <input type="tel" value={inquiryForm.phone} onChange={(e) => setInquiryForm({ ...inquiryForm, phone: e.target.value })}
@@ -1168,7 +1168,7 @@ function CommunityContent() {
                     </div>
                   )}
 
-                  <div className="absolute bottom-0 left-0 w-full p-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute bottom-0 left-0 w-full p-4 text-white opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-xs px-2 py-0.5 rounded bg-white/20 backdrop-blur">{media.category}</span>
                     <p className="text-sm font-medium mt-1 line-clamp-1">{media.title}</p>
                   </div>
@@ -1335,7 +1335,8 @@ function CommunityContent() {
         >
           <button
             onClick={() => setLightboxImage(null)}
-            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors p-2"
+            aria-label="닫기"
           >
             <X size={32} />
           </button>

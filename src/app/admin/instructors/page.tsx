@@ -354,7 +354,7 @@ export default function AdminInstructorsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">강사 관리</h1>
           <p className="text-gray-500 mt-1">강사 정보를 관리합니다. AI 자동분석을 지원합니다.</p>
@@ -400,9 +400,9 @@ export default function AdminInstructorsPage() {
                 <div className="flex gap-0.5">
                   <div className="flex flex-col">
                     <button onClick={() => moveOrder(idx, -1)} disabled={idx === 0}
-                      className="p-0.5 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30"><ChevronUp size={14} /></button>
+                      className="p-1.5 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30"><ChevronUp size={14} /></button>
                     <button onClick={() => moveOrder(idx, 1)} disabled={idx === sorted.length - 1}
-                      className="p-0.5 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30"><ChevronDown size={14} /></button>
+                      className="p-1.5 rounded hover:bg-gray-100 text-gray-300 hover:text-gray-600 disabled:opacity-30"><ChevronDown size={14} /></button>
                   </div>
                   <button onClick={() => openEdit(item)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400"><Edit size={14} /></button>
                   <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
@@ -599,13 +599,13 @@ export default function AdminInstructorsPage() {
                 </div>
                 <div className="space-y-2">
                   {form.education.map((edu, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
+                    <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:items-center">
                       <input value={edu.degree} onChange={(e) => updateEducation(idx, "degree", e.target.value)}
-                        className="w-28 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" placeholder="학위" />
+                        className="sm:w-28 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" placeholder="학위" />
                       <input value={edu.institution} onChange={(e) => updateEducation(idx, "institution", e.target.value)}
                         className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" placeholder="학교/기관" />
                       <input value={edu.year} onChange={(e) => updateEducation(idx, "year", e.target.value)}
-                        className="w-20 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" placeholder="연도" />
+                        className="sm:w-20 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none" placeholder="연도" />
                       <button onClick={() => removeEducation(idx)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><X size={14} /></button>
                     </div>
                   ))}

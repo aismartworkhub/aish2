@@ -42,7 +42,7 @@ export default function ProfileCompletionBanner() {
           </Link>
           <button
             onClick={handleDismiss}
-            className="p-1 text-amber-500 hover:text-amber-700 transition-colors"
+            className="p-2.5 text-amber-500 hover:text-amber-700 transition-colors"
             aria-label="닫기"
           >
             <X size={16} />

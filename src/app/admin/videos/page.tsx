@@ -137,12 +137,12 @@ export default function AdminVideosPage() {
   return (
     <div>
       <LegacyMigrationBanner legacyName="영상 관리" targetBoardKey="media-lecture" />
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">영상 관리</h1>
           <p className="text-gray-500 mt-1">YouTube 영상을 등록하고 관리합니다.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <button onClick={() => setBulkMode(true)} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
             <Youtube size={18} />대량 등록
           </button>
@@ -152,13 +152,13 @@ export default function AdminVideosPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" placeholder="영상 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {([{ key: "ALL", label: "전체" }, ...Object.entries(VIDEO_CATEGORY_LABELS).map(([k, v]) => ({ key: k, label: v }))] as { key: string; label: string }[]).map((tab) => (
             <button key={tab.key} onClick={() => setCategoryFilter(tab.key as "ALL" | VideoCategory)}
               className={cn("px-3 py-2 rounded-lg text-xs font-medium transition-colors",
@@ -169,7 +169,7 @@ export default function AdminVideosPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
           <p className="text-xs text-gray-500">전체 영상</p>
           <p className="text-2xl font-bold text-gray-900">{videos.length}개</p>

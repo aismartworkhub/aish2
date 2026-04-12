@@ -203,7 +203,7 @@ export default function AdminContentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">통합 콘텐츠 관리</h1>
           <p className="mt-1 text-sm text-gray-500">콘텐츠·커뮤니티 게시판을 통합 관리합니다.</p>
@@ -260,7 +260,7 @@ export default function AdminContentsPage() {
       ) : error ? (
         <AdminError message={error} />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           {filtered.length === 0 ? (
             <div className="py-16 text-center text-sm text-gray-400">
               {searchQuery ? "검색 결과가 없습니다." : "등록된 콘텐츠가 없습니다. '새 콘텐츠' 버튼을 눌러 추가하세요."}
@@ -467,7 +467,7 @@ export default function AdminContentsPage() {
 
                   {/* 수강후기 */}
                   {selectedBoard === "community-review" && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">프로그램명</label>
                         <input

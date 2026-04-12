@@ -294,12 +294,12 @@ export default function AdminBoardsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">게시판 설정</h1>
           <p className="mt-1 text-sm text-gray-500">콘텐츠·커뮤니티 게시판의 구조를 관리합니다.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={handleMigration}
             disabled={migrating || saving}
@@ -433,7 +433,7 @@ export default function AdminBoardsPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">키 (영문) *</label>
                   <input
@@ -462,7 +462,7 @@ export default function AdminBoardsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">그룹</label>
                   <select

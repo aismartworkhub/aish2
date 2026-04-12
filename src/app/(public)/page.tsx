@@ -307,11 +307,13 @@ export default function HomePage() {
                     type="button"
                     aria-label={`슬라이드 ${i + 1}`}
                     onClick={() => setHeroIndex(i)}
-                    className={cn(
-                      "h-2 rounded-full transition-all",
+                    className="p-2"
+                  >
+                    <span className={cn(
+                      "block h-2 rounded-full transition-all",
                       i === heroIndex ? "w-8 bg-white" : "w-2 bg-white/40 hover:bg-white/60"
-                    )}
-                  />
+                    )} />
+                  </button>
                 ))}
               </div>
             )}
@@ -376,7 +378,7 @@ export default function HomePage() {
       {/* ── S3: 실무전문가 (강사 프로필 카드 — /instructors 동일 디자인) ── */}
       <section className="py-24 md:py-28">
         <div className="text-center mb-16">
-          <h2 className="text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
+          <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
             {pageContent.sections.education?.title ?? "실무전문가"}
           </h2>
           <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
@@ -470,7 +472,7 @@ export default function HomePage() {
       {/* ── S4: Specialty (이미지 카드) ── */}
       <section className="py-24 md:py-28 bg-brand-gray">
         <div className="text-center mb-16">
-          <h2 className="text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
+          <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
             {pageContent.sections.specialty?.title ?? "Specialty"}
           </h2>
           <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
@@ -543,7 +545,7 @@ export default function HomePage() {
             <p className="text-white/80 text-base leading-relaxed max-w-[400px]">
               {workathon.description}
             </p>
-            <div className="mt-5 flex items-center gap-4 text-sm text-white/60">
+            <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-white/60">
               <span className="text-white font-bold text-xl">{dDay}</span>
               <span className="w-px h-4 bg-white/30" />
               <span>{workathon.eventDate}</span>
@@ -605,7 +607,7 @@ export default function HomePage() {
         <div className="container-custom">
           <div className="flex items-end justify-between mb-12">
             <div>
-              <h2 className="text-[42px] font-bold text-brand-blue tracking-tight">Program</h2>
+              <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Program</h2>
               <p className="mt-2 text-gray-500 text-lg">진행중인 교육 과정</p>
             </div>
             <Link
@@ -699,7 +701,7 @@ export default function HomePage() {
           <div className="container-custom">
             <div className="flex items-end justify-between mb-12">
               <div>
-                <h2 className="text-[42px] font-bold text-brand-blue tracking-tight">Event</h2>
+                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Event</h2>
                 <p className="mt-2 text-gray-500 text-lg">진행 예정 행사 및 이벤트</p>
               </div>
             </div>
@@ -748,7 +750,7 @@ export default function HomePage() {
           <div className="container-custom">
             <div className="flex items-end justify-between mb-12">
               <div>
-                <h2 className="text-[42px] font-bold text-brand-blue tracking-tight">Video</h2>
+                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Video</h2>
                 <p className="mt-2 text-gray-500 text-lg">주요 교육 영상</p>
               </div>
               <Link href="/videos" className="hidden md:inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
@@ -794,7 +796,7 @@ export default function HomePage() {
       <section className="py-24 md:py-28">
         <div className="container-custom">
           <div className="text-center mb-16">
-            <h2 className="text-[42px] font-bold text-brand-blue tracking-tight">Review</h2>
+            <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Review</h2>
             <p className="mt-3 text-gray-500 text-lg">수강생들의 생생한 후기</p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">

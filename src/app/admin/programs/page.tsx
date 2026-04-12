@@ -71,14 +71,14 @@ export default function AdminProgramsPage() {
   return (
     <div>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">교육 프로그램 관리</h1>
           <p className="text-gray-500 mt-1">
             Runmoa 콘텐츠와 연동됩니다. 등록·수정은 Runmoa 관리 화면에서 진행합니다.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={refresh}
             className="inline-flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
