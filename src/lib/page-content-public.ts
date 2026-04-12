@@ -79,8 +79,8 @@ export const DEFAULT_WORKATHON: PageContentBase = {
 export const DEFAULT_VIDEOS: PageContentBase = {
   hero: {
     imageUrl: "",
-    title: "영상 콘텐츠",
-    subtitle: "AISH의 다양한 영상 콘텐츠를 만나보세요.",
+    title: "콘텐츠",
+    subtitle: "영상, 이미지, 자료 등 다양한 콘텐츠를 만나보세요.",
   },
   sections: {},
 };
