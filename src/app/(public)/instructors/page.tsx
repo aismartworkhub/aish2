@@ -751,31 +751,37 @@ export default function InstructorsPage() {
                   />
                 </div>
 
-                {/* Info: 참고 디자인 기반 — 이름+직책 / 경력 bullet / 소개 인용 */}
-                <div className={cn("px-6 py-5")}>
-                  {/* 0. 이름 + 직책 1줄 (넘치면 생략) */}
-                  <div className={cn("flex items-baseline gap-2 mb-4 min-w-0")}>
-                    <h3 className={cn("text-xl font-bold text-gray-900 tracking-tight shrink-0")}>{inst.name}</h3>
-                    <span className={cn("text-sm font-bold text-brand-blue truncate")}>{inst.title}</span>
+                {/* Info: 이름 → 직책(아래) / 경력 bullet / 소개 인용 */}
+                <div className={cn("px-6 py-4")}>
+                  {/* 0. 이름 + 직책(이름 아래) */}
+                  <div className={cn("mb-3 min-w-0")}>
+                    <h3 className={cn("text-xl font-bold text-gray-900 tracking-tighter leading-tight")}>
+                      {inst.name}
+                    </h3>
+                    {inst.title && (
+                      <p className={cn("mt-0.5 text-sm font-bold text-brand-blue tracking-tighter line-clamp-2 break-keep")}>
+                        {inst.title}
+                      </p>
+                    )}
                   </div>
 
                   {/* 1. 주요경력 bullet — specialties 최대 3줄 */}
                   {(inst.specialties || []).length > 0 && (
-                    <div className={cn("space-y-1 mb-4")}>
+                    <div className={cn("space-y-0.5 mb-3")}>
                       {(inst.specialties || []).slice(0, 3).map((s, i) => (
                         <div key={i} className={cn("flex items-center gap-2.5 py-0.5")}>
                           <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-brand-blue" />
-                          <span className={cn("text-[13px] text-gray-700 font-medium truncate tracking-tight")}>{s}</span>
+                          <span className={cn("text-[13px] text-gray-700 font-medium truncate tracking-tighter")}>{s}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* 2. 소개 인용 박스 — bio 최대 3줄, 높이 고정 */}
+                  {/* 2. 소개 인용 박스 — bio 최대 3줄 */}
                   {inst.bio && (
-                    <div className={cn("bg-brand-gray/60 rounded-xl px-4 py-3.5 max-h-[5.5rem] overflow-hidden")}>
+                    <div className={cn("bg-brand-gray/60 rounded-xl px-3.5 py-2.5 max-h-[5rem] overflow-hidden")}>
                       <p className={cn(
-                        "text-[13px] text-gray-600 italic leading-[1.7] text-center tracking-tight font-medium",
+                        "text-[13px] text-gray-600 italic leading-snug text-center tracking-tighter font-medium",
                         "line-clamp-3 break-keep"
                       )}>
                         &ldquo;{inst.bio}&rdquo;
@@ -783,7 +789,7 @@ export default function InstructorsPage() {
                     </div>
                   )}
                 </div>
-                <div className="px-6 pb-4">
+                <div className="px-6 pb-3">
                   <span className="text-xs text-brand-blue font-medium group-hover:underline">프로필 보기 →</span>
                 </div>
               </div>
