@@ -159,11 +159,9 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // onAuthStateChanged 전이라도 localStorage 캐시가 있으면 즉시 사용
-  const preflight = typeof window !== "undefined" ? readProfileCache() : null;
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(preflight?.profile ?? null);
-  const [loading, setLoading] = useState(!preflight);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const refreshProfile = useCallback(async () => {
     if (!user) return;
@@ -186,6 +184,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
+    const preflight = readProfileCache();
+    if (preflight) {
+      setProfile(preflight.profile);
+      setLoading(false);
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
