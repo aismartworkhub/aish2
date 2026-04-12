@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowLeft, Star } from "lucide-react";
+import { ArrowLeft, Star, ExternalLink, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { incrementContentViews } from "@/lib/content-engine";
 import type { Content, BoardConfig } from "@/types/content";
@@ -94,6 +94,39 @@ export default function ContentDetail({ content, board, onBack }: Props) {
             embed
             className="rounded-lg"
           />
+        )}
+
+        {content.mediaUrl && (
+          <div className="flex gap-2">
+            {content.mediaType === "youtube" ? (
+              <a
+                href={content.mediaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium",
+                  "bg-red-600 text-white hover:bg-red-700 transition-colors",
+                )}
+              >
+                <Youtube size={16} />
+                YouTube에서 보기
+                <ExternalLink size={14} />
+              </a>
+            ) : (
+              <a
+                href={content.mediaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium",
+                  "bg-gray-800 text-white hover:bg-gray-900 transition-colors",
+                )}
+              >
+                <ExternalLink size={16} />
+                원본 보기
+              </a>
+            )}
+          </div>
         )}
 
         {content.body && (

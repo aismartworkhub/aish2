@@ -20,6 +20,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { COLLECTIONS, invalidateCache } from "./firestore";
+import { extractYouTubeVideoId } from "./youtube";
 import type {
   BoardConfig,
   Content,
@@ -241,15 +242,12 @@ export function detectMediaType(url: string): {
 } {
   if (!url) return { mediaType: "none" };
 
-  // YouTube
-  const ytMatch = url.match(
-    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/,
-  );
-  if (ytMatch) {
-    const videoId = ytMatch[1];
+  // YouTube (watch, embed, shorts, live, youtu.be 모두 지원)
+  const videoId = extractYouTubeVideoId(url);
+  if (videoId) {
     return {
       mediaType: "youtube",
-      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
       embedUrl: `https://www.youtube.com/embed/${videoId}`,
     };
   }

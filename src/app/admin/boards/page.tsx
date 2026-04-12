@@ -12,13 +12,36 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { BoardConfig, BoardGroup, BoardLayout, BoardWriteRole, ContentInput } from "@/types/content";
 
 const SAMPLE_CONTENTS: ContentInput[] = [
+  // 기존 AISH 영상 (YouTube Live)
+  {
+    boardKey: "media-lecture",
+    title: "AISH 라이브 강의 #1",
+    body: "AISH AI 교육 라이브 강의 영상입니다.",
+    mediaType: "youtube",
+    mediaUrl: "https://www.youtube.com/live/JuUi6z4c_AI",
+    thumbnailUrl: "https://img.youtube.com/vi/JuUi6z4c_AI/mqdefault.jpg",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["라이브", "강의"],
+  },
+  {
+    boardKey: "media-lecture",
+    title: "AISH 라이브 강의 #2",
+    body: "AISH AI 교육 라이브 강의 영상입니다.",
+    mediaType: "youtube",
+    mediaUrl: "https://www.youtube.com/live/8RPFh2FvoT4",
+    thumbnailUrl: "https://img.youtube.com/vi/8RPFh2FvoT4/mqdefault.jpg",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["라이브", "강의"],
+  },
   {
     boardKey: "media-lecture",
     title: "Python 기초 강의 - 변수와 자료형",
     body: "파이썬 프로그래밍의 기초를 배우는 강의입니다.",
     mediaType: "youtube",
     mediaUrl: "https://www.youtube.com/watch?v=kWiCuklohdY",
-    thumbnailUrl: "https://img.youtube.com/vi/kWiCuklohdY/hqdefault.jpg",
+    thumbnailUrl: "https://img.youtube.com/vi/kWiCuklohdY/mqdefault.jpg",
     authorUid: "",
     authorName: "AISH",
     tags: ["Python", "기초"],
@@ -29,7 +52,7 @@ const SAMPLE_CONTENTS: ContentInput[] = [
     body: "인공지능과 머신러닝의 기본 개념을 알아봅니다.",
     mediaType: "youtube",
     mediaUrl: "https://www.youtube.com/watch?v=aircAruvnKk",
-    thumbnailUrl: "https://img.youtube.com/vi/aircAruvnKk/hqdefault.jpg",
+    thumbnailUrl: "https://img.youtube.com/vi/aircAruvnKk/mqdefault.jpg",
     authorUid: "",
     authorName: "AISH",
     tags: ["AI", "머신러닝"],
@@ -40,7 +63,7 @@ const SAMPLE_CONTENTS: ContentInput[] = [
     body: "2025년 스마트워크톤 현장 영상입니다.",
     mediaType: "youtube",
     mediaUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    thumbnailUrl: "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+    thumbnailUrl: "https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
     authorUid: "",
     authorName: "AISH",
     tags: ["워크톤", "2025"],
@@ -51,7 +74,7 @@ const SAMPLE_CONTENTS: ContentInput[] = [
     body: "AI Smartwork Hub를 소개합니다.",
     mediaType: "youtube",
     mediaUrl: "https://www.youtube.com/watch?v=JGwWNGJdvx8",
-    thumbnailUrl: "https://img.youtube.com/vi/JGwWNGJdvx8/hqdefault.jpg",
+    thumbnailUrl: "https://img.youtube.com/vi/JGwWNGJdvx8/mqdefault.jpg",
     authorUid: "",
     authorName: "AISH",
     tags: ["소개", "AISH"],
@@ -151,7 +174,7 @@ export default function AdminBoardsPage() {
 
   const handleSeedSamples = async () => {
     if (!user) { toast("로그인이 필요합니다.", "error"); return; }
-    if (!confirm("샘플 콘텐츠 9건을 추가합니다. 진행하시겠습니까?")) return;
+    if (!confirm(`샘플 콘텐츠 ${SAMPLE_CONTENTS.length}건을 추가합니다. 진행하시겠습니까?`)) return;
     setSeeding(true);
     try {
       let created = 0;

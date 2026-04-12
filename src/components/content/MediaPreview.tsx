@@ -5,6 +5,7 @@ import { Play, Image as ImageIcon, FileText, Link2 } from "lucide-react";
 import { cn, extractGoogleDriveFileId, googleDriveThumbnailUrl, toDirectImageUrl } from "@/lib/utils";
 import type { MediaType } from "@/types/content";
 import { detectMediaType } from "@/lib/content-engine";
+import { youtubeThumbnailUrls } from "@/lib/youtube";
 
 type Props = {
   mediaUrl?: string;
@@ -26,7 +27,7 @@ const FALLBACK_ICON: Record<MediaType, typeof Play> = {
 };
 
 /** mediaUrl / thumbnailUrl에서 시도할 이미지 URL 후보 목록을 생성 */
-function buildImageCandidates(mediaUrl?: string, thumbnailUrl?: string): string[] {
+function buildImageCandidates(mediaUrl?: string, thumbnailUrl?: string, mediaType?: MediaType): string[] {
   const candidates: string[] = [];
   const seen = new Set<string>();
   const add = (u: string) => {
@@ -35,6 +36,13 @@ function buildImageCandidates(mediaUrl?: string, thumbnailUrl?: string): string[
 
   if (thumbnailUrl) add(thumbnailUrl);
 
+  // YouTube: mqdefault → hqdefault → default 다단계 폴백
+  if (mediaType === "youtube" && mediaUrl) {
+    for (const ytUrl of youtubeThumbnailUrls(mediaUrl)) add(ytUrl);
+    return candidates;
+  }
+
+  // Google Drive
   for (const raw of [mediaUrl, thumbnailUrl]) {
     if (!raw) continue;
     const fileId = extractGoogleDriveFileId(raw);
@@ -44,6 +52,7 @@ function buildImageCandidates(mediaUrl?: string, thumbnailUrl?: string): string[
     }
   }
 
+  // 일반 이미지 URL (YouTube/Drive가 아닌 경우만)
   if (mediaUrl && !extractGoogleDriveFileId(mediaUrl)) {
     add(mediaUrl);
   }
@@ -69,8 +78,8 @@ export default function MediaPreview({
   const embedUrl = detected?.embedUrl;
 
   const candidates = useMemo(
-    () => buildImageCandidates(mediaUrl, thumbnailUrl),
-    [mediaUrl, thumbnailUrl],
+    () => buildImageCandidates(mediaUrl, thumbnailUrl, mediaType),
+    [mediaUrl, thumbnailUrl, mediaType],
   );
 
   const [imgIdx, setImgIdx] = useState(0);
