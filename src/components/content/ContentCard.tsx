@@ -72,7 +72,7 @@ function GridCard({ content, onClick }: Omit<Props, "board">) {
           <span className="flex items-center gap-0.5">
             <MessageCircle size={12} /> {content.commentCount}
           </span>
-          <span className="ml-auto">{timeAgo(content.createdAt)}</span>
+          <span className="ml-auto" suppressHydrationWarning>{timeAgo(content.createdAt)}</span>
         </div>
       </div>
     </button>
@@ -99,7 +99,7 @@ function ListRow({ content, onClick }: Omit<Props, "board">) {
         <span className="text-xs text-primary-500">[{content.commentCount}]</span>
       )}
       <span className="shrink-0 text-xs text-gray-400">{content.authorName}</span>
-      <span className="shrink-0 text-xs text-gray-400">{timeAgo(content.createdAt)}</span>
+      <span className="shrink-0 text-xs text-gray-400" suppressHydrationWarning>{timeAgo(content.createdAt)}</span>
       <span className="flex shrink-0 items-center gap-0.5 text-xs text-gray-400">
         <Eye size={12} /> {content.views}
       </span>

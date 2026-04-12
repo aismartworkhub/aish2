@@ -1,0 +1,6 @@
+{"sessionId":"86a510","hypothesisId":"H2","location":"AuthContext.tsx:onAuthStateChanged","message":"auth_callback","data":{"hasUser":true,"uidTail":"jV23"},"timestamp":1775871243166,"runId":"pre-fix"}
+{"sessionId":"86a510","hypothesisId":"H1","location":"AuthContext.tsx:ensureUserProfile","message":"before_getDoc","data":{"uidTail":"jV23"},"timestamp":1775871243168,"runId":"pre-fix"}
+{"sessionId":"86a510","hypothesisId":"H5","location":"AuthContext.tsx:onAuthStateChanged","message":"ensureUserProfile_catch","data":{"name":"FirebaseError"},"timestamp":1775871267397,"runId":"pre-fix"}
+{"sessionId":"86a510","hypothesisId":"H2","location":"AuthContext.tsx:onAuthStateChanged","message":"setLoading_false","data":{"hadUser":true,"closedLoadingEarly":false},"timestamp":1775871267397,"runId":"post-fix"}
+{"sessionId":"86a510","hypothesisId":"H4","location":"admin/page.tsx","message":"dashboard_fetch_start","data":{},"timestamp":1775871267407,"runId":"pre-fix"}
+{"sessionId":"86a510","hypothesisId":"H4","location":"AuthGuard.tsx","message":"guard_loading_false","data":{"hasUser":true,"hasProfile":true,"isAdmin":true},"timestamp":1775871267408,"runId":"pre-fix"}

@@ -55,7 +55,7 @@ export default function ContentDetail({ content, board, onBack }: Props) {
           <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{content.title}</h1>
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
             <span className="font-medium text-gray-700">{content.authorName}</span>
-            <span>{formatDate(content.createdAt)}</span>
+            <span suppressHydrationWarning>{formatDate(content.createdAt)}</span>
             <span>조회 {content.views}</span>
           </div>
           {content.rating != null && content.rating > 0 && (

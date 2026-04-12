@@ -59,7 +59,7 @@ function CommentItem({
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-gray-700">{comment.authorName}</span>
-          <span className="text-[11px] text-gray-400">{timeLabel(comment.createdAt)}</span>
+          <span className="text-[11px] text-gray-400" suppressHydrationWarning>{timeLabel(comment.createdAt)}</span>
         </div>
         <p className="mt-0.5 whitespace-pre-wrap text-sm text-gray-700">{comment.body}</p>
         <div className="mt-1 flex gap-3">
