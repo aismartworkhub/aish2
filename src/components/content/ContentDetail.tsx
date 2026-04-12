@@ -97,7 +97,7 @@ export default function ContentDetail({ content, board, onBack }: Props) {
         )}
 
         {content.mediaUrl && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {content.mediaType === "youtube" ? (
               <a
                 href={content.mediaUrl}
@@ -111,6 +111,19 @@ export default function ContentDetail({ content, board, onBack }: Props) {
                 <Youtube size={16} />
                 YouTube에서 보기
                 <ExternalLink size={14} />
+              </a>
+            ) : content.mediaType === "pdf" ? (
+              <a
+                href={content.mediaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium",
+                  "bg-red-600 text-white hover:bg-red-700 transition-colors",
+                )}
+              >
+                <ExternalLink size={16} />
+                PDF 열기
               </a>
             ) : (
               <a
@@ -129,11 +142,12 @@ export default function ContentDetail({ content, board, onBack }: Props) {
           </div>
         )}
 
-        {content.body && (
-          <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">
-            {content.body}
-          </div>
-        )}
+        <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">
+          {content.body
+            ? content.body
+            : <p className="text-gray-400 italic">등록된 설명이 없습니다.</p>
+          }
+        </div>
 
         <div className="border-t border-gray-100 pt-4">
           <ReactionButtons
