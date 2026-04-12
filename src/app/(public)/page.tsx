@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowRight, Search, SlidersHorizontal, ChevronRight, ChevronDown,
+  ArrowRight, Search, SlidersHorizontal, ChevronRight,
   Users, GraduationCap, UserCheck, Building, Star, Play,
   BookOpen, Trophy, Bell, FolderOpen, Award, HelpCircle, Handshake, Images, MessageCircle,
 } from "lucide-react";
@@ -90,7 +90,6 @@ export default function HomePage() {
   const [ctaCfg, setCtaCfg] = useState(DEFAULT_SITE_CTA);
   const [pageContent, setPageContent] = useState<HomePageContent>(DEFAULT_HOME);
   const [instructors, setInstructors] = useState<(typeof DEMO_INSTRUCTORS[number] & { imageUrl?: string })[]>(DEMO_INSTRUCTORS.filter((i) => i.isActive !== false));
-  const [showAllInstructors, setShowAllInstructors] = useState(false);
 
   const dDay = calculateDDay(workathon.eventDate);
   const revealRefs = useRef<HTMLElement[]>([]);
@@ -386,7 +385,7 @@ export default function HomePage() {
         </div>
 
         <div className={cn("max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6")}>
-          {(showAllInstructors ? instructors : instructors.slice(0, 3)).map((ins) => (
+          {instructors.map((ins) => (
             <Link
               key={ins.id}
               href="/instructors"
@@ -453,20 +452,7 @@ export default function HomePage() {
           ))}
         </div>
 
-        <div className="text-center mt-10 flex flex-col items-center gap-3">
-          {!showAllInstructors && instructors.length > 3 && (
-            <button
-              onClick={() => setShowAllInstructors(true)}
-              className={cn(
-                "inline-flex items-center gap-2 px-6 py-3 rounded-full",
-                "text-sm font-semibold text-primary-600 border border-primary-200",
-                "hover:bg-primary-50 transition-colors"
-              )}
-            >
-              더보기
-              <ChevronDown size={16} />
-            </button>
-          )}
+        <div className="text-center mt-10">
           <Link
             href="/instructors"
             className={cn(
