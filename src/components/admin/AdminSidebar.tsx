@@ -47,6 +47,8 @@ const NAV_ITEMS: NavItem[] = [
  { label: "프로그램 관리", href: "/admin/programs", icon: "BookOpen" },
  { label: "Event", href: "/admin/event", icon: "Zap" },
  { label: "강사 관리", href: "/admin/instructors", icon: "Users" },
+ { label: "통합 콘텐츠", href: "/admin/contents", icon: "Layers" },
+ { label: "게시판 설정", href: "/admin/boards", icon: "LayoutGrid" },
  {
    label: "게시판", href: "/admin/posts", icon: "FileText",
    children: [
