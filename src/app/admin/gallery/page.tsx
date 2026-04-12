@@ -339,9 +339,11 @@ export default function AdminGalleryPage() {
               <div>
                 <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 bg-gray-50">
                   <p className="text-xs text-gray-500">이미지 URL을 위 필드에 입력하세요.</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Google Drive: &quot;링크가 있는 모든 사용자&quot; 공개 후, 파일 공유 링크 전체를 붙여넣어도 됩니다. 미리보기가 안 되면 공개 범위를 확인하세요.
-                  </p>
+                  <div className="mt-1.5 space-y-1 rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
+                    <p className="font-medium">⚠ Google Drive 공유 설정 필수</p>
+                    <p>비회원도 이미지를 볼 수 있으려면 <strong>&quot;링크가 있는 모든 사용자&quot;</strong>로 공유해야 합니다.</p>
+                    <p className="text-amber-600">파일 우클릭 → 공유 → 일반 액세스 → &quot;링크가 있는 모든 사용자&quot;</p>
+                  </div>
                 </div>
               </div>
               {editingPhoto.imageUrl.trim() && (

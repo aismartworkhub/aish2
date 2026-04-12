@@ -419,10 +419,12 @@ export default function AdminContentsPage() {
                             {editing.thumbnailUrl && " · 썸네일 자동 생성됨"}
                           </p>
                         )}
-                        {editing.mediaUrl && /drive\.google\.com/.test(editing.mediaUrl) && (
-                          <p className="mt-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">
-                            Google Drive 파일은 &quot;링크가 있는 모든 사용자&quot;로 공유해야 미리보기가 표시됩니다.
-                          </p>
+                        {editing.mediaUrl && /drive\.google\.com|googleusercontent\.com|docs\.google\.com/.test(editing.mediaUrl) && (
+                          <div className="mt-1 space-y-1 rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
+                            <p className="font-medium">⚠ Google 파일 공유 설정 필수</p>
+                            <p>비회원도 볼 수 있으려면 Google Drive에서 해당 파일의 공유 설정을 <strong>&quot;링크가 있는 모든 사용자&quot;</strong>로 변경해야 합니다.</p>
+                            <p className="text-amber-600">파일 우클릭 → 공유 → 일반 액세스 → &quot;링크가 있는 모든 사용자&quot;</p>
+                          </div>
                         )}
                       </div>
                       {editing.thumbnailUrl && (
