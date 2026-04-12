@@ -70,11 +70,17 @@ const DEFAULT_HERO_SLIDE: HeroSlidePublic = {
   isActive: true,
 };
 
-/** 활성 슬라이드만 — 없으면 기본 1장 */
+/** 활성 슬라이드만 — 없으면 기본 1장. title/subtitle 빈 값은 기본값으로 채움 */
 export function pickActiveHeroSlides(slides: HeroSlidePublic[] | undefined): HeroSlidePublic[] {
   if (!slides?.length) return [{ ...DEFAULT_HERO_SLIDE }];
   const active = slides.filter((s) => s.isActive !== false);
-  return active.length > 0 ? active : [{ ...DEFAULT_HERO_SLIDE }];
+  if (active.length === 0) return [{ ...DEFAULT_HERO_SLIDE }];
+  return active.map((s) => ({
+    ...s,
+    title: s.title?.trim() || DEFAULT_HERO_SLIDE.title,
+    subtitle: s.subtitle?.trim() || DEFAULT_HERO_SLIDE.subtitle,
+    imageUrl: s.imageUrl?.trim() || DEFAULT_HERO_SLIDE.imageUrl,
+  }));
 }
 
 export function resolveHeroCtaLink(slide: HeroSlidePublic, siteCtaUrl: string): string {
