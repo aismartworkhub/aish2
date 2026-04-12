@@ -137,7 +137,7 @@ const SAMPLE_CONTENTS: ContentInput[] = [
 ];
 
 const GROUP_LABELS: Record<BoardGroup, string> = {
-  media: "미디어",
+  media: "콘텐츠",
   community: "커뮤니티",
 };
 
@@ -297,7 +297,7 @@ export default function AdminBoardsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">게시판 설정</h1>
-          <p className="mt-1 text-sm text-gray-500">미디어·커뮤니티 게시판의 구조를 관리합니다.</p>
+          <p className="mt-1 text-sm text-gray-500">콘텐츠·커뮤니티 게시판의 구조를 관리합니다.</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -367,7 +367,7 @@ export default function AdminBoardsPage() {
       ) : (
         <div className="space-y-8">
           {[
-            { label: "미디어", boards: mediaBoards },
+            { label: "콘텐츠", boards: mediaBoards },
             { label: "커뮤니티", boards: communityBoards },
           ].map(({ label, boards: groupBoards }) => (
             <section key={label}>

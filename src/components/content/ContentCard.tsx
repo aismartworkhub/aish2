@@ -28,7 +28,7 @@ function timeAgo(dateVal: unknown): string {
   return d.toLocaleDateString("ko-KR");
 }
 
-/** 그리드(미디어) 레이아웃 카드 */
+/** 그리드(콘텐츠) 레이아웃 카드 */
 function GridCard({ content, onClick }: Omit<Props, "board">) {
   return (
     <button

@@ -21,7 +21,7 @@ export interface BoardConfig {
   isActive: boolean;
 }
 
-// ── 미디어 타입 ──
+// ── 콘텐츠 유형 (MediaType) ──
 
 export type MediaType = "youtube" | "image" | "gif" | "pdf" | "link" | "none";
 

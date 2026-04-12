@@ -218,7 +218,7 @@ export default function ProfilePage() {
                 type="url"
                 value={form.companySocial}
                 onChange={(e) => setForm({ ...form, companySocial: e.target.value })}
-                placeholder="Instagram, LinkedIn 등 소셜 미디어 URL"
+                placeholder="Instagram, LinkedIn 등 SNS·프로필 URL"
                 className={INPUT_CLASS}
               />
             </div>

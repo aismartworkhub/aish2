@@ -206,7 +206,7 @@ export default function AdminContentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">통합 콘텐츠 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">미디어·커뮤니티 게시판 콘텐츠를 통합 관리합니다.</p>
+          <p className="mt-1 text-sm text-gray-500">콘텐츠·커뮤니티 게시판을 통합 관리합니다.</p>
         </div>
         <button
           onClick={startCreate}
@@ -399,11 +399,11 @@ export default function AdminContentsPage() {
                     />
                   </div>
 
-                  {/* 미디어 URL */}
+                  {/* 콘텐츠 URL */}
                   {activeBoard?.group === "media" && (
                     <div className="space-y-3">
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">미디어 URL</label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">콘텐츠 URL</label>
                         <input
                           value={editing.mediaUrl || ""}
                           onChange={(e) => handleMediaUrlChange(e.target.value)}

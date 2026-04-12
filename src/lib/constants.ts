@@ -12,7 +12,7 @@ export const NAV_ITEMS = [
  { label: "교육 프로그램", href: "/programs" },
  { label: "강사진", href: "/instructors" },
  { label: "스마트워크톤", href: "/workathon" },
- { label: "미디어", href: "/media" },
+ { label: "콘텐츠", href: "/media" },
  { label: "커뮤니티", href: "/community" },
 ] as const;
 
@@ -112,7 +112,7 @@ export const TARGET_PAGE_OPTIONS = [
  { value: "/programs", label: "교육 프로그램" },
  { value: "/instructors", label: "강사진" },
  { value: "/workathon", label: "스마트워크톤" },
- { value: "/media", label: "미디어" },
+ { value: "/media", label: "콘텐츠" },
  { value: "/community", label: "커뮤니티" },
 ] as const;
 

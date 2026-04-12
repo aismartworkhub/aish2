@@ -2,7 +2,7 @@ import type { BoardConfig } from "@/types/content";
 
 /** 초기 시드(seed) 게시판 설정 — Firestore에 boards 컬렉션이 비어있을 때 사용 */
 export const DEFAULT_BOARDS: BoardConfig[] = [
-  // ── 미디어 ──
+  // ── 콘텐츠(공개 허브) ──
   {
     key: "media-lecture",
     label: "강의 영상",

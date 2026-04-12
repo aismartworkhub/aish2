@@ -16,7 +16,7 @@ export default function VideosRedirect() {
 
   return (
     <div className="py-20 text-center text-sm text-gray-400">
-      미디어 페이지로 이동 중...
+      콘텐츠 페이지로 이동 중...
     </div>
   );
 }

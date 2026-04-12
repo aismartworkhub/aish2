@@ -228,7 +228,7 @@ export async function getUserReactions(
   return { liked: likeSnap.exists(), bookmarked: bmSnap.exists() };
 }
 
-// ── URL → 미디어 타입 자동 감지 ──
+// ── URL → 콘텐츠 유형 자동 감지 ──
 
 const IMAGE_EXT = /\.(jpe?g|png|webp|svg|bmp)(\?|$)/;
 const GIF_EXT = /\.gif(\?|$)/;

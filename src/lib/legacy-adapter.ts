@@ -240,7 +240,7 @@ export async function loadLegacyFaqAsContent(): Promise<Content[]> {
   }
 }
 
-/** 미디어 그룹 레거시 데이터 전체 로드 */
+/** 콘텐츠 그룹 레거시 데이터 전체 로드 */
 export async function loadAllLegacyMediaAsContent(): Promise<Content[]> {
   const [videos, gallery, resources] = await Promise.all([
     loadLegacyVideosAsContent(),

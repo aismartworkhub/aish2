@@ -94,8 +94,8 @@ export default function MediaPage() {
       <div className="mx-auto max-w-6xl px-4">
         {/* 헤더 */}
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">미디어 콘텐츠</h1>
-          <p className="mt-2 text-gray-500">영상, 이미지, 자료 등 다양한 미디어를 만나보세요</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">콘텐츠</h1>
+          <p className="mt-2 text-gray-500">영상, 이미지, 자료 등 다양한 콘텐츠를 만나보세요</p>
         </div>
 
         {/* 검색 */}
@@ -188,7 +188,7 @@ export default function MediaPage() {
           <div className="py-20 text-center text-sm text-gray-400">콘텐츠를 불러오는 중...</div>
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center text-sm text-gray-400">
-            {searchQuery ? "검색 결과가 없습니다." : "등록된 미디어 콘텐츠가 없습니다."}
+            {searchQuery ? "검색 결과가 없습니다." : "등록된 콘텐츠가 없습니다."}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
