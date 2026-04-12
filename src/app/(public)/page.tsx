@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowRight, Search, SlidersHorizontal, ChevronRight,
+  ArrowRight, Search, SlidersHorizontal, ChevronRight, ChevronDown,
   Users, GraduationCap, UserCheck, Building, Star, Play,
   BookOpen, Trophy, Bell, FolderOpen, Award, HelpCircle, Handshake, Images, MessageCircle,
 } from "lucide-react";
@@ -89,7 +89,8 @@ export default function HomePage() {
   const [siteBanner, setSiteBanner] = useState<SiteBannerConfig | null>(null);
   const [ctaCfg, setCtaCfg] = useState(DEFAULT_SITE_CTA);
   const [pageContent, setPageContent] = useState<HomePageContent>(DEFAULT_HOME);
-  const [instructors, setInstructors] = useState(DEMO_INSTRUCTORS.filter((i) => i.isActive !== false));
+  const [instructors, setInstructors] = useState<(typeof DEMO_INSTRUCTORS[number] & { imageUrl?: string })[]>(DEMO_INSTRUCTORS.filter((i) => i.isActive !== false));
+  const [showAllInstructors, setShowAllInstructors] = useState(false);
 
   const dDay = calculateDDay(workathon.eventDate);
   const revealRefs = useRef<HTMLElement[]>([]);
@@ -146,7 +147,7 @@ export default function HomePage() {
           getCollection<{ id: string; type?: string; boardType?: string; title: string; category?: string; createdAt?: string; date?: string }>(COLLECTIONS.POSTS),
           getSingletonDoc<{ items: typeof DEMO_STATS }>(COLLECTIONS.SETTINGS, "stats"),
           getCollection<{ id: string; title: string; youtubeUrl: string; category?: string; featured?: boolean; isFeatured?: boolean }>(COLLECTIONS.VIDEOS),
-          getCollection<typeof DEMO_INSTRUCTORS[0] & { id: string }>(COLLECTIONS.INSTRUCTORS),
+          getCollection<typeof DEMO_INSTRUCTORS[0] & { id: string; imageUrl?: string }>(COLLECTIONS.INSTRUCTORS),
         ]);
         setCtaCfg(ctaLoaded);
         setHeroSlides(pickActiveHeroSlides(heroDoc?.slides));
@@ -373,7 +374,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── S3: 실무전문가 (강사 프로필 카드) ── */}
+      {/* ── S3: 실무전문가 (강사 프로필 카드 — /instructors 동일 디자인) ── */}
       <section className="py-24 md:py-28">
         <div className="text-center mb-16">
           <h2 className="text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
@@ -384,56 +385,94 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="w-[90%] max-w-[1200px] mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
-          {instructors.slice(0, 5).map((ins) => (
+        <div className={cn("max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6")}>
+          {(showAllInstructors ? instructors : instructors.slice(0, 3)).map((ins) => (
             <Link
               key={ins.id}
               href="/instructors"
               ref={addRevealRef}
               className={cn(
-                "group relative flex flex-col items-center rounded-2xl bg-white border border-gray-100",
-                "shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
+                "bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden group",
+                "cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
               )}
             >
-              <div className="w-full aspect-[3/4] overflow-hidden bg-gray-100">
-                {ins.profileImageUrl ? (
+              <div className={cn("relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-brand-gray to-gray-200")}>
+                {(ins.imageUrl || ins.profileImageUrl) ? (
                   <DriveOrExternalImage
-                    src={ins.profileImageUrl}
+                    src={(ins.imageUrl || ins.profileImageUrl)!}
                     alt={ins.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className={cn("w-full h-full object-cover object-top")}
+                    quiet
                   />
                 ) : (
-                  <div className={cn("w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-50")}>
-                    <UserCheck size={48} className="text-primary-300" />
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-gray to-gray-200">
+                    <span className="text-5xl font-bold text-brand-blue">{ins.name.charAt(0)}</span>
                   </div>
                 )}
+                <div className={cn("absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent")} />
               </div>
-              <div className="w-full px-4 py-5 text-center">
-                <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
-                  {ins.name}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1 line-clamp-1">{ins.title}</p>
-                {ins.specialties && ins.specialties.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-1.5 mt-3">
-                    {ins.specialties.slice(0, 2).map((tag) => (
-                      <span key={tag} className={cn("text-xs px-2 py-0.5 rounded-full bg-primary-50 text-primary-600")}>
-                        {tag}
-                      </span>
+
+              <div className={cn("px-6 py-4")}>
+                <div className={cn("mb-3 min-w-0")}>
+                  <h3 className={cn("text-xl font-bold text-gray-900 tracking-tighter leading-tight")}>
+                    {ins.name}
+                  </h3>
+                  {ins.title && (
+                    <p className={cn("mt-0.5 text-sm font-bold text-brand-blue tracking-tighter line-clamp-2 break-keep")}>
+                      {ins.title}
+                    </p>
+                  )}
+                </div>
+
+                {(ins.specialties || []).length > 0 && (
+                  <div className={cn("space-y-0.5 mb-3")}>
+                    {(ins.specialties || []).slice(0, 3).map((s, i) => (
+                      <div key={i} className={cn("flex items-center gap-2.5 py-0.5")}>
+                        <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-brand-blue" />
+                        <span className={cn("text-[13px] text-gray-700 font-medium truncate tracking-tighter")}>{s}</span>
+                      </div>
                     ))}
                   </div>
                 )}
+
+                {ins.bio && (
+                  <div className={cn("bg-brand-gray/60 rounded-xl px-3.5 py-2.5 max-h-[5rem] overflow-hidden")}>
+                    <p className={cn(
+                      "text-[13px] text-gray-600 italic leading-snug text-center tracking-tighter font-medium",
+                      "line-clamp-3 break-keep"
+                    )}>
+                      &ldquo;{ins.bio}&rdquo;
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="px-6 pb-3">
+                <span className="text-xs text-brand-blue font-medium group-hover:underline">프로필 보기 →</span>
               </div>
             </Link>
           ))}
         </div>
 
-        <div className="text-center mt-10">
+        <div className="text-center mt-10 flex flex-col items-center gap-3">
+          {!showAllInstructors && instructors.length > 3 && (
+            <button
+              onClick={() => setShowAllInstructors(true)}
+              className={cn(
+                "inline-flex items-center gap-2 px-6 py-3 rounded-full",
+                "text-sm font-semibold text-primary-600 border border-primary-200",
+                "hover:bg-primary-50 transition-colors"
+              )}
+            >
+              더보기
+              <ChevronDown size={16} />
+            </button>
+          )}
           <Link
             href="/instructors"
             className={cn(
               "inline-flex items-center gap-2 px-6 py-3 rounded-full",
-              "text-sm font-semibold text-primary-600 border border-primary-200",
-              "hover:bg-primary-50 transition-colors"
+              "text-sm font-semibold text-brand-blue border border-brand-blue/20",
+              "hover:bg-brand-blue/5 transition-colors"
             )}
           >
             전체 전문가 보기
