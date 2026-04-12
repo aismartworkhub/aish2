@@ -23,6 +23,7 @@ export default function HomeDefault(props: HomeDataProps) {
     dDay, addRevealRef,
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,
+    latestContents,
   } = props;
 
   return (
@@ -474,39 +475,79 @@ export default function HomeDefault(props: HomeDataProps) {
         </section>
       )}
 
-      {/* S7.5: Featured Videos */}
-      {featuredVideos.length > 0 && (
+      {/* S7.5: Insight (콘텐츠 우선, 없으면 비디오 폴백) */}
+      {(latestContents.length > 0 || featuredVideos.length > 0) && (
         <section className="py-24 md:py-28">
           <div className="container-custom">
             <div className="flex items-end justify-between mb-12">
               <div>
-                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Video</h2>
-                <p className="mt-2 text-gray-500 text-lg">주요 교육 영상</p>
+                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Insight</h2>
+                <p className="mt-2 text-gray-500 text-lg">
+                  {latestContents.length > 0 ? "실무에 바로 쓰는 AI 콘텐츠" : "주요 교육 영상"}
+                </p>
               </div>
-              <Link href="/videos" className="hidden md:inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
+              <Link href={latestContents.length > 0 ? "/media" : "/videos"} className="hidden md:inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
                 전체 보기 <ChevronRight size={16} />
               </Link>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-              {featuredVideos.map((video) => (
-                <a key={video.id} href={video.youtubeUrl} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
-                  className="group bg-white rounded overflow-hidden border border-brand-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <div className="aspect-video bg-gray-100 relative overflow-hidden">
-                    <YouTubeThumbnailImage videoUrl={video.youtubeUrl} alt={video.title} preferredThumbnailUrl={video.thumbnailUrl} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                      <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
-                        <Play size={20} className="text-brand-blue ml-0.5" />
+              {latestContents.length > 0
+                ? latestContents.map((content) => {
+                    const isYoutube = content.mediaType === "youtube" && content.mediaUrl;
+                    return (
+                      <Link key={content.id} href="/media" ref={addRevealRef}
+                        className="group bg-white rounded overflow-hidden border border-brand-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                        <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                          {isYoutube ? (
+                            <>
+                              <YouTubeThumbnailImage videoUrl={content.mediaUrl!} alt={content.title} preferredThumbnailUrl={content.thumbnailUrl} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                                <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+                                  <Play size={20} className="text-brand-blue ml-0.5" />
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <BookOpen size={36} className="text-gray-300" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-4">
+                          <h3 className="text-sm font-bold text-gray-900 group-hover:text-brand-blue transition-colors line-clamp-2">{content.title}</h3>
+                          {content.body && (
+                            <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{content.body}</p>
+                          )}
+                          {content.tags && content.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {content.tags.slice(0, 3).map((tag) => (
+                                <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-brand-blue/10 text-brand-blue font-medium">{tag}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })
+                : featuredVideos.map((video) => (
+                    <a key={video.id} href={video.youtubeUrl} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
+                      className="group bg-white rounded overflow-hidden border border-brand-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                      <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                        <YouTubeThumbnailImage videoUrl={video.youtubeUrl} alt={video.title} preferredThumbnailUrl={video.thumbnailUrl} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                          <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+                            <Play size={20} className="text-brand-blue ml-0.5" />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-sm font-bold text-gray-900 group-hover:text-brand-blue transition-colors line-clamp-2">{video.title}</h3>
-                  </div>
-                </a>
-              ))}
+                      <div className="p-4">
+                        <h3 className="text-sm font-bold text-gray-900 group-hover:text-brand-blue transition-colors line-clamp-2">{video.title}</h3>
+                      </div>
+                    </a>
+                  ))}
             </div>
             <div className="text-center mt-10 md:hidden">
-              <Link href="/videos" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
+              <Link href={latestContents.length > 0 ? "/media" : "/videos"} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
                 전체 보기 <ChevronRight size={16} />
               </Link>
             </div>

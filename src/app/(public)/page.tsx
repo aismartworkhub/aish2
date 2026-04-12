@@ -15,9 +15,12 @@ export default function HomePage() {
     loadSiteTheme().then((t) => setTemplate(t.homeTemplate));
   }, []);
 
-  return template === "modern"
-    ? <HomeModern {...homeData} />
-    : template === "community"
-    ? <HomeCommunity {...homeData} />
-    : <HomeDefault {...homeData} />;
+  switch (template) {
+    case "modern":
+      return <HomeModern {...homeData} />;
+    case "community":
+      return <HomeCommunity {...homeData} />;
+    default:
+      return <HomeDefault {...homeData} />;
+  }
 }

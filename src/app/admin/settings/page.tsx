@@ -17,15 +17,11 @@ import {
   isValidNonEmptyImageSource,
   isValidOptionalHttpOrPath,
 } from "@/lib/admin-validation";
-import type { HomeTemplate } from "@/lib/site-settings-public";
-
-const THEME_OPTIONS: { id: HomeTemplate; label: string; desc: string }[] = [
-  { id: "default", label: "기본 (1안)", desc: "포멀한 교육 기관 스타일 — 히어로 이미지, 검색 패널, 2분할 레이아웃" },
-  { id: "modern", label: "모던 (2안)", desc: "SaaS/스타트업 스타일 — 그라데이션 히어로, 카드 중심, 컴팩트 레이아웃" },
-  { id: "community", label: "커뮤니티 (3안)", desc: "교육 커뮤니티 허브 스타일 — 교육-전문가-회원혜택-콘텐츠 설득 흐름" },
-];
+import { seedAiContents } from "@/lib/seed-ai-contents";
 
 type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme";
+
+type HomeTemplate = "default" | "modern" | "community";
 
 interface HeroSlide { imageUrl: string; title: string; subtitle: string; ctaText: string; ctaLink: string; isActive: boolean; }
 interface StatItem { label: string; value: number; unit: string; icon: string; }
@@ -50,12 +46,18 @@ function isMasked(value: string): boolean {
 }
 
 const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
+  { id: "theme", label: "홈 테마", icon: Palette },
   { id: "hero", label: "히어로 섹션", icon: ImageIcon },
   { id: "stats", label: "실적 수치", icon: Hash },
   { id: "cta", label: "CTA 설정", icon: MousePointerClick },
   { id: "banner", label: "배너 관리", icon: Megaphone },
-  { id: "theme", label: "홈 테마", icon: Palette },
   { id: "integrations", label: "외부 연동", icon: Key },
+];
+
+const THEME_OPTIONS: { id: HomeTemplate; name: string; desc: string }[] = [
+  { id: "default", name: "1안 — 클래식", desc: "풀스크린 히어로, 검색 바, 카드 레이아웃 중심의 기본 디자인" },
+  { id: "modern", name: "2안 — 모던", desc: "SaaS 스타일 그라데이션 히어로, 다크 인사이트 섹션" },
+  { id: "community", name: "3안 — 커뮤니티", desc: "회원 혜택 강조, 커뮤니티 참여 중심 구성" },
 ];
 
 export default function AdminSettingsPage() {
@@ -69,7 +71,7 @@ export default function AdminSettingsPage() {
 function AdminSettingsInner() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as SettingsTab | null;
-  const [activeTab, setActiveTab] = useState<SettingsTab>(tabParam || "hero");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(tabParam || "theme");
   const [saveMessage, setSaveMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [tabLoading, setTabLoading] = useState(true);
@@ -105,7 +107,10 @@ function AdminSettingsInner() {
   const loadTabData = useCallback(async (tab: SettingsTab) => {
     setTabLoading(true);
     try {
-      if (tab === "hero") {
+      if (tab === "theme") {
+        const themeDoc = await getSingletonDoc<{ homeTemplate: HomeTemplate }>(COLLECTIONS.SETTINGS, "theme");
+        if (themeDoc?.homeTemplate) setHomeTemplate(themeDoc.homeTemplate);
+      } else if (tab === "hero") {
         const heroDoc = await getSingletonDoc<{ slides: HeroSlide[] }>(COLLECTIONS.SETTINGS, "hero");
         if (heroDoc?.slides) setHeroSlides(heroDoc.slides);
       } else if (tab === "stats") {
@@ -117,9 +122,6 @@ function AdminSettingsInner() {
       } else if (tab === "banner") {
         const bannerDoc = await getSingletonDoc<BannerConfig>(COLLECTIONS.SETTINGS, "banner");
         if (bannerDoc) setBanner({ enabled: bannerDoc.enabled ?? true, title: bannerDoc.title ?? "", dDayDate: bannerDoc.dDayDate ?? "", link: bannerDoc.link ?? "" });
-      } else if (tab === "theme") {
-        const themeDoc = await getSingletonDoc<{ homeTemplate: HomeTemplate }>(COLLECTIONS.SETTINGS, "theme");
-        if (themeDoc?.homeTemplate) setHomeTemplate(themeDoc.homeTemplate);
       } else if (tab === "integrations") {
         const intDoc = await getSingletonDoc<{ googleApi: GoogleApiConfig; emailConfig: EmailConfig; driveConfig: DriveConfig; calendarConfig: CalendarConfig }>(COLLECTIONS.SETTINGS, "integrations");
         if (intDoc) {
@@ -174,7 +176,9 @@ function AdminSettingsInner() {
     }
     setSaving(true);
     try {
-      if (activeTab === "hero") {
+      if (activeTab === "theme") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "theme", { homeTemplate });
+      } else if (activeTab === "hero") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "hero", { slides: heroSlides });
       } else if (activeTab === "stats") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "stats", { items: stats });
@@ -182,8 +186,6 @@ function AdminSettingsInner() {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "cta", cta);
       } else if (activeTab === "banner") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "banner", banner);
-      } else if (activeTab === "theme") {
-        await setSingletonDoc(COLLECTIONS.SETTINGS, "theme", { homeTemplate });
       } else if (activeTab === "integrations") {
         const safeGoogleApi = { ...googleApi };
         for (const field of SENSITIVE_FIELDS) {
@@ -242,6 +244,71 @@ function AdminSettingsInner() {
           <Loader2 size={32} className="animate-spin text-gray-400" />
         </div>
       ) : (<>
+
+      {/* 홈 테마 */}
+      {activeTab === "theme" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">홈페이지 테마 선택</h2>
+          <p className="text-sm text-gray-500 mb-6">공개 홈페이지에 적용할 디자인을 선택하세요. 저장 즉시 반영됩니다.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {THEME_OPTIONS.map((opt) => {
+              const selected = homeTemplate === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setHomeTemplate(opt.id)}
+                  className={cn(
+                    "relative text-left p-5 rounded-xl border-2 transition-all",
+                    selected
+                      ? "border-primary-600 bg-primary-50 shadow-md"
+                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50",
+                  )}
+                >
+                  {selected && (
+                    <span className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
+                      <Check size={14} className="text-white" />
+                    </span>
+                  )}
+                  <h3 className={cn("text-base font-bold mb-1", selected ? "text-primary-700" : "text-gray-900")}>
+                    {opt.name}
+                  </h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">{opt.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-3 mt-6">
+            <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
+            {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <h3 className="text-sm font-bold text-gray-700 mb-2">AI 샘플 콘텐츠 삽입</h3>
+            <p className="text-xs text-gray-500 mb-3">콘텐츠실, 자료실, 묻고답하기, 자유게시판에 AI 관련 테스트 데이터(종류별 2개)를 삽입합니다.</p>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={async () => {
+                if (!confirm("AI 샘플 콘텐츠 10건을 삽입합니다. 진행하시겠습니까?")) return;
+                setSaving(true);
+                try {
+                  const result = await seedAiContents();
+                  toast(`삽입 완료: 성공 ${result.success}건, 실패 ${result.failed}건`, result.failed > 0 ? "error" : "success");
+                } catch {
+                  toast("삽입에 실패했습니다.", "error");
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
+              <Plus size={16} />
+              {saving ? "삽입중..." : "샘플 데이터 삽입"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 히어로 */}
       {activeTab === "hero" && (
@@ -381,43 +448,6 @@ function AdminSettingsInner() {
           <div className="flex items-center gap-3 mt-6">
             <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
             {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
-          </div>
-        </div>
-      )}
-
-      {/* 홈 테마 */}
-      {activeTab === "theme" && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-2">홈페이지 테마 선택</h2>
-            <p className="text-sm text-gray-500 mb-6">관리자 패널에서 홈페이지 디자인을 전환할 수 있습니다. 선택 후 저장하면 즉시 반영됩니다.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {THEME_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setHomeTemplate(opt.id)}
-                  className={cn(
-                    "relative text-left p-6 rounded-xl border-2 transition-all",
-                    homeTemplate === opt.id
-                      ? "border-primary-500 bg-primary-50 ring-2 ring-primary-200"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  )}
-                >
-                  {homeTemplate === opt.id && (
-                    <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
-                      <Check size={14} className="text-white" />
-                    </div>
-                  )}
-                  <h3 className={cn("text-base font-bold", homeTemplate === opt.id ? "text-primary-700" : "text-gray-900")}>{opt.label}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{opt.desc}</p>
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3 mt-6">
-              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
-              {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
-            </div>
           </div>
         </div>
       )}

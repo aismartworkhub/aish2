@@ -34,6 +34,7 @@ export default function HomeModern(props: HomeDataProps) {
     siteBanner, ctaCfg, instructors,
     dDay, addRevealRef, currentHero,
     primaryCtaHref, primaryCtaLabel,
+    latestContents,
   } = props;
 
   return (
@@ -266,13 +267,51 @@ export default function HomeModern(props: HomeDataProps) {
         </div>
       </section>
 
-      {/* 인사이트 (다크 섹션) — 비디오 + 수강 후기 */}
-      {(featuredVideos.length > 0 || reviews.length > 0) && (
+      {/* 인사이트 (다크 섹션) — 콘텐츠/비디오 + 수강 후기 */}
+      {(latestContents.length > 0 || featuredVideos.length > 0 || reviews.length > 0) && (
         <section className="py-16 bg-gray-900 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-            {/* 비디오 */}
-            {featuredVideos.length > 0 && (
+            {/* 콘텐츠 우선, 없으면 비디오 */}
+            {latestContents.length > 0 ? (
+              <>
+                <div className="flex justify-between items-end mb-8">
+                  <div>
+                    <h2 className="text-3xl font-bold">실무에 바로 쓰는 인사이트</h2>
+                    <p className="mt-2 text-gray-400">AISH가 큐레이션한 AI 콘텐츠를 만나보세요.</p>
+                  </div>
+                  <Link href="/media" className="hidden sm:flex items-center text-gray-300 hover:text-white transition-colors">
+                    전체보기 <ChevronRight className="w-4 h-4 ml-1" />
+                  </Link>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                  {latestContents.map((content) => (
+                    <Link key={content.id} href="/media" ref={addRevealRef}
+                      className="bg-gray-800 rounded-sm p-5 hover:bg-gray-700 transition-colors cursor-pointer border border-gray-700">
+                      {content.mediaType === "youtube" && content.thumbnailUrl && (
+                        <div className="aspect-video rounded-sm overflow-hidden mb-3 relative">
+                          <img src={content.thumbnailUrl} alt={content.title} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center">
+                              <Play className="w-4 h-4 text-gray-900 ml-0.5" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <h3 className="text-base font-bold leading-snug line-clamp-2">{content.title}</h3>
+                      {content.body && <p className="text-sm text-gray-400 mt-2 line-clamp-2">{content.body}</p>}
+                      {content.tags && content.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-3">
+                          {content.tags.slice(0, 3).map((tag) => (
+                            <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-gray-300">{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </>
+            ) : featuredVideos.length > 0 ? (
               <>
                 <div className="flex justify-between items-end mb-8">
                   <div>
@@ -283,9 +322,7 @@ export default function HomeModern(props: HomeDataProps) {
                     전체보기 <ChevronRight className="w-4 h-4 ml-1" />
                   </Link>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                  {/* 메인 */}
                   {featuredVideos[0] && (
                     <a href={featuredVideos[0].youtubeUrl} target="_blank" rel="noopener noreferrer"
                       className="md:col-span-2 relative rounded-sm overflow-hidden group cursor-pointer h-64 md:h-80">
@@ -301,7 +338,6 @@ export default function HomeModern(props: HomeDataProps) {
                       </div>
                     </a>
                   )}
-                  {/* 서브 카드 */}
                   <div className="flex flex-col space-y-6">
                     {featuredVideos.slice(1, 3).map((video) => (
                       <a key={video.id} href={video.youtubeUrl} target="_blank" rel="noopener noreferrer"
@@ -315,7 +351,7 @@ export default function HomeModern(props: HomeDataProps) {
                   </div>
                 </div>
               </>
-            )}
+            ) : null}
 
             {/* 수강 후기 */}
             {reviews.length > 0 && (

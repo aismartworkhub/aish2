@@ -40,15 +40,6 @@ const COPY: Record<
     publicPath: "/",
     publicLabel: "메인에서 확인",
   },
-  theme: {
-    title: "공개 페이지에 어떻게 반영되나요?",
-    lines: [
-      "홈 테마 → 메인(/) 전체 레이아웃·디자인이 선택한 테마로 전환됩니다.",
-      "기본(1안): 교육 기관 스타일, 모던(2안): SaaS/스타트업 스타일, 커뮤니티(3안): 교육-전문가-회원혜택 설득 흐름",
-    ],
-    publicPath: "/",
-    publicLabel: "메인에서 확인",
-  },
   integrations: {
     title: "보안 안내",
     lines: [
@@ -57,6 +48,15 @@ const COPY: Record<
     ],
     publicPath: "/",
     publicLabel: "공개 홈",
+  },
+  theme: {
+    title: "공개 페이지에 어떻게 반영되나요?",
+    lines: [
+      "선택한 테마 → 메인(/) 홈페이지 전체 레이아웃·디자인에 즉시 반영",
+      "콘텐츠(교육과정·전문가·후기 등)는 테마와 무관하게 동일하게 표시됩니다.",
+    ],
+    publicPath: "/",
+    publicLabel: "메인 페이지 열기",
   },
 };
 

@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { DEMO_STATS, DEMO_PROGRAMS, DEMO_REVIEWS, DEMO_WORKATHON, DEMO_INSTRUCTORS } from "@/lib/demo-data";
 import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
+import { getContents } from "@/lib/content-engine";
+import type { Content } from "@/types/content";
 import { getRunmoaContents } from "@/lib/runmoa-api";
 import type { RunmoaContent } from "@/types/runmoa";
 import type { AdminEvent } from "@/types/firestore";
@@ -86,6 +88,7 @@ export function useHomeData() {
   const [instructors, setInstructors] = useState<(typeof DEMO_INSTRUCTORS[number] & { imageUrl?: string })[]>(
     DEMO_INSTRUCTORS.filter((i) => i.isActive !== false)
   );
+  const [latestContents, setLatestContents] = useState<Content[]>([]);
 
   const dDay = calculateDDay(workathon.eventDate);
   const revealRefs = useRef<HTMLElement[]>([]);
@@ -147,13 +150,15 @@ export function useHomeData() {
           setInstructors(active);
         }
         try {
-          const [runmoaRes, eventsData] = await Promise.all([
+          const [runmoaRes, eventsData, lectureContents] = await Promise.all([
             getRunmoaContents({ status: "publish", limit: 8 }),
             getCollection<AdminEvent & { id: string }>(COLLECTIONS.ADMIN_EVENTS),
+            getContents("media-lecture", { maxItems: 4 }),
           ]);
           if (runmoaRes.data.length > 0) setRunmoaPrograms(runmoaRes.data);
           if (eventsData.length > 0) setAdminEvents(eventsData.filter((e) => e.status !== "COMPLETED" && e.status !== "CANCELLED"));
-        } catch { /* Runmoa/Event 실패 시 무시 */ }
+          if (lectureContents.length > 0) setLatestContents(lectureContents.filter((c) => c.isApproved !== false).slice(0, 4));
+        } catch { /* Runmoa/Event/Contents 실패 시 무시 */ }
         if (firestoreReviews.length > 0) setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false));
         if (firestoreEvents.length > 0) {
           const sortedEv = [...firestoreEvents].sort((a, b) => (b.eventDate || "").localeCompare(a.eventDate || ""));
@@ -227,6 +232,7 @@ export function useHomeData() {
     dDay, revealRefs, addRevealRef,
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,
+    latestContents,
   };
 }
 
