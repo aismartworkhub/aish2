@@ -5,10 +5,113 @@ import { Plus, Save, Trash2, GripVertical, X, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import { DEFAULT_BOARDS } from "@/lib/board-defaults";
-import { getBoards, upsertBoard } from "@/lib/content-engine";
+import { getBoards, upsertBoard, createContent } from "@/lib/content-engine";
 import { removeDoc, COLLECTIONS } from "@/lib/firestore";
 import { runFullMigration, type MigrationResult } from "@/lib/migration";
-import type { BoardConfig, BoardGroup, BoardLayout, BoardWriteRole } from "@/types/content";
+import { useAuth } from "@/contexts/AuthContext";
+import type { BoardConfig, BoardGroup, BoardLayout, BoardWriteRole, ContentInput } from "@/types/content";
+
+const SAMPLE_CONTENTS: ContentInput[] = [
+  {
+    boardKey: "media-lecture",
+    title: "Python 기초 강의 - 변수와 자료형",
+    body: "파이썬 프로그래밍의 기초를 배우는 강의입니다.",
+    mediaType: "youtube",
+    mediaUrl: "https://www.youtube.com/watch?v=kWiCuklohdY",
+    thumbnailUrl: "https://img.youtube.com/vi/kWiCuklohdY/hqdefault.jpg",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["Python", "기초"],
+  },
+  {
+    boardKey: "media-lecture",
+    title: "AI 입문 - 머신러닝 이해하기",
+    body: "인공지능과 머신러닝의 기본 개념을 알아봅니다.",
+    mediaType: "youtube",
+    mediaUrl: "https://www.youtube.com/watch?v=aircAruvnKk",
+    thumbnailUrl: "https://img.youtube.com/vi/aircAruvnKk/hqdefault.jpg",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["AI", "머신러닝"],
+  },
+  {
+    boardKey: "media-workathon",
+    title: "제5회 스마트워크톤 하이라이트",
+    body: "2025년 스마트워크톤 현장 영상입니다.",
+    mediaType: "youtube",
+    mediaUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    thumbnailUrl: "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["워크톤", "2025"],
+  },
+  {
+    boardKey: "media-promo",
+    title: "AISH 소개 영상",
+    body: "AI Smartwork Hub를 소개합니다.",
+    mediaType: "youtube",
+    mediaUrl: "https://www.youtube.com/watch?v=JGwWNGJdvx8",
+    thumbnailUrl: "https://img.youtube.com/vi/JGwWNGJdvx8/hqdefault.jpg",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["소개", "AISH"],
+  },
+  {
+    boardKey: "media-resource",
+    title: "[샘플] 프레젠테이션 가이드 (PDF)",
+    body: "발표자료 작성을 위한 PDF 가이드입니다.",
+    mediaType: "pdf",
+    mediaUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+    thumbnailUrl: "",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["PDF", "가이드"],
+  },
+  {
+    boardKey: "media-resource",
+    title: "[샘플] 데이터 분석 보고서 (PPT/Link)",
+    body: "Google Slides로 작성된 데이터 분석 보고서입니다.",
+    mediaType: "link",
+    mediaUrl: "https://docs.google.com/presentation/d/1BPmqNSk5GPbP1jgB0lYekQPUi3HNqk8PH7BAQF5eXGE/edit",
+    thumbnailUrl: "",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["PPT", "데이터분석"],
+  },
+  {
+    boardKey: "media-resource",
+    title: "[샘플] AI 교육 커리큘럼 (DOC/Link)",
+    body: "Google Docs로 작성된 교육 커리큘럼입니다.",
+    mediaType: "link",
+    mediaUrl: "https://docs.google.com/document/d/1BPmqNSk5GPbP1jgB0lYekQPUi3HNqk8PH7BAQF5eXGE/edit",
+    thumbnailUrl: "",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["DOC", "커리큘럼"],
+  },
+  {
+    boardKey: "media-gallery",
+    title: "[샘플] AI 교육 현장 사진",
+    body: "교육 현장에서 촬영한 사진입니다.",
+    mediaType: "image",
+    mediaUrl: "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800",
+    thumbnailUrl: "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=400",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["교육", "현장"],
+  },
+  {
+    boardKey: "media-gallery",
+    title: "[샘플] 팀 협업 워크숍",
+    body: "팀 협업 워크숍 사진입니다.",
+    mediaType: "image",
+    mediaUrl: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800",
+    thumbnailUrl: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400",
+    authorUid: "",
+    authorName: "AISH",
+    tags: ["워크숍", "협업"],
+  },
+];
 
 const GROUP_LABELS: Record<BoardGroup, string> = {
   media: "미디어",
@@ -28,6 +131,7 @@ const WRITE_ROLE_LABELS: Record<BoardWriteRole, string> = {
 
 export default function AdminBoardsPage() {
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [boards, setBoards] = useState<BoardConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,6 +140,7 @@ export default function AdminBoardsPage() {
   const [migrating, setMigrating] = useState(false);
   const [migrationLog, setMigrationLog] = useState<string[]>([]);
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     getBoards()
@@ -43,6 +148,28 @@ export default function AdminBoardsPage() {
       .catch(() => setBoards(DEFAULT_BOARDS))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleSeedSamples = async () => {
+    if (!user) { toast("로그인이 필요합니다.", "error"); return; }
+    if (!confirm("샘플 콘텐츠 9건을 추가합니다. 진행하시겠습니까?")) return;
+    setSeeding(true);
+    try {
+      let created = 0;
+      for (const s of SAMPLE_CONTENTS) {
+        await createContent({
+          ...s,
+          authorUid: user.uid,
+          authorName: profile?.displayName ?? user.displayName ?? "관리자",
+        });
+        created++;
+      }
+      toast(`샘플 데이터 ${created}건 추가 완료`, "success");
+    } catch (e) {
+      toast(`샘플 추가 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const handleMigration = async () => {
     if (!confirm("기존 데이터를 통합 콘텐츠(contents)로 마이그레이션합니다.\n이미 이전된 항목은 건너뜁니다. 진행하시겠습니까?")) return;
@@ -160,6 +287,16 @@ export default function AdminBoardsPage() {
           >
             <RefreshCw size={14} className={cn(migrating && "animate-spin")} />
             {migrating ? "마이그레이션 중..." : "데이터 마이그레이션"}
+          </button>
+          <button
+            onClick={handleSeedSamples}
+            disabled={seeding || saving}
+            className={cn(
+              "flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700",
+              "hover:bg-blue-100 disabled:opacity-50",
+            )}
+          >
+            {seeding ? "추가 중..." : "샘플 데이터"}
           </button>
           <button
             onClick={handleSeedDefaults}

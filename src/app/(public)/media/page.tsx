@@ -23,26 +23,28 @@ export default function MediaPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      let all: Content[] = [];
+
+      // 1) 새 contents 컬렉션에서 로드
       try {
-        const promises = MEDIA_BOARDS.map((b) => getContents(b.key));
+        const promises = MEDIA_BOARDS.map((b) =>
+          getContents(b.key).catch(() => [] as Content[]),
+        );
         const results = await Promise.all(promises);
-        const newContents = results.flat();
+        all = results.flat();
+      } catch { /* 전체 실패 시 빈 배열 유지 */ }
 
+      // 2) 레거시 데이터 병합
+      try {
         const legacy = await loadAllLegacyMediaAsContent();
-        const newIds = new Set(newContents.map((c) => c.id));
-        const merged = [...newContents, ...legacy.filter((l) => !newIds.has(l.id))];
+        const existIds = new Set(all.map((c) => c.id));
+        all = [...all, ...legacy.filter((l) => !existIds.has(l.id))];
+      } catch { /* 레거시 로드 실패 무시 */ }
 
-        if (cancelled) return;
-        merged.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
-        setContents(merged);
-      } catch {
-        try {
-          const legacy = await loadAllLegacyMediaAsContent();
-          if (!cancelled && legacy.length > 0) setContents(legacy);
-        } catch { /* 최종 실패 시 빈 목록 */ }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      if (cancelled) return;
+      all.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
+      setContents(all);
+      setLoading(false);
     }
     load();
     return () => { cancelled = true; };
