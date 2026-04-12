@@ -25,6 +25,40 @@ import { db } from "@/lib/firebase";
 import type { Resource, PostComment, Like, Bookmark } from "@/types/firestore";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 
+const LEGACY_POST_PREFIX = "legacy-post-";
+
+/** posts 컬렉션 id와 contents 마이그레이션 id(legacy-post-*)를 동일 건으로 병합 */
+function canonicalCommunityPostId(id: string | number): string {
+  const s = String(id);
+  return s.startsWith(LEGACY_POST_PREFIX) ? s.slice(LEGACY_POST_PREFIX.length) : s;
+}
+
+type NoticeRow = { id: string | number; title: string; date: string; views: number; pinned: boolean; content?: string };
+
+function mergeNoticeRowsByCanonicalId(fromPosts: NoticeRow[], fromContents: NoticeRow[]): NoticeRow[] {
+  const map = new Map<string, NoticeRow>();
+  for (const p of fromPosts) {
+    map.set(canonicalCommunityPostId(p.id), { ...p });
+  }
+  for (const m of fromContents) {
+    map.set(canonicalCommunityPostId(m.id), { ...m });
+  }
+  return Array.from(map.values());
+}
+
+type FreeRow = { id: string; title: string; content: string; authorName: string; date: string; views: number; isApproved: boolean; authorUid: string };
+
+function mergeFreeRowsByCanonicalId(fromPosts: FreeRow[], fromContents: FreeRow[]): FreeRow[] {
+  const map = new Map<string, FreeRow>();
+  for (const p of fromPosts) {
+    map.set(canonicalCommunityPostId(p.id), { ...p });
+  }
+  for (const m of fromContents) {
+    map.set(canonicalCommunityPostId(m.id), { ...m });
+  }
+  return Array.from(map.values());
+}
+
 type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery" | string;
 
 const FIXED_TABS: { key: TabKey; label: string; icon: React.ElementType; color: string }[] = [
@@ -336,102 +370,60 @@ function CommunityContent() {
   }, [user]);
 
   useEffect(() => {
-    Promise.all([
-      getCollection<typeof DEMO_FAQ[0]>(COLLECTIONS.FAQ),
-      getCollection<{ id: string; type?: string; boardType?: string; title: string; category?: string; createdAt?: string; date?: string; views?: number; pinned?: boolean; isPinned?: boolean; author?: string; downloads?: number; fileType?: string }>(COLLECTIONS.POSTS),
-      getCollection<{ id: number | string; title: string; category: string; imageUrl: string; date?: string }>(COLLECTIONS.GALLERY),
-      getCollection<{ id: string; title: string; category: string; youtubeUrl: string; thumbnailUrl?: string; date?: string; publishedAt?: string }>(COLLECTIONS.VIDEOS),
-    ]).then(([faq, posts, gallery, videos]) => {
-      if (faq.length > 0) {
-        const sortedFaq = [...faq].sort(
-          (a, b) =>
-            ((a as { displayOrder?: number }).displayOrder ?? 999) -
-            ((b as { displayOrder?: number }).displayOrder ?? 999)
-        );
-        setFaqList(sortedFaq);
-      }
-      if (posts.length > 0) {
-        const getType = (p: { type?: string; boardType?: string }) => p.type || p.boardType || "";
-        const n = posts.filter((p) => getType(p) === "NOTICE").map((p) => ({
-          id: p.id, title: p.title, date: toDateString(p.createdAt || p.date), views: p.views || 0, pinned: p.pinned || p.isPinned || false,
-        }));
-        const r = posts.filter((p) => getType(p) === "RESOURCE").map((p) => ({
-          id: p.id, title: p.title, author: p.author || "", date: toDateString(p.createdAt || p.date), downloads: p.downloads || 0, type: p.fileType || "PDF",
-        }));
-        if (n.length > 0) setNoticeList(n);
-        if (r.length > 0) setResourceList(r);
-        const free = posts.filter((p) => getType(p) === "FREE").map((p) => ({
-          id: p.id, title: p.title, content: (p as { content?: string }).content || "",
-          authorName: (p as { authorName?: string }).authorName || p.author || "",
-          date: toDateString(p.createdAt || p.date),
-          views: p.views || 0, isApproved: (p as { isApproved?: boolean }).isApproved !== false,
-          authorUid: (p as { authorUid?: string }).authorUid || "",
-        }));
-        setFreePosts(free);
-        // Drive 자료실 로드
-        getCollection<Resource & { id: string }>(COLLECTIONS.RESOURCES)
-          .then((res) => { if (res.length > 0) setDriveResources(res); })
-          .catch(() => {});
-        // 커스텀 게시판 수집
-        const knownTypes = ["NOTICE", "RESOURCE", "FREE"];
-        const customTypes = [...new Set(posts.map((p) => getType(p)).filter((t) => t && !knownTypes.includes(t)))];
-        if (customTypes.length > 0) {
-          setCustomBoards(customTypes.map((bt) => ({
-            boardType: bt,
-            posts: posts.filter((p) => getType(p) === bt).map((p) => ({
-              id: p.id, title: p.title, date: toDateString(p.createdAt || p.date), views: p.views || 0, pinned: p.pinned || p.isPinned || false,
-            })),
-          })));
-        }
-      }
-      
-      let unifiedMedia: typeof GALLERY_IMAGES = [];
-      if (gallery.length > 0) {
-        unifiedMedia = [...unifiedMedia, ...gallery.map(g => ({ ...g, isVideo: false }))];
-      }
-      if (videos.length > 0) {
-        unifiedMedia = [...unifiedMedia, ...videos.map(v => ({
-          id: v.id,
-          title: v.title,
-          category: v.category,
-          imageUrl: v.thumbnailUrl || "",
-          youtubeUrl: v.youtubeUrl,
-          date: v.date || v.publishedAt || "",
-          isVideo: true
-        }))];
-      }
-      if (unifiedMedia.length > 0) {
-        const sortedMedia = unifiedMedia.sort((a, b) => {
-          const da = String(a.date || "");
-          const db = String(b.date || "");
-          return db.localeCompare(da);
-        });
-        setGalleryList(sortedMedia);
-      }
-    }).catch(console.error);
-    getCollection<{ id: string; authorName: string; authorCohort: string; content: string; rating: number; programTitle: string; isApproved?: boolean; authorUid?: string }>(COLLECTIONS.REVIEWS)
-      .then((data) => { if (data.length > 0) setReviews(data.map((d) => ({ ...d, isApproved: d.isApproved ?? false }))); });
+    let cancelled = false;
+    (async () => {
+      try {
+        const [faq, posts, gallery, videos, newNotices, newFree] = await Promise.all([
+          getCollection<typeof DEMO_FAQ[0]>(COLLECTIONS.FAQ),
+          getCollection<{ id: string; type?: string; boardType?: string; title: string; category?: string; createdAt?: string; date?: string; views?: number; pinned?: boolean; isPinned?: boolean; author?: string; downloads?: number; fileType?: string }>(COLLECTIONS.POSTS),
+          getCollection<{ id: number | string; title: string; category: string; imageUrl: string; date?: string }>(COLLECTIONS.GALLERY),
+          getCollection<{ id: string; title: string; category: string; youtubeUrl: string; thumbnailUrl?: string; date?: string; publishedAt?: string }>(COLLECTIONS.VIDEOS),
+          getContents("community-notice").catch(() => []),
+          getContents("community-free").catch(() => []),
+        ]);
+        if (cancelled) return;
 
-    // 통합 엔진(contents 컬렉션)에서 커뮤니티 데이터 병합
-    Promise.all([
-      getContents("community-notice").catch(() => []),
-      getContents("community-free").catch(() => []),
-    ]).then(([newNotices, newFree]) => {
-      if (newNotices.length > 0) {
-        const mapped = newNotices.map((c) => ({
-          id: c.id, title: c.title,
+        if (faq.length > 0) {
+          const sortedFaq = [...faq].sort(
+            (a, b) =>
+              ((a as { displayOrder?: number }).displayOrder ?? 999) -
+              ((b as { displayOrder?: number }).displayOrder ?? 999),
+          );
+          setFaqList(sortedFaq);
+        }
+
+        const getType = (p: { type?: string; boardType?: string }) => p.type || p.boardType || "";
+
+        const noticesFromPosts: NoticeRow[] =
+          posts.length > 0
+            ? posts
+                .filter((p) => getType(p) === "NOTICE")
+                .map((p) => ({
+                  id: p.id,
+                  title: p.title,
+                  date: toDateString(p.createdAt || p.date),
+                  views: p.views || 0,
+                  pinned: p.pinned || p.isPinned || false,
+                }))
+            : [];
+
+        const mappedNotices: NoticeRow[] = newNotices.map((c) => ({
+          id: c.id,
+          title: c.title,
           date: toDateString(c.createdAt),
-          views: c.views || 0, pinned: c.isPinned || false,
+          views: c.views || 0,
+          pinned: c.isPinned || false,
           content: c.body,
         }));
-        setNoticeList((prev) => {
-          const ids = new Set(prev.map((p) => String(p.id)));
-          return [...prev, ...mapped.filter((m) => !ids.has(m.id))];
-        });
-      }
-      if (newFree.length > 0) {
-        const mapped = newFree.map((c) => ({
-          id: c.id, title: c.title,
+
+        const mergedNotices = mergeNoticeRowsByCanonicalId(noticesFromPosts, mappedNotices);
+        if (mergedNotices.length > 0) {
+          setNoticeList(mergedNotices);
+        }
+
+        const mappedFree: FreeRow[] = newFree.map((c) => ({
+          id: c.id,
+          title: c.title,
           content: c.body || "",
           authorName: c.authorName,
           date: toDateString(c.createdAt),
@@ -439,12 +431,113 @@ function CommunityContent() {
           isApproved: c.isApproved ?? true,
           authorUid: c.authorUid,
         }));
-        setFreePosts((prev) => {
-          const ids = new Set(prev.map((p) => p.id));
-          return [...prev, ...mapped.filter((m) => !ids.has(m.id))];
-        });
+
+        if (posts.length > 0) {
+          const r = posts
+            .filter((p) => getType(p) === "RESOURCE")
+            .map((p) => ({
+              id: p.id,
+              title: p.title,
+              author: p.author || "",
+              date: toDateString(p.createdAt || p.date),
+              downloads: p.downloads || 0,
+              type: p.fileType || "PDF",
+            }));
+          if (r.length > 0) setResourceList(r);
+
+          const freeFromPosts: FreeRow[] = posts
+            .filter((p) => getType(p) === "FREE")
+            .map((p) => ({
+              id: p.id,
+              title: p.title,
+              content: (p as { content?: string }).content || "",
+              authorName: (p as { authorName?: string }).authorName || p.author || "",
+              date: toDateString(p.createdAt || p.date),
+              views: p.views || 0,
+              isApproved: (p as { isApproved?: boolean }).isApproved !== false,
+              authorUid: (p as { authorUid?: string }).authorUid || "",
+            }));
+
+          const mergedFree = mergeFreeRowsByCanonicalId(freeFromPosts, mappedFree);
+          if (mergedFree.length > 0) {
+            setFreePosts(mergedFree);
+          }
+
+          getCollection<Resource & { id: string }>(COLLECTIONS.RESOURCES)
+            .then((res) => {
+              if (!cancelled && res.length > 0) setDriveResources(res);
+            })
+            .catch(() => {});
+
+          const knownTypes = ["NOTICE", "RESOURCE", "FREE"];
+          const customTypes = [...new Set(posts.map((p) => getType(p)).filter((t) => t && !knownTypes.includes(t)))];
+          if (customTypes.length > 0) {
+            setCustomBoards(
+              customTypes.map((bt) => ({
+                boardType: bt,
+                posts: posts
+                  .filter((p) => getType(p) === bt)
+                  .map((p) => ({
+                    id: p.id,
+                    title: p.title,
+                    date: toDateString(p.createdAt || p.date),
+                    views: p.views || 0,
+                    pinned: p.pinned || p.isPinned || false,
+                  })),
+              })),
+            );
+          }
+        } else if (mappedFree.length > 0) {
+          setFreePosts(mergeFreeRowsByCanonicalId([], mappedFree));
+        }
+
+        let unifiedMedia: typeof GALLERY_IMAGES = [];
+        if (gallery.length > 0) {
+          unifiedMedia = [...unifiedMedia, ...gallery.map((g) => ({ ...g, isVideo: false }))];
+        }
+        if (videos.length > 0) {
+          unifiedMedia = [
+            ...unifiedMedia,
+            ...videos.map((v) => ({
+              id: v.id,
+              title: v.title,
+              category: v.category,
+              imageUrl: v.thumbnailUrl || "",
+              youtubeUrl: v.youtubeUrl,
+              date: v.date || v.publishedAt || "",
+              isVideo: true,
+            })),
+          ];
+        }
+        if (unifiedMedia.length > 0) {
+          const sortedMedia = unifiedMedia.sort((a, b) => {
+            const da = String(a.date || "");
+            const db = String(b.date || "");
+            return db.localeCompare(da);
+          });
+          setGalleryList(sortedMedia);
+        }
+
+        const reviewData = await getCollection<{
+          id: string;
+          authorName: string;
+          authorCohort: string;
+          content: string;
+          rating: number;
+          programTitle: string;
+          isApproved?: boolean;
+          authorUid?: string;
+        }>(COLLECTIONS.REVIEWS);
+        if (!cancelled && reviewData.length > 0) {
+          setReviews(reviewData.map((d) => ({ ...d, isApproved: d.isApproved ?? false })));
+        }
+      } catch (e) {
+        console.error(e);
       }
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const [inquiryError, setInquiryError] = useState("");
