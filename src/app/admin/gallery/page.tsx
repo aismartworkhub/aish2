@@ -7,6 +7,7 @@ import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc, getSingletonDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import LegacyMigrationBanner from "@/components/admin/LegacyMigrationBanner";
 import { useToast } from "@/components/ui/Toast";
 
 type PhotoCategory = "교육" | "워크톤" | "행사" | "기타";
@@ -178,6 +179,7 @@ export default function AdminGalleryPage() {
 
   return (
     <div>
+      <LegacyMigrationBanner legacyName="갤러리" targetBoardKey="media-gallery" />
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">갤러리 관리</h1>

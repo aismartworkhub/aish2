@@ -23,16 +23,12 @@ service cloud.firestore {
 
     // ── users 컬렉션: 역할 기반 접근 제어의 핵심 ──
     match /users/{userId} {
-      // 본인 프로필 읽기 허용, 관리자는 전체 읽기 가능
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      // 본인 프로필 생성 시 role은 반드시 'user'만 허용 (권한 상승 방지)
       allow create: if isAuthenticated() && request.auth.uid == userId
                     && request.resource.data.role == 'user';
       allow update: if isAuthenticated() && (
-        // 본인이 수정 (role 변경 시도가 없거나 기존 값 유지)
         (request.auth.uid == userId &&
          (!('role' in request.resource.data) || request.resource.data.role == resource.data.role))
-        // 슈퍼관리자는 모든 사용자의 모든 필드 수정 가능
         || isSuperAdmin()
       );
       allow delete: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
@@ -151,7 +147,7 @@ service cloud.firestore {
         (isAuthenticated() && resource.data.authorUid == request.auth.uid);
     }
 
-    // 강사 댓글: 공개 읽기, 로그인 사용자 작성, 본인 또는 관리자만 삭제
+    // 강사 댓글
     match /instructorComments/{docId} {
       allow read: if true;
       allow create: if isAuthenticated();
@@ -160,10 +156,45 @@ service cloud.firestore {
         (isAuthenticated() && resource.data.authorUid == request.auth.uid);
     }
 
-    // 사이트 설정 (공개 읽기: 히어로, 배너 등 / integrations는 관리자만)
+    // 사이트 설정
     match /siteSettings/{docId} {
       allow read: if docId != 'integrations' || isAdmin();
       allow write: if isAdmin();
+    }
+
+    // ── 통합 게시판 엔진 ──
+
+    // 게시판 설정: 공개 읽기, 관리자만 쓰기
+    match /boards/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 통합 콘텐츠: 공개 읽기, 로그인 사용자 작성, 관리자/작성자 수정·삭제
+    match /contents/{docId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() ||
+        (isAuthenticated() && resource.data.authorUid == request.auth.uid);
+      allow delete: if isAdmin() ||
+        (isAuthenticated() && resource.data.authorUid == request.auth.uid);
+    }
+
+    // 통합 댓글: 공개 읽기, 로그인 사용자 작성, 관리자/작성자 삭제
+    match /contentComments/{docId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() ||
+        (isAuthenticated() && resource.data.authorUid == request.auth.uid);
+      allow delete: if isAdmin() ||
+        (isAuthenticated() && resource.data.authorUid == request.auth.uid);
+    }
+
+    // 통합 리액션: 공개 읽기, 본인만 생성/삭제
+    match /reactions/{docId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
     // 비공개 컬렉션 (관리자만 읽기/쓰기)

@@ -12,6 +12,7 @@ import {
 import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
 import { getCollection, getFilteredCollection, createDoc, removeDoc, invalidateCache, COLLECTIONS } from "@/lib/firestore";
+import { getContents } from "@/lib/content-engine";
 import { loadPageContent, DEFAULT_COMMUNITY } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
 import DOMPurify from "dompurify";
@@ -28,12 +29,11 @@ type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "galle
 
 const FIXED_TABS: { key: TabKey; label: string; icon: React.ElementType; color: string }[] = [
   { key: "notice", label: "공지사항", icon: Bell, color: "text-blue-600 bg-blue-50" },
-  { key: "gallery", label: "갤러리", icon: Images, color: "text-pink-600 bg-pink-50" },
+  { key: "free", label: "자유게시판", icon: MessageCircle, color: "text-indigo-600 bg-indigo-50" },
+  { key: "review", label: "수강후기", icon: Star, color: "text-orange-600 bg-orange-50" },
   { key: "resource", label: "자료실", icon: FolderOpen, color: "text-green-600 bg-green-50" },
-  { key: "review", label: "수강 후기", icon: Star, color: "text-orange-600 bg-orange-50" },
-  { key: "free", label: "묻고답하기", icon: MessageCircle, color: "text-indigo-600 bg-indigo-50" },
   { key: "faq", label: "FAQ", icon: HelpCircle, color: "text-yellow-600 bg-yellow-50" },
-  { key: "certificate", label: "수료증 발급", icon: Award, color: "text-purple-600 bg-purple-50" },
+  { key: "certificate", label: "수료증 조회", icon: Award, color: "text-purple-600 bg-purple-50" },
   { key: "inquiry", label: "협력 문의", icon: Handshake, color: "text-red-600 bg-red-50" },
 ];
 
@@ -411,6 +411,40 @@ function CommunityContent() {
     }).catch(console.error);
     getCollection<{ id: string; authorName: string; authorCohort: string; content: string; rating: number; programTitle: string; isApproved?: boolean; authorUid?: string }>(COLLECTIONS.REVIEWS)
       .then((data) => { if (data.length > 0) setReviews(data.map((d) => ({ ...d, isApproved: d.isApproved ?? false }))); });
+
+    // 통합 엔진(contents 컬렉션)에서 커뮤니티 데이터 병합
+    Promise.all([
+      getContents("community-notice").catch(() => []),
+      getContents("community-free").catch(() => []),
+    ]).then(([newNotices, newFree]) => {
+      if (newNotices.length > 0) {
+        const mapped = newNotices.map((c) => ({
+          id: c.id, title: c.title,
+          date: toDateString(c.createdAt),
+          views: c.views || 0, pinned: c.isPinned || false,
+          content: c.body,
+        }));
+        setNoticeList((prev) => {
+          const ids = new Set(prev.map((p) => String(p.id)));
+          return [...prev, ...mapped.filter((m) => !ids.has(m.id))];
+        });
+      }
+      if (newFree.length > 0) {
+        const mapped = newFree.map((c) => ({
+          id: c.id, title: c.title,
+          content: c.body || "",
+          authorName: c.authorName,
+          date: toDateString(c.createdAt),
+          views: c.views || 0,
+          isApproved: c.isApproved ?? true,
+          authorUid: c.authorUid,
+        }));
+        setFreePosts((prev) => {
+          const ids = new Set(prev.map((p) => p.id));
+          return [...prev, ...mapped.filter((m) => !ids.has(m.id))];
+        });
+      }
+    });
   }, []);
 
   const [inquiryError, setInquiryError] = useState("");
@@ -1055,8 +1089,8 @@ function CommunityContent() {
           <div className="card-base overflow-hidden">
             <div className="p-6 border-b border-brand-border flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">묻고답하기</h2>
-                <p className="text-sm text-gray-500 mt-1">수강생 간 질문과 정보를 나눠보세요.</p>
+                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">자유게시판</h2>
+                <p className="text-sm text-gray-500 mt-1">자유롭게 질문과 정보를 나눠보세요.</p>
               </div>
               {user && (
                 <button onClick={() => setShowFreePostForm(!showFreePostForm)} className="btn-primary btn-sm">

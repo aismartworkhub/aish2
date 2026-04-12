@@ -5,6 +5,7 @@ import { Star, Trash2, CheckCircle, XCircle, Award, Plus, Pencil, Upload, Search
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import LegacyMigrationBanner from "@/components/admin/LegacyMigrationBanner";
 import { useToast } from "@/components/ui/Toast";
 
 interface Review {
@@ -201,6 +202,7 @@ export default function AdminReviewsPage() {
 
   return (
     <div className="space-y-6">
+      <LegacyMigrationBanner legacyName="후기 관리" targetBoardKey="community-review" />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">후기 관리</h1>

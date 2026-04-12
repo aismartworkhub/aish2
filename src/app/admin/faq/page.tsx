@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import LegacyMigrationBanner from "@/components/admin/LegacyMigrationBanner";
 import { HtmlEditor } from "@/components/admin/HtmlEditor";
 import { useToast } from "@/components/ui/Toast";
 
@@ -73,6 +74,7 @@ export default function AdminFAQPage() {
 
   return (
     <div className="space-y-6">
+      <LegacyMigrationBanner legacyName="FAQ 관리" targetBoardKey="community-faq" />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">FAQ 관리</h1>

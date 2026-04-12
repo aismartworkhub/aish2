@@ -148,6 +148,10 @@ export const COLLECTIONS = {
   LIKES: "likes",
   BOOKMARKS: "bookmarks",
   NOTIFICATIONS: "notifications",
+  BOARDS: "boards",
+  CONTENTS: "contents",
+  CONTENT_COMMENTS: "contentComments",
+  REACTIONS: "reactions",
 } as const;
 
 export const PAGE_DOC_ID = (key: string) => `page_${key}`;

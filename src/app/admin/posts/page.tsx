@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import LegacyMigrationBanner from "@/components/admin/LegacyMigrationBanner";
 import { HtmlEditor } from "@/components/admin/HtmlEditor";
 import { useToast } from "@/components/ui/Toast";
 import DriveFileUploader from "@/components/admin/DriveFileUploader";
@@ -179,6 +180,7 @@ export default function AdminPostsPage() {
 
   return (
     <div>
+      <LegacyMigrationBanner legacyName="게시판 관리" />
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">게시판 관리</h1>

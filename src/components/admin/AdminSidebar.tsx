@@ -7,7 +7,7 @@ import {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, ImageIcon, Handshake, Clock,
  Award, Shield, ChevronDown, ChevronRight, X,
- Megaphone, Zap, FolderOpen, LayoutTemplate,
+ Megaphone, Zap, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const ICON_MAP: Record<string, React.ElementType> = {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, Image: ImageIcon, Handshake, Clock,
- Award, Shield, Megaphone, Zap, FolderOpen, LayoutTemplate,
+ Award, Shield, Megaphone, Zap, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
 };
 
 interface NavChild {

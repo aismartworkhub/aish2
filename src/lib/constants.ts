@@ -12,7 +12,7 @@ export const NAV_ITEMS = [
  { label: "교육 프로그램", href: "/programs" },
  { label: "강사진", href: "/instructors" },
  { label: "스마트워크톤", href: "/workathon" },
- { label: "영상·콘텐츠", href: "/videos" },
+ { label: "미디어", href: "/media" },
  { label: "커뮤니티", href: "/community" },
 ] as const;
 
@@ -48,6 +48,8 @@ export const ADMIN_NAV_ITEMS = [
      { label: "자료실", href: "/admin/posts?type=RESOURCE" },
    ],
  },
+ { label: "통합 콘텐츠", href: "/admin/contents", icon: "Layers" },
+ { label: "게시판 설정", href: "/admin/boards", icon: "LayoutGrid" },
  { label: "영상 관리", href: "/admin/videos", icon: "Video" },
  { label: "후기 관리", href: "/admin/reviews", icon: "Star" },
  {
@@ -110,7 +112,7 @@ export const TARGET_PAGE_OPTIONS = [
  { value: "/programs", label: "교육 프로그램" },
  { value: "/instructors", label: "강사진" },
  { value: "/workathon", label: "스마트워크톤" },
- { value: "/videos", label: "영상/콘텐츠" },
+ { value: "/media", label: "미디어" },
  { value: "/community", label: "커뮤니티" },
 ] as const;
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Search, Play, Edit, Trash2, X, Save, Star, ExternalLink, Youtube, Filter } from "lucide-react";
+import LegacyMigrationBanner from "@/components/admin/LegacyMigrationBanner";
 import { cn } from "@/lib/utils";
 import { VIDEO_CATEGORY_LABELS } from "@/lib/constants";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
@@ -135,6 +136,7 @@ export default function AdminVideosPage() {
 
   return (
     <div>
+      <LegacyMigrationBanner legacyName="영상 관리" targetBoardKey="media-lecture" />
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">영상 관리</h1>
