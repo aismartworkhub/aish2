@@ -6,6 +6,7 @@ import {
   ImageIcon, Hash, MousePointerClick, Megaphone,
   Save, Plus, Trash2, GripVertical,
   Key, Mail, Cloud, Calendar, Database, Shield, Loader2,
+  Palette, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, getSingletonDoc, setSingletonDoc, upsertDoc } from "@/lib/firestore";
@@ -16,8 +17,14 @@ import {
   isValidNonEmptyImageSource,
   isValidOptionalHttpOrPath,
 } from "@/lib/admin-validation";
+import type { HomeTemplate } from "@/lib/site-settings-public";
 
-type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations";
+const THEME_OPTIONS: { id: HomeTemplate; label: string; desc: string }[] = [
+  { id: "default", label: "기본 (1안)", desc: "포멀한 교육 기관 스타일 — 히어로 이미지, 검색 패널, 2분할 레이아웃" },
+  { id: "modern", label: "모던 (2안)", desc: "SaaS/스타트업 스타일 — 그라데이션 히어로, 카드 중심, 컴팩트 레이아웃" },
+];
+
+type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme";
 
 interface HeroSlide { imageUrl: string; title: string; subtitle: string; ctaText: string; ctaLink: string; isActive: boolean; }
 interface StatItem { label: string; value: number; unit: string; icon: string; }
@@ -46,6 +53,7 @@ const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }
   { id: "stats", label: "실적 수치", icon: Hash },
   { id: "cta", label: "CTA 설정", icon: MousePointerClick },
   { id: "banner", label: "배너 관리", icon: Megaphone },
+  { id: "theme", label: "홈 테마", icon: Palette },
   { id: "integrations", label: "외부 연동", icon: Key },
 ];
 
@@ -67,7 +75,7 @@ function AdminSettingsInner() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (tabParam && ["hero", "stats", "cta", "banner", "integrations"].includes(tabParam)) {
+    if (tabParam && ["hero", "stats", "cta", "banner", "integrations", "theme"].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -83,6 +91,9 @@ function AdminSettingsInner() {
 
   // Banner
   const [banner, setBanner] = useState<BannerConfig>({ enabled: true, title: "", dDayDate: "", link: "" });
+
+  // Theme
+  const [homeTemplate, setHomeTemplate] = useState<HomeTemplate>("default");
 
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
@@ -105,6 +116,9 @@ function AdminSettingsInner() {
       } else if (tab === "banner") {
         const bannerDoc = await getSingletonDoc<BannerConfig>(COLLECTIONS.SETTINGS, "banner");
         if (bannerDoc) setBanner({ enabled: bannerDoc.enabled ?? true, title: bannerDoc.title ?? "", dDayDate: bannerDoc.dDayDate ?? "", link: bannerDoc.link ?? "" });
+      } else if (tab === "theme") {
+        const themeDoc = await getSingletonDoc<{ homeTemplate: HomeTemplate }>(COLLECTIONS.SETTINGS, "theme");
+        if (themeDoc?.homeTemplate) setHomeTemplate(themeDoc.homeTemplate);
       } else if (tab === "integrations") {
         const intDoc = await getSingletonDoc<{ googleApi: GoogleApiConfig; emailConfig: EmailConfig; driveConfig: DriveConfig; calendarConfig: CalendarConfig }>(COLLECTIONS.SETTINGS, "integrations");
         if (intDoc) {
@@ -167,6 +181,8 @@ function AdminSettingsInner() {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "cta", cta);
       } else if (activeTab === "banner") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "banner", banner);
+      } else if (activeTab === "theme") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "theme", { homeTemplate });
       } else if (activeTab === "integrations") {
         const safeGoogleApi = { ...googleApi };
         for (const field of SENSITIVE_FIELDS) {
@@ -364,6 +380,43 @@ function AdminSettingsInner() {
           <div className="flex items-center gap-3 mt-6">
             <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
             {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* 홈 테마 */}
+      {activeTab === "theme" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">홈페이지 테마 선택</h2>
+            <p className="text-sm text-gray-500 mb-6">관리자 패널에서 홈페이지 디자인을 전환할 수 있습니다. 선택 후 저장하면 즉시 반영됩니다.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {THEME_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setHomeTemplate(opt.id)}
+                  className={cn(
+                    "relative text-left p-6 rounded-xl border-2 transition-all",
+                    homeTemplate === opt.id
+                      ? "border-primary-500 bg-primary-50 ring-2 ring-primary-200"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  )}
+                >
+                  {homeTemplate === opt.id && (
+                    <div className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center">
+                      <Check size={14} className="text-white" />
+                    </div>
+                  )}
+                  <h3 className={cn("text-base font-bold", homeTemplate === opt.id ? "text-primary-700" : "text-gray-900")}>{opt.label}</h3>
+                  <p className="text-sm text-gray-500 mt-1">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 mt-6">
+              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
+              {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
+            </div>
           </div>
         </div>
       )}

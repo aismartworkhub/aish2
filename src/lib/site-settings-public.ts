@@ -90,3 +90,18 @@ export function resolveHeroCtaText(slide: HeroSlidePublic, siteCtaText: string):
 }
 
 export { DEFAULT_HERO_SLIDE };
+
+/* ── 홈 테마 설정 ── */
+
+export type HomeTemplate = "default" | "modern";
+
+export interface SiteThemeConfig {
+  homeTemplate: HomeTemplate;
+}
+
+export const DEFAULT_THEME: SiteThemeConfig = { homeTemplate: "default" };
+
+export async function loadSiteTheme(): Promise<SiteThemeConfig> {
+  const doc = await getSingletonDoc<SiteThemeConfig>(COLLECTIONS.SETTINGS, "theme");
+  return doc ?? DEFAULT_THEME;
+}

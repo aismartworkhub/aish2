@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type AdminSettingsHintTab = "hero" | "stats" | "cta" | "banner" | "integrations";
+export type AdminSettingsHintTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme";
 
 const COPY: Record<
   AdminSettingsHintTab,
@@ -37,6 +37,15 @@ const COPY: Record<
   banner: {
     title: "공개 페이지에 어떻게 반영되나요?",
     lines: ["D-Day 배너 → 메인(/) 상단(퀵배너 아래) 얇은 안내 바"],
+    publicPath: "/",
+    publicLabel: "메인에서 확인",
+  },
+  theme: {
+    title: "공개 페이지에 어떻게 반영되나요?",
+    lines: [
+      "홈 테마 → 메인(/) 전체 레이아웃·디자인이 선택한 테마로 전환됩니다.",
+      "기본(1안): 교육 기관 스타일, 모던(2안): SaaS/스타트업 스타일",
+    ],
     publicPath: "/",
     publicLabel: "메인에서 확인",
   },
