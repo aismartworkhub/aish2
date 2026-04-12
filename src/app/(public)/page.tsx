@@ -9,7 +9,7 @@ import {
   BookOpen, Trophy, Bell, FolderOpen, Award, HelpCircle, Handshake, Images, MessageCircle,
 } from "lucide-react";
 import { PROGRAM_CATEGORY_LABELS, EVENT_STATUS_LABELS, EVENT_STATUS_COLORS, RUNMOA_CONTENT_TYPE_LABELS } from "@/lib/constants";
-import { DEMO_STATS, DEMO_PROGRAMS, DEMO_REVIEWS, DEMO_WORKATHON } from "@/lib/demo-data";
+import { DEMO_STATS, DEMO_PROGRAMS, DEMO_REVIEWS, DEMO_WORKATHON, DEMO_INSTRUCTORS } from "@/lib/demo-data";
 import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
 import { getRunmoaContents } from "@/lib/runmoa-api";
 import type { RunmoaContent } from "@/types/runmoa";
@@ -28,48 +28,11 @@ import type { HomePageContent } from "@/types/page-content";
 import { calculateDDay, cn, isExternalHref, toDateString } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
+import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 
 const STAT_ICONS: Record<string, React.ElementType> = {
   Users, GraduationCap, UserCheck, Building,
 };
-
-const EDUCATION_CATEGORIES = [
-  {
-    title: "AI 기초",
-    subtitle: "Foundation",
-    description: "인공지능의 기본 개념부터 실무 활용까지",
-    image: "/images/defaults/edu-ai.jpg",
-    span: "big",
-  },
-  {
-    title: "데이터 분석",
-    subtitle: "Data Analysis",
-    description: "Python 기반 데이터 분석과 시각화",
-    image: "/images/defaults/edu-data.jpg",
-    span: "normal",
-  },
-  {
-    title: "바이브 코딩",
-    subtitle: "Vibe Coding",
-    description: "코드로 만드는 크리에이티브 작품",
-    image: "/images/defaults/edu-vibe.jpg",
-    span: "normal",
-  },
-  {
-    title: "정부과제",
-    subtitle: "Government",
-    description: "정부과제 연계 전문 교육 프로그램",
-    image: "/images/defaults/edu-cloud.jpg",
-    span: "normal",
-  },
-  {
-    title: "스마트워크",
-    subtitle: "Smart Work",
-    description: "업무 자동화와 AI 활용 실무",
-    image: "/images/defaults/edu-smart.jpg",
-    span: "normal",
-  },
-];
 
 const SPECIALTY_CARDS = [
   {
@@ -126,18 +89,10 @@ export default function HomePage() {
   const [siteBanner, setSiteBanner] = useState<SiteBannerConfig | null>(null);
   const [ctaCfg, setCtaCfg] = useState(DEFAULT_SITE_CTA);
   const [pageContent, setPageContent] = useState<HomePageContent>(DEFAULT_HOME);
+  const [instructors, setInstructors] = useState(DEMO_INSTRUCTORS.filter((i) => i.isActive !== false));
 
   const dDay = calculateDDay(workathon.eventDate);
   const revealRefs = useRef<HTMLElement[]>([]);
-
-  const educationCategoriesResolved = useMemo(
-    () =>
-      (pageContent.educationCards.length > 0 ? pageContent.educationCards : EDUCATION_CATEGORIES).map((cat) => ({
-        ...cat,
-        image: ("imageUrl" in cat ? cat.imageUrl : (cat as typeof EDUCATION_CATEGORIES[number]).image) || "",
-      })),
-    [pageContent.educationCards]
-  );
 
   const specialtyCardsResolved = useMemo(
     () =>
@@ -180,6 +135,7 @@ export default function HomePage() {
           firestorePosts,
           statDoc,
           firestoreVideos,
+          firestoreInstructors,
         ] = await Promise.all([
           loadSiteCta(),
           getSingletonDoc<{ slides?: HeroSlidePublic[] }>(COLLECTIONS.SETTINGS, "hero"),
@@ -190,11 +146,18 @@ export default function HomePage() {
           getCollection<{ id: string; type?: string; boardType?: string; title: string; category?: string; createdAt?: string; date?: string }>(COLLECTIONS.POSTS),
           getSingletonDoc<{ items: typeof DEMO_STATS }>(COLLECTIONS.SETTINGS, "stats"),
           getCollection<{ id: string; title: string; youtubeUrl: string; category?: string; featured?: boolean; isFeatured?: boolean }>(COLLECTIONS.VIDEOS),
+          getCollection<typeof DEMO_INSTRUCTORS[0] & { id: string }>(COLLECTIONS.INSTRUCTORS),
         ]);
         setCtaCfg(ctaLoaded);
         setHeroSlides(pickActiveHeroSlides(heroDoc?.slides));
         if (bannerDoc) setSiteBanner(bannerDoc);
         if (firestorePrograms.length > 0) setPrograms(firestorePrograms);
+        if (firestoreInstructors.length > 0) {
+          const active = firestoreInstructors
+            .filter((ins) => (ins as { isActive?: boolean }).isActive !== false)
+            .sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 999) - ((b as { displayOrder?: number }).displayOrder ?? 999));
+          setInstructors(active);
+        }
         // Runmoa 콘텐츠 + Event 로드
         try {
           const [runmoaRes, eventsData] = await Promise.all([
@@ -410,41 +373,72 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── S3: Education (이미지 모자이크 그리드) ── */}
+      {/* ── S3: 실무전문가 (강사 프로필 카드) ── */}
       <section className="py-24 md:py-28">
         <div className="text-center mb-16">
           <h2 className="text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
-            {pageContent.sections.education?.title ?? "Education"}
+            {pageContent.sections.education?.title ?? "실무전문가"}
           </h2>
           <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
-            {pageContent.sections.education?.description ?? "목표에 맞는 최적의 AI 교육 과정을 제공합니다."}
+            {pageContent.sections.education?.description ?? "각 분야 현업 전문가가 여러분의 성장을 이끕니다."}
           </p>
         </div>
 
-        <div className="w-[90%] max-w-[1200px] mx-auto grid grid-cols-2 md:grid-cols-4 auto-rows-[280px] gap-4">
-          {educationCategoriesResolved.map((cat) => (
+        <div className="w-[90%] max-w-[1200px] mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
+          {instructors.slice(0, 5).map((ins) => (
             <Link
-              key={cat.title}
-              href="/programs"
+              key={ins.id}
+              href="/instructors"
               ref={addRevealRef}
-              className={`group relative rounded overflow-hidden cursor-pointer transition-transform duration-500 hover:-translate-y-2.5 ${
-                cat.span === "big" ? "col-span-2 row-span-2" : ""
-              }`}
+              className={cn(
+                "group relative flex flex-col items-center rounded-2xl bg-white border border-gray-100",
+                "shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
+              )}
             >
-              <img
-                src={cat.image}
-                alt={cat.title}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-              <div className="absolute bottom-0 left-0 w-full p-6 md:p-8 text-white">
-                <h3 className={`font-medium ${cat.span === "big" ? "text-2xl md:text-3xl" : "text-lg md:text-xl"}`}>
-                  {cat.title}
+              <div className="w-full aspect-[3/4] overflow-hidden bg-gray-100">
+                {ins.profileImageUrl ? (
+                  <DriveOrExternalImage
+                    src={ins.profileImageUrl}
+                    alt={ins.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className={cn("w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-50")}>
+                    <UserCheck size={48} className="text-primary-300" />
+                  </div>
+                )}
+              </div>
+              <div className="w-full px-4 py-5 text-center">
+                <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
+                  {ins.name}
                 </h3>
-                <p className="text-sm text-white/60 mt-1">{cat.subtitle}</p>
+                <p className="text-sm text-gray-500 mt-1 line-clamp-1">{ins.title}</p>
+                {ins.specialties && ins.specialties.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-1.5 mt-3">
+                    {ins.specialties.slice(0, 2).map((tag) => (
+                      <span key={tag} className={cn("text-xs px-2 py-0.5 rounded-full bg-primary-50 text-primary-600")}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </Link>
           ))}
+        </div>
+
+        <div className="text-center mt-10">
+          <Link
+            href="/instructors"
+            className={cn(
+              "inline-flex items-center gap-2 px-6 py-3 rounded-full",
+              "text-sm font-semibold text-primary-600 border border-primary-200",
+              "hover:bg-primary-50 transition-colors"
+            )}
+          >
+            전체 전문가 보기
+            <ArrowRight size={16} />
+          </Link>
         </div>
       </section>
 

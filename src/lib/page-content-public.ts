@@ -14,7 +14,7 @@ import type {
 export const DEFAULT_HOME: HomePageContent = {
   hero: { imageUrl: "", title: "", subtitle: "" },
   sections: {
-    education: { title: "Education", description: "목표에 맞는 최적의 AI 교육 과정을 제공합니다." },
+    education: { title: "실무전문가", description: "각 분야 현업 전문가가 여러분의 성장을 이끕니다." },
     specialty: { title: "Specialty", description: "AISH만의 차별화된 교육 가치를 경험하세요." },
   },
   educationCards: [
@@ -61,8 +61,8 @@ export const DEFAULT_PROGRAMS: PageContentBase = {
 export const DEFAULT_INSTRUCTORS: PageContentBase = {
   hero: {
     imageUrl: "",
-    title: "전문 강사진",
-    subtitle: "각 분야 최고의 전문가들이 여러분의 성장을 이끕니다.",
+    title: "실무전문가",
+    subtitle: "각 분야 현업 전문가가 여러분의 성장을 이끕니다.",
   },
   sections: {},
 };
