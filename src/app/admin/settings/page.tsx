@@ -22,6 +22,7 @@ import type { HomeTemplate } from "@/lib/site-settings-public";
 const THEME_OPTIONS: { id: HomeTemplate; label: string; desc: string }[] = [
   { id: "default", label: "기본 (1안)", desc: "포멀한 교육 기관 스타일 — 히어로 이미지, 검색 패널, 2분할 레이아웃" },
   { id: "modern", label: "모던 (2안)", desc: "SaaS/스타트업 스타일 — 그라데이션 히어로, 카드 중심, 컴팩트 레이아웃" },
+  { id: "community", label: "커뮤니티 (3안)", desc: "교육 커뮤니티 허브 스타일 — 교육-전문가-회원혜택-콘텐츠 설득 흐름" },
 ];
 
 type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme";
@@ -390,7 +391,7 @@ function AdminSettingsInner() {
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-2">홈페이지 테마 선택</h2>
             <p className="text-sm text-gray-500 mb-6">관리자 패널에서 홈페이지 디자인을 전환할 수 있습니다. 선택 후 저장하면 즉시 반영됩니다.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {THEME_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}

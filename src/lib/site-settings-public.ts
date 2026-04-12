@@ -93,7 +93,7 @@ export { DEFAULT_HERO_SLIDE };
 
 /* ── 홈 테마 설정 ── */
 
-export type HomeTemplate = "default" | "modern";
+export type HomeTemplate = "default" | "modern" | "community";
 
 export interface SiteThemeConfig {
   homeTemplate: HomeTemplate;

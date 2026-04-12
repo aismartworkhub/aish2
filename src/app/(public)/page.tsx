@@ -5,6 +5,7 @@ import { useHomeData } from "@/hooks/useHomeData";
 import { loadSiteTheme, type HomeTemplate } from "@/lib/site-settings-public";
 import HomeDefault from "@/components/home/HomeDefault";
 import HomeModern from "@/components/home/HomeModern";
+import HomeCommunity from "@/components/home/HomeCommunity";
 
 export default function HomePage() {
   const [template, setTemplate] = useState<HomeTemplate>("default");
@@ -16,5 +17,7 @@ export default function HomePage() {
 
   return template === "modern"
     ? <HomeModern {...homeData} />
+    : template === "community"
+    ? <HomeCommunity {...homeData} />
     : <HomeDefault {...homeData} />;
 }
