@@ -2,7 +2,12 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { Play, Image as ImageIcon, FileText, Link2, File } from "lucide-react";
-import { cn, extractGoogleDriveFileId, googleDriveThumbnailUrl, toDirectImageUrl } from "@/lib/utils";
+import {
+  cn,
+  extractGoogleDriveFileId,
+  googleDriveThumbnailUrl,
+  googleDriveUcExportViewUrl,
+} from "@/lib/utils";
 import type { MediaType } from "@/types/content";
 import { detectMediaType } from "@/lib/content-engine";
 import { youtubeThumbnailUrls } from "@/lib/youtube";
@@ -74,23 +79,33 @@ function buildImageCandidates(mediaUrl?: string, thumbnailUrl?: string, mediaTyp
     if (u && !seen.has(u)) { seen.add(u); candidates.push(u); }
   };
 
-  if (thumbnailUrl) add(thumbnailUrl);
-
   // YouTube: mqdefault → hqdefault → default 다단계 폴백
   if (mediaType === "youtube" && mediaUrl) {
     for (const ytUrl of youtubeThumbnailUrls(mediaUrl)) add(ytUrl);
     return candidates;
   }
 
-  // Google Drive
+  const driveFileIds = new Set<string>();
   for (const raw of [mediaUrl, thumbnailUrl]) {
     if (!raw) continue;
-    const fileId = extractGoogleDriveFileId(raw);
-    if (fileId) {
-      add(toDirectImageUrl(raw));
-      add(googleDriveThumbnailUrl(fileId, 800));
-    }
+    const id = extractGoogleDriveFileId(raw);
+    if (id) driveFileIds.add(id);
   }
+
+  // Google Drive: 비로그인 사용자는 lh3.googleusercontent.com이 자주 차단됨.
+  // thumbnail API → uc export=view → 원본 URL 순으로 시도.
+  if (driveFileIds.size > 0) {
+    for (const fileId of driveFileIds) {
+      add(googleDriveThumbnailUrl(fileId, 400));
+      add(googleDriveThumbnailUrl(fileId, 800));
+      add(googleDriveUcExportViewUrl(fileId));
+    }
+    if (thumbnailUrl) add(thumbnailUrl);
+    if (mediaUrl && mediaUrl !== thumbnailUrl) add(mediaUrl);
+    return candidates;
+  }
+
+  if (thumbnailUrl) add(thumbnailUrl);
 
   // 일반 이미지 URL (YouTube/Drive가 아닌 경우만)
   if (mediaUrl && !extractGoogleDriveFileId(mediaUrl)) {
@@ -147,6 +162,35 @@ function TitleFallback({ title, mediaType, className }: {
       <p className="line-clamp-2 text-center text-xs font-medium leading-snug text-gray-500">
         {title}
       </p>
+    </div>
+  );
+}
+
+/** 갤러리 이미지 로드 실패 시 — 문서 썸네일과 톤 맞춘 가상 카드 */
+function ImageGalleryFallback({ title, mediaUrl, className }: {
+  title: string; mediaUrl?: string; className?: string;
+}) {
+  const looksLikeDrive =
+    !!mediaUrl &&
+    /drive\.google\.com|googleusercontent\.com|docs\.google\.com/.test(mediaUrl);
+
+  return (
+    <div className={cn(
+      "flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-violet-500 to-indigo-700 p-4",
+      className,
+    )}>
+      <ImageIcon size={28} className="text-white/80" />
+      <span className="rounded-md bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white backdrop-blur-sm">
+        이미지
+      </span>
+      <p className="mt-1 line-clamp-2 text-center text-xs font-medium leading-snug text-white">
+        {title}
+      </p>
+      {looksLikeDrive && (
+        <p className="line-clamp-2 text-center text-[10px] leading-tight text-white/70">
+          비공개 Google 파일은 비회원에게 표시되지 않습니다. Drive에서 &quot;링크가 있는 모든 사용자&quot;로 공유해 주세요.
+        </p>
+      )}
     </div>
   );
 }
@@ -246,6 +290,11 @@ export default function MediaPreview({
   // 문서(PDF/DOC/PPT 등) → 확장자별 색상 가상 썸네일
   if (isDoc) {
     return <DocumentThumbnail title={title} mediaType={mediaType} mediaUrl={mediaUrl} className={className} />;
+  }
+
+  // 갤러리 이미지/GIF 로드 실패 → 가상 썸네일 + Drive 안내
+  if (mediaType === "image" || mediaType === "gif") {
+    return <ImageGalleryFallback title={title} mediaUrl={mediaUrl} className={className} />;
   }
 
   // 최종 폴백: 제목 + 아이콘 오버레이

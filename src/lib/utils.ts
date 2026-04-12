@@ -78,6 +78,11 @@ export function googleDriveThumbnailUrl(fileId: string, width = 1200): string {
   return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w${width}`;
 }
 
+/** Drive 이미지 직접 표시용 (공개 공유 시 비로그인에서 lh3보다 잘 되는 경우 있음) */
+export function googleDriveUcExportViewUrl(fileId: string): string {
+  return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(fileId)}`;
+}
+
 
 /**
  * Firestore Timestamp 또는 문자열을 안전한 날짜 문자열로 변환한다.
