@@ -2,11 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Save, ArrowLeft, CheckCircle, AlertTriangle } from "lucide-react";
+import { Save, ArrowLeft, CheckCircle, AlertTriangle, GraduationCap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { COLLECTIONS, updateDocFields } from "@/lib/firestore";
 import { COHORT_OPTIONS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import {
+  InstructorApplicationForm,
+  checkInstructorApplicationStatus,
+  type ApplicationStatus,
+} from "@/components/instructor/InstructorApplicationForm";
 
 const INPUT_CLASS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
 
@@ -18,6 +23,10 @@ export default function ProfilePage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  const [showInstructorApply, setShowInstructorApply] = useState(false);
+  const [instructorStatus, setInstructorStatus] = useState<ApplicationStatus>("none");
+  const [statusLoading, setStatusLoading] = useState(true);
 
   const [interestInput, setInterestInput] = useState("");
   const [form, setForm] = useState({
@@ -38,6 +47,21 @@ export default function ProfilePage() {
       router.replace("/");
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (!user) {
+      setStatusLoading(false);
+      return;
+    }
+    let cancelled = false;
+    checkInstructorApplicationStatus(user.uid).then((s) => {
+      if (!cancelled) {
+        setInstructorStatus(s);
+        setStatusLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     if (profile) {
@@ -332,6 +356,19 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
+      {/* 강사 신청 */}
+      <InstructorApplySection
+        status={instructorStatus}
+        statusLoading={statusLoading}
+        showForm={showInstructorApply}
+        onShowForm={() => setShowInstructorApply(true)}
+        onBack={() => setShowInstructorApply(false)}
+        onSubmitted={() => {
+          setInstructorStatus("pending");
+          setShowInstructorApply(false);
+        }}
+      />
+
       {/* 내 활동 */}
       <div className="mt-8 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
         <h2 className="text-lg font-bold text-gray-900">내 활동</h2>
@@ -406,6 +443,103 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── 강사 신청 섹션 ── */
+function InstructorApplySection({
+  status,
+  statusLoading,
+  showForm,
+  onShowForm,
+  onBack,
+  onSubmitted,
+}: {
+  status: ApplicationStatus;
+  statusLoading: boolean;
+  showForm: boolean;
+  onShowForm: () => void;
+  onBack: () => void;
+  onSubmitted: () => void;
+}) {
+  if (statusLoading) {
+    return (
+      <div className="mt-8 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+          <span className="text-sm text-gray-500">강사 신청 상태 확인 중...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (showForm && status === "none") {
+    return (
+      <div className="mt-8 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <InstructorApplicationForm
+          onBack={onBack}
+          onSubmitted={onSubmitted}
+          variant="embed"
+        />
+      </div>
+    );
+  }
+
+  const statusConfig: Record<
+    Exclude<ApplicationStatus, "none">,
+    { label: string; color: string; bg: string; dot: string; desc: string }
+  > = {
+    pending: {
+      label: "심사중",
+      color: "text-amber-600",
+      bg: "bg-amber-50 border-amber-200",
+      dot: "bg-amber-400",
+      desc: "관리자 승인을 기다리고 있습니다.",
+    },
+    approved: {
+      label: "승인 완료",
+      color: "text-green-600",
+      bg: "bg-green-50 border-green-200",
+      dot: "bg-green-400",
+      desc: "강사 페이지에서 프로필을 확인하세요.",
+    },
+    rejected: {
+      label: "반려",
+      color: "text-red-600",
+      bg: "bg-red-50 border-red-200",
+      dot: "bg-red-400",
+      desc: "관리자에게 문의하시거나 다시 신청해 주세요.",
+    },
+  };
+
+  return (
+    <div className="mt-8 bg-white rounded-2xl border border-gray-200 shadow-sm">
+      <div className="px-6 py-5 flex items-start gap-3">
+        <GraduationCap size={20} className="text-brand-blue shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <h2 className="text-base font-semibold text-gray-900">강사 신청</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {status === "none"
+              ? "전문 분야를 공유하고 AISH 강사로 활동하세요."
+              : statusConfig[status].desc}
+          </p>
+          {status !== "none" && (
+            <div className={cn("inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-xs font-medium border", statusConfig[status].bg)}>
+              <span className={cn("w-2 h-2 rounded-full", statusConfig[status].dot)} />
+              <span className={statusConfig[status].color}>{statusConfig[status].label}</span>
+            </div>
+          )}
+        </div>
+        {status === "none" && (
+          <button
+            onClick={onShowForm}
+            className="px-4 py-2 text-sm font-medium text-brand-blue border border-brand-blue/30 rounded-lg hover:bg-brand-blue/5 transition-colors shrink-0"
+          >
+            신청하기
+          </button>
+        )}
+      </div>
     </div>
   );
 }
