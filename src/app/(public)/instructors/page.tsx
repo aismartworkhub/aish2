@@ -576,13 +576,53 @@ function pickImage(cls: RunmoaContent): string {
   return cls.featured_image || cls.thumbnail_link || cls.images?.[0] || "";
 }
 
-const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+/** 태그 제거 + 일반 HTML 엔티티 정리 (&nbsp; 등 화면에 그대로 노출 방지) */
+function summaryPlainText(html: string, maxLen: number): string {
+  if (!html) return "";
+  let t = html.replace(/<[^>]*>/g, " ");
+  t = t
+    .replace(/&nbsp;|&#160;|&#xA0;/gi, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'");
+  t = t.replace(/\s+/g, " ").trim();
+  return t.slice(0, maxLen);
+}
+
+function normalizeSidebarTitle(title: string): string {
+  return title.trim().replace(/\s+/g, " ");
+}
+
+/** 동일 제목 중복 시 메타가 더 많은 카드만 유지 (API 카드 vs 최소 fallback) */
+function dedupeSidebarCards(cards: ClassCard[]): ClassCard[] {
+  const richness = (c: ClassCard) =>
+    (c.imageUrl ? 4 : 0) +
+    (c.description?.trim() ? 2 : 0) +
+    (c.contentType ? 2 : 0) +
+    (c.price ? 1 : 0);
+  const byTitle = new Map<string, ClassCard>();
+  const order: string[] = [];
+  for (const c of cards) {
+    const key = normalizeSidebarTitle(c.title);
+    if (!key) continue;
+    const prev = byTitle.get(key);
+    if (!prev) {
+      byTitle.set(key, c);
+      order.push(key);
+    } else if (richness(c) > richness(prev)) {
+      byTitle.set(key, c);
+    }
+  }
+  return order.map((k) => byTitle.get(k)!);
+}
 
 function runmoaToCard(cls: RunmoaContent): ClassCard {
   return {
     id: String(cls.content_id),
     title: cls.title,
-    description: stripHtml(cls.description_html).slice(0, 80),
+    description: summaryPlainText(cls.description_html, 80),
     imageUrl: pickImage(cls),
     href: `${RUNMOA_BASE}/classes/${cls.content_id}`,
     contentType: cls.content_type,
@@ -724,7 +764,7 @@ function SidebarClasses({
       }
 
       if (!cancelled) {
-        setCards(result.slice(0, 5));
+        setCards(dedupeSidebarCards(result).slice(0, 5));
         setLoading(false);
       }
     }
