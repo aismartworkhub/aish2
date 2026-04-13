@@ -2,7 +2,7 @@
  * AI 관련 샘플 콘텐츠 시드 데이터
  * 관리자 페이지에서 한 번 호출하여 Firestore에 삽입합니다.
  */
-import { createContent } from "@/lib/content-engine";
+import { createContentIfNew } from "@/lib/content-engine";
 import type { ContentInput } from "@/types/content";
 
 const ADMIN_UID = "seed-admin";
@@ -148,19 +148,21 @@ export const SEED_CONTENTS: ContentInput[] = [
   },
 ];
 
-export async function seedAiContents(): Promise<{ success: number; failed: number }> {
+export async function seedAiContents(): Promise<{ success: number; skipped: number; failed: number }> {
   let success = 0;
+  let skipped = 0;
   let failed = 0;
 
   for (const item of SEED_CONTENTS) {
     try {
-      await createContent(item);
-      success++;
+      const id = await createContentIfNew(item);
+      if (id) success++;
+      else skipped++;
     } catch (e) {
       console.error(`Failed to seed: ${item.title}`, e);
       failed++;
     }
   }
 
-  return { success, failed };
+  return { success, skipped, failed };
 }

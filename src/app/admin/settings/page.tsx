@@ -6,7 +6,7 @@ import {
   ImageIcon, Hash, MousePointerClick, Megaphone,
   Save, Plus, Trash2, GripVertical,
   Key, Mail, Cloud, Calendar, Database, Shield, Loader2,
-  Palette, Check,
+  Palette, Check, Bot, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, getSingletonDoc, setSingletonDoc, upsertDoc } from "@/lib/firestore";
@@ -17,9 +17,14 @@ import {
   isValidNonEmptyImageSource,
   isValidOptionalHttpOrPath,
 } from "@/lib/admin-validation";
-import { seedAiContents } from "@/lib/seed-ai-contents";
+import { collectAll } from "@/lib/ai-content-collector";
+import type { CollectResult } from "@/lib/ai-content-collector";
+import { curateItems } from "@/lib/ai-content-curator";
+import type { CuratedItem } from "@/lib/ai-content-curator";
+import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-content-dedup";
+import { createContentIfNew } from "@/lib/content-engine";
 
-type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme";
+type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai";
 
 type HomeTemplate = "default" | "modern" | "community";
 
@@ -47,12 +52,33 @@ function isMasked(value: string): boolean {
 
 const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "theme", label: "홈 테마", icon: Palette },
+  { id: "ai", label: "AI 수집", icon: Bot },
   { id: "hero", label: "히어로 섹션", icon: ImageIcon },
   { id: "stats", label: "실적 수치", icon: Hash },
   { id: "cta", label: "CTA 설정", icon: MousePointerClick },
   { id: "banner", label: "배너 관리", icon: Megaphone },
   { id: "integrations", label: "외부 연동", icon: Key },
 ];
+
+interface AiCollectorConfig {
+  youtubeApiKey: string;
+  maxItemsPerRun: number;
+  minQualityScore: number;
+  lastRunAt?: string;
+  lastRunResult?: {
+    collected: number;
+    unique: number;
+    curated: number;
+    inserted: number;
+    failed: number;
+  };
+}
+
+const DEFAULT_AI_CONFIG: AiCollectorConfig = {
+  youtubeApiKey: "",
+  maxItemsPerRun: 10,
+  minQualityScore: 7,
+};
 
 const THEME_OPTIONS: { id: HomeTemplate; name: string; desc: string }[] = [
   { id: "default", name: "1안 — 클래식", desc: "풀스크린 히어로, 검색 바, 카드 레이아웃 중심의 기본 디자인" },
@@ -78,7 +104,7 @@ function AdminSettingsInner() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (tabParam && ["hero", "stats", "cta", "banner", "integrations", "theme"].includes(tabParam)) {
+    if (tabParam && ["hero", "stats", "cta", "banner", "integrations", "theme", "ai"].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -98,6 +124,11 @@ function AdminSettingsInner() {
   // Theme
   const [homeTemplate, setHomeTemplate] = useState<HomeTemplate>("default");
 
+  // AI Collector
+  const [aiConfig, setAiConfig] = useState<AiCollectorConfig>(DEFAULT_AI_CONFIG);
+  const [collecting, setCollecting] = useState(false);
+  const [collectProgress, setCollectProgress] = useState("");
+
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({ adminEmail: "", smtpServer: "", senderName: "" });
@@ -110,6 +141,9 @@ function AdminSettingsInner() {
       if (tab === "theme") {
         const themeDoc = await getSingletonDoc<{ homeTemplate: HomeTemplate }>(COLLECTIONS.SETTINGS, "theme");
         if (themeDoc?.homeTemplate) setHomeTemplate(themeDoc.homeTemplate);
+      } else if (tab === "ai") {
+        const aiDoc = await getSingletonDoc<AiCollectorConfig>(COLLECTIONS.SETTINGS, "ai-collector");
+        if (aiDoc) setAiConfig({ ...DEFAULT_AI_CONFIG, ...aiDoc });
       } else if (tab === "hero") {
         const heroDoc = await getSingletonDoc<{ slides: HeroSlide[] }>(COLLECTIONS.SETTINGS, "hero");
         if (heroDoc?.slides) setHeroSlides(heroDoc.slides);
@@ -178,6 +212,12 @@ function AdminSettingsInner() {
     try {
       if (activeTab === "theme") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "theme", { homeTemplate });
+      } else if (activeTab === "ai") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-collector", {
+          youtubeApiKey: aiConfig.youtubeApiKey,
+          maxItemsPerRun: aiConfig.maxItemsPerRun,
+          minQualityScore: aiConfig.minQualityScore,
+        });
       } else if (activeTab === "hero") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "hero", { slides: heroSlides });
       } else if (activeTab === "stats") {
@@ -283,29 +323,247 @@ function AdminSettingsInner() {
             {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <h3 className="text-sm font-bold text-gray-700 mb-2">AI 샘플 콘텐츠 삽입</h3>
-            <p className="text-xs text-gray-500 mb-3">콘텐츠실, 자료실, 묻고답하기, 자유게시판에 AI 관련 테스트 데이터(종류별 2개)를 삽입합니다.</p>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={async () => {
-                if (!confirm("AI 샘플 콘텐츠 10건을 삽입합니다. 진행하시겠습니까?")) return;
-                setSaving(true);
-                try {
-                  const result = await seedAiContents();
-                  toast(`삽입 완료: 성공 ${result.success}건, 실패 ${result.failed}건`, result.failed > 0 ? "error" : "success");
-                } catch {
-                  toast("삽입에 실패했습니다.", "error");
-                } finally {
-                  setSaving(false);
-                }
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
-            >
-              <Plus size={16} />
-              {saving ? "삽입중..." : "샘플 데이터 삽입"}
-            </button>
+        </div>
+      )}
+
+      {/* AI 수집 */}
+      {activeTab === "ai" && (
+        <div className="space-y-6">
+          {/* 수집 설정 */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">AI 콘텐츠 자동 수집</h2>
+            <p className="text-sm text-gray-500 mb-6">YouTube, GitHub, Reddit, X.com, Instagram에서 최신 AI 콘텐츠를 수집하고 Gemini로 교차 검증합니다.</p>
+
+            <div className="space-y-4 max-w-lg">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">YouTube API Key</label>
+                <p className="text-xs text-gray-400 mb-1">Google Cloud Console에서 YouTube Data API v3 키를 발급받으세요. 없으면 YouTube 수집을 건너뜁니다.</p>
+                <input
+                  type="password"
+                  value={aiConfig.youtubeApiKey}
+                  onChange={(e) => setAiConfig({ ...aiConfig, youtubeApiKey: e.target.value })}
+                  placeholder="AIza..."
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">수집 최대 건수</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={aiConfig.maxItemsPerRun}
+                    onChange={(e) => setAiConfig({ ...aiConfig, maxItemsPerRun: Number(e.target.value) || 10 })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">최소 품질 점수</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={aiConfig.minQualityScore}
+                    onChange={(e) => setAiConfig({ ...aiConfig, minQualityScore: Number(e.target.value) || 7 })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Gemini 품질 점수 1~10, 이 점수 미만은 제외</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-6">
+              <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50">
+                <Save size={16} />{saving ? "저장중..." : "설정 저장"}
+              </button>
+              {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
+            </div>
+          </div>
+
+          {/* 즉시 수집 */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+            <h3 className="text-base font-bold text-gray-900 mb-2">즉시 수집</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              버튼을 누르면 즉시 수집을 시작합니다. 브라우저에서는 YouTube, GitHub 수집이 가능하며, Reddit/X.com/Instagram은 CORS 제한으로 건너뛸 수 있습니다.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={collecting || saving}
+                onClick={async () => {
+                  if (!confirm("AI 콘텐츠를 수집합니다. 진행하시겠습니까?")) return;
+                  setCollecting(true);
+                  setCollectProgress("소스에서 수집 중...");
+
+                  try {
+                    const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? "";
+
+                    const result: CollectResult = await collectAll({
+                      youtubeApiKey: aiConfig.youtubeApiKey,
+                      maxPerSource: Math.ceil(aiConfig.maxItemsPerRun / 3),
+                    });
+                    setCollectProgress(`${result.items.length}건 수집 완료. 중복 확인 중...`);
+
+                    const existingUrls = await getExistingUrls();
+                    const unique = filterDuplicates(result.items, existingUrls);
+                    setCollectProgress(`${unique.length}건 고유 항목. Gemini 큐레이션 중...`);
+
+                    let curated: CuratedItem[];
+                    if (geminiKey) {
+                      curated = await curateItems(unique, geminiKey, aiConfig.minQualityScore);
+                    } else {
+                      curated = unique.map((item) => ({
+                        title: item.title,
+                        body: item.description || item.title,
+                        boardKey: item.source === "youtube" ? "media-lecture" : item.source === "github" ? "media-resource" : "community-free",
+                        mediaType: (item.source === "youtube" ? "youtube" : "link") as "youtube" | "link",
+                        mediaUrl: item.url,
+                        thumbnailUrl: item.thumbnailUrl,
+                        tags: ["AI"],
+                        qualityScore: 5,
+                        source: item.source,
+                        publishedAt: item.publishedAt,
+                      }));
+                    }
+
+                    curated.sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
+                    const toInsert = curated.slice(0, aiConfig.maxItemsPerRun);
+                    setCollectProgress(`${toInsert.length}건 큐레이션 완료. 저장 중...`);
+
+                    let inserted = 0;
+                    let skipped = 0;
+                    for (const item of toInsert) {
+                      try {
+                        const docId = await createContentIfNew({
+                          boardKey: item.boardKey,
+                          title: item.title,
+                          body: item.body,
+                          mediaType: item.mediaType,
+                          mediaUrl: item.mediaUrl,
+                          thumbnailUrl: item.thumbnailUrl,
+                          tags: item.tags,
+                          authorUid: "ai-collector",
+                          authorName: "AI 큐레이터",
+                          isPinned: false,
+                          isApproved: true,
+                        });
+                        if (docId) inserted++;
+                        else skipped++;
+                        await new Promise((r) => setTimeout(r, 300));
+                      } catch {
+                        /* 개별 삽입 실패 무시 */
+                      }
+                    }
+
+                    const runResult = {
+                      collected: result.items.length,
+                      unique: unique.length,
+                      curated: curated.length,
+                      inserted,
+                      failed: toInsert.length - inserted - skipped,
+                    };
+
+                    await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-collector", {
+                      ...aiConfig,
+                      lastRunAt: new Date().toISOString(),
+                      lastRunResult: runResult,
+                    });
+                    setAiConfig((prev) => ({
+                      ...prev,
+                      lastRunAt: new Date().toISOString(),
+                      lastRunResult: runResult,
+                    }));
+
+                    const sourceInfo = Object.entries(result.sourceResults)
+                      .map(([k, v]) => `${k}: ${v.count}건${v.error ? "(오류)" : ""}`)
+                      .join(", ");
+                    toast(`수집 완료! ${inserted}건 삽입, ${skipped}건 중복 스킵 (${sourceInfo})`, inserted > 0 ? "success" : "info");
+                    setCollectProgress(`완료: ${inserted}건 삽입됨`);
+                  } catch (e) {
+                    toast("수집 중 오류가 발생했습니다.", "error");
+                    setCollectProgress(`오류: ${e instanceof Error ? e.message : "알 수 없는 오류"}`);
+                  } finally {
+                    setCollecting(false);
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={collecting ? "animate-spin" : ""} />
+                {collecting ? "수집중..." : "즉시 수집 실행"}
+              </button>
+
+              <button
+                type="button"
+                disabled={collecting || saving}
+                onClick={async () => {
+                  if (!confirm("기존 중복 콘텐츠를 정리합니다. 오래된 항목만 남기고 나머지를 삭제합니다.")) return;
+                  setSaving(true);
+                  try {
+                    const { removed, groups } = await cleanupDuplicates();
+                    toast(`중복 정리 완료: ${groups}개 그룹에서 ${removed}건 삭제`, removed > 0 ? "success" : "info");
+                  } catch {
+                    toast("중복 정리에 실패했습니다.", "error");
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                <Trash2 size={16} />
+                중복 정리
+              </button>
+            </div>
+
+            {collectProgress && (
+              <div className={cn(
+                "mt-4 p-3 rounded-lg text-sm",
+                collecting ? "bg-blue-50 text-blue-800" : collectProgress.startsWith("오류") ? "bg-red-50 text-red-800" : "bg-green-50 text-green-800",
+              )}>
+                {collecting && <Loader2 size={14} className="inline animate-spin mr-2" />}
+                {collectProgress}
+              </div>
+            )}
+          </div>
+
+          {/* 최근 수집 결과 */}
+          {aiConfig.lastRunAt && (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+              <h3 className="text-base font-bold text-gray-900 mb-4">최근 수집 결과</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                {[
+                  { label: "수집", value: aiConfig.lastRunResult?.collected ?? 0, color: "text-gray-900" },
+                  { label: "고유", value: aiConfig.lastRunResult?.unique ?? 0, color: "text-blue-600" },
+                  { label: "큐레이션", value: aiConfig.lastRunResult?.curated ?? 0, color: "text-purple-600" },
+                  { label: "삽입", value: aiConfig.lastRunResult?.inserted ?? 0, color: "text-green-600" },
+                  { label: "실패", value: aiConfig.lastRunResult?.failed ?? 0, color: "text-red-600" },
+                ].map((s) => (
+                  <div key={s.label} className="text-center p-3 rounded-lg bg-gray-50">
+                    <p className={cn("text-2xl font-bold", s.color)}>{s.value}</p>
+                    <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-3">
+                마지막 실행: {new Date(aiConfig.lastRunAt).toLocaleString("ko-KR")}
+              </p>
+            </div>
+          )}
+
+          {/* 소스 안내 */}
+          <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">수집 소스 안내</p>
+            <ul className="text-xs text-gray-500 space-y-1">
+              <li>YouTube — Data API v3 (API Key 필요, 7일 이내 영상)</li>
+              <li>GitHub — Search API (인증 없이 가능, 7일 이내 업데이트된 리포)</li>
+              <li>Reddit — r/artificial, r/MachineLearning, r/LocalLLaMA (브라우저에서 CORS 제한 가능)</li>
+              <li>X.com — Nitter RSS 브릿지 경유 (불안정, 실패 시 건너뜀)</li>
+              <li>Instagram — 해시태그 스크래핑 (불안정, 실패 시 건너뜀)</li>
+            </ul>
+            <p className="text-xs text-gray-400 mt-2">
+              매일 자정(KST) GitHub Actions 크론으로 전체 소스 자동 수집이 실행됩니다.
+            </p>
           </div>
         </div>
       )}

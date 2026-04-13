@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type AdminSettingsHintTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme";
+export type AdminSettingsHintTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai";
 
 const COPY: Record<
   AdminSettingsHintTab,
@@ -57,6 +57,15 @@ const COPY: Record<
     ],
     publicPath: "/",
     publicLabel: "메인 페이지 열기",
+  },
+  ai: {
+    title: "AI 콘텐츠 수집이란?",
+    lines: [
+      "YouTube, GitHub, Reddit 등에서 최신 AI 콘텐츠를 자동 수집하고 Gemini가 한국어로 요약·점수화합니다.",
+      "수집된 콘텐츠는 콘텐츠실·자료실·자유게시판에 자동 분류됩니다.",
+    ],
+    publicPath: "/media",
+    publicLabel: "콘텐츠실 열기",
   },
 };
 

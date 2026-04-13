@@ -108,6 +108,26 @@ export async function createContent(data: ContentInput): Promise<string> {
   return ref.id;
 }
 
+/**
+ * mediaUrl 기준으로 중복이 없을 때만 삽입한다.
+ * 이미 존재하면 null을 반환한다.
+ */
+export async function createContentIfNew(
+  data: ContentInput,
+): Promise<string | null> {
+  if (data.mediaUrl) {
+    const existing = await getDocs(
+      query(
+        collection(db, COLLECTIONS.CONTENTS),
+        where("mediaUrl", "==", data.mediaUrl),
+        firestoreLimit(1),
+      ),
+    );
+    if (!existing.empty) return null;
+  }
+  return createContent(data);
+}
+
 export async function updateContent(
   id: string,
   data: Partial<ContentInput>,

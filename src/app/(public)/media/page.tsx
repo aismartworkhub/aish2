@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { getContents } from "@/lib/content-engine";
 import { loadAllLegacyMediaAsContent } from "@/lib/legacy-adapter";
 import { getBoardsByGroupDefault } from "@/lib/board-defaults";
+import { normalizeUrl } from "@/lib/ai-content-dedup";
 import type { Content, BoardConfig } from "@/types/content";
 import { ContentCard, ContentDetail } from "@/components/content";
 
@@ -34,11 +35,21 @@ export default function MediaPage() {
         all = results.flat();
       } catch { /* 전체 실패 시 빈 배열 유지 */ }
 
-      // 2) 레거시 데이터 병합
+      // 2) 레거시 데이터 병합 (URL 기반 중복 제거)
       try {
         const legacy = await loadAllLegacyMediaAsContent();
+        const existUrls = new Set(
+          all.map((c) => normalizeUrl(c.mediaUrl || "")),
+        );
         const existIds = new Set(all.map((c) => c.id));
-        all = [...all, ...legacy.filter((l) => !existIds.has(l.id))];
+        all = [
+          ...all,
+          ...legacy.filter(
+            (l) =>
+              !existIds.has(l.id) &&
+              !existUrls.has(normalizeUrl(l.mediaUrl || "")),
+          ),
+        ];
       } catch { /* 레거시 로드 실패 무시 */ }
 
       if (cancelled) return;
