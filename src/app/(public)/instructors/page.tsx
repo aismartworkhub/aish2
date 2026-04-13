@@ -568,6 +568,52 @@ function extractRunmoaId(url: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+function pickImage(cls: RunmoaContent): string {
+  return cls.featured_image || cls.thumbnail_link || cls.images?.[0] || "";
+}
+
+const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+
+function runmoaToCard(cls: RunmoaContent): ClassCard {
+  return {
+    id: String(cls.content_id),
+    title: cls.title,
+    description: stripHtml(cls.description_html).slice(0, 80),
+    imageUrl: pickImage(cls),
+    href: `${RUNMOA_BASE}/classes/${cls.content_id}`,
+    contentType: cls.content_type,
+    price: cls.is_free
+      ? "무료"
+      : `₩${(cls.is_on_sale ? cls.sale_price : cls.base_price).toLocaleString()}`,
+    isFree: cls.is_free,
+  };
+}
+
+function ClassCardImage({ src, alt }: { src?: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div className="w-16 md:w-20 aspect-square flex-shrink-0 self-start rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center">
+        <BookOpen size={18} className="text-gray-300" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-16 md:w-20 aspect-square flex-shrink-0 self-start rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
+      <img
+        alt={alt}
+        className="w-full h-full object-cover"
+        referrerPolicy="no-referrer"
+        loading="lazy"
+        src={src}
+        onError={() => setFailed(true)}
+      />
+    </div>
+  );
+}
+
 function SidebarClasses({
   instructorName,
   programs,
@@ -585,33 +631,30 @@ function SidebarClasses({
       const result: ClassCard[] = [];
       const seenIds = new Set<string>();
 
-      // 1) programs 필드에서 Runmoa URL 추출 → API로 상세 정보 가져오기
-      const runmoaIds = programs
-        .map((p) => ({ title: p.title, url: p.url, id: p.url ? extractRunmoaId(p.url) : null }))
-        .filter((p) => p.id !== null);
+      const addCard = (card: ClassCard) => {
+        if (seenIds.has(card.id)) return;
+        seenIds.add(card.id);
+        result.push(card);
+      };
 
-      if (runmoaIds.length > 0) {
-        const fetches = runmoaIds.map(async (p) => {
+      // 1) programs 필드에서 Runmoa URL 추출 → API로 상세 정보 가져오기
+      const runmoaEntries = programs
+        .map((p) => ({ ...p, rmId: p.url ? extractRunmoaId(p.url) : null }))
+        .filter((p) => p.rmId !== null);
+
+      if (runmoaEntries.length > 0) {
+        const fetches = runmoaEntries.map(async (p) => {
           try {
-            const cls = await getRunmoaContentById(p.id!);
-            const key = String(cls.content_id);
-            if (!seenIds.has(key)) {
-              seenIds.add(key);
-              const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
-              result.push({
-                id: key,
-                title: cls.title,
-                description: stripHtml(cls.description_html).slice(0, 80),
-                imageUrl: cls.featured_image,
-                href: `${RUNMOA_BASE}/classes/${cls.content_id}`,
-                contentType: cls.content_type,
-                price: cls.is_free
-                  ? "무료"
-                  : `₩${(cls.is_on_sale ? cls.sale_price : cls.base_price).toLocaleString()}`,
-                isFree: cls.is_free,
-              });
+            const cls = await getRunmoaContentById(p.rmId!);
+            addCard(runmoaToCard(cls));
+          } catch (err) {
+            if (process.env.NODE_ENV === "development") {
+              console.warn("[SidebarClasses] Runmoa fetch failed:", p.rmId, err);
             }
-          } catch { /* 개별 실패 무시 */ }
+            if (p.url) {
+              addCard({ id: p.url, title: p.title, href: p.url });
+            }
+          }
         });
         await Promise.allSettled(fetches);
       }
@@ -621,14 +664,7 @@ function SidebarClasses({
         if (!p.url) continue;
         const rmId = extractRunmoaId(p.url);
         if (rmId && seenIds.has(String(rmId))) continue;
-        const key = p.url;
-        if (seenIds.has(key)) continue;
-        seenIds.add(key);
-        result.push({
-          id: key,
-          title: p.title,
-          href: p.url,
-        });
+        addCard({ id: p.url, title: p.title, href: p.url });
       }
 
       // 3) API 이름 검색 (보조: 위에서 못 찾은 경우)
@@ -637,40 +673,25 @@ function SidebarClasses({
           const q = instructorName.trim();
           const res = await getRunmoaContents({ limit: 20, search: q });
           const lower = q.toLowerCase();
-          const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
           for (const cls of res.data) {
             const title = (cls.title || "").toLowerCase();
             const desc = (cls.description_html || "").toLowerCase();
             if (title.includes(lower) || desc.includes(lower)) {
-              const key = String(cls.content_id);
-              if (!seenIds.has(key)) {
-                seenIds.add(key);
-                result.push({
-                  id: key,
-                  title: cls.title,
-                  description: stripHtml(cls.description_html).slice(0, 80),
-                  imageUrl: cls.featured_image,
-                  href: `${RUNMOA_BASE}/classes/${cls.content_id}`,
-                  contentType: cls.content_type,
-                  price: cls.is_free
-                    ? "무료"
-                    : `₩${(cls.is_on_sale ? cls.sale_price : cls.base_price).toLocaleString()}`,
-                  isFree: cls.is_free,
-                });
-              }
+              addCard(runmoaToCard(cls));
             }
           }
-        } catch { /* API 실패 무시 */ }
+        } catch (err) {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[SidebarClasses] Name search failed:", err);
+          }
+        }
       }
 
       // 4) programs 필드의 URL 없는 항목도 표시
       for (const p of programs) {
         if (p.url) continue;
-        const key = `prog-${p.title}`;
-        if (seenIds.has(key)) continue;
-        seenIds.add(key);
-        result.push({
-          id: key,
+        addCard({
+          id: `prog-${p.title}`,
           title: p.title,
           href: `${RUNMOA_BASE}/classes`,
         });
@@ -722,16 +743,7 @@ function SidebarClasses({
             className="block"
           >
             <div className="flex gap-3 md:gap-4 bg-white border border-gray-200 rounded-xl p-3 md:p-4 hover:bg-gray-50 hover:border-gray-300 transition-all group shadow-sm">
-              {card.imageUrl && (
-                <div className="w-16 md:w-20 flex-shrink-0 self-start">
-                  <img
-                    alt={card.title}
-                    className="w-full h-auto rounded-lg border border-gray-100"
-                    referrerPolicy="no-referrer"
-                    src={card.imageUrl}
-                  />
-                </div>
-              )}
+              <ClassCardImage src={card.imageUrl} alt={card.title} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <h4 className="text-[12px] md:text-[13px] font-bold text-gray-900 line-clamp-2 leading-tight">
