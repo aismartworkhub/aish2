@@ -32,6 +32,8 @@ interface Instructor {
   contactEmail: string;
   socialLinks: { linkedin: string; youtube: string; instagram: string; github: string; personalSite: string };
   programs: (string | { title: string; url?: string })[];
+  status?: "approved" | "pending" | "rejected";
+  applicantUid?: string;
 }
 
 interface InstructorForm {
@@ -415,6 +417,11 @@ export default function AdminInstructorsPage() {
                     <span key={s} className="text-xs bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full">{s}</span>
                   ))}
                 </div>
+                {item.status === "pending" && (
+                  <span className="text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700 font-medium">
+                    승인 대기
+                  </span>
+                )}
                 <button onClick={() => toggleActive(item)}
                   className={cn("text-xs px-2 py-1 rounded-full", item.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500")}>
                   {item.isActive ? "활성" : "비활성"}

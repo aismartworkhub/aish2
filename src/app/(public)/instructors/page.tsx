@@ -1,46 +1,33 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Search, X, Share2, Heart, PlayCircle, MessageSquare,
+  UserPlus, Star, Mail, Award, GraduationCap, Briefcase,
+  ExternalLink, Pencil, Send, Trash2, BookOpen, MessageCircle,
+  User, ArrowLeft, Plus,
+  Linkedin, Youtube, Instagram, Github, Globe,
+} from "lucide-react";
 import { DEMO_INSTRUCTORS } from "@/lib/demo-data";
 import {
-  getCollection,
-  getFilteredCollection,
-  createDoc,
-  removeDoc,
-  COLLECTIONS,
-  invalidateCache,
+  getCollection, getFilteredCollection, createDoc, removeDoc,
+  COLLECTIONS, invalidateCache,
 } from "@/lib/firestore";
-import { getRunmoaContents } from "@/lib/runmoa-api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
-import {
-  Linkedin,
-  Youtube,
-  Instagram,
-  Github,
-  Globe,
-  X,
-  Mail,
-  Award,
-  Briefcase,
-  GraduationCap,
-  ExternalLink,
-  Pencil,
-  Send,
-  Trash2,
-  BookOpen,
-  MessageCircle,
-  User,
-} from "lucide-react";
-import { toDirectImageUrl, cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/Toast";
+import { cn } from "@/lib/utils";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import type { InstructorComment } from "@/types/firestore";
-import type { RunmoaContent } from "@/types/runmoa";
 import { loadPageContent, DEFAULT_INSTRUCTORS } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
 
-type InstructorItem = Omit<(typeof DEMO_INSTRUCTORS)[0], "programs" | "experience" | "education" | "certifications"> & {
+/* ── Types ── */
+type InstructorItem = Omit<
+  (typeof DEMO_INSTRUCTORS)[0],
+  "programs" | "experience" | "education" | "certifications"
+> & {
   id: string | number;
   imageUrl?: string;
   education?: { degree: string; institution: string; year: string }[];
@@ -49,7 +36,11 @@ type InstructorItem = Omit<(typeof DEMO_INSTRUCTORS)[0], "programs" | "experienc
   contactEmail?: string;
   isActive?: boolean;
   displayOrder?: number;
+  status?: "approved" | "pending" | "rejected";
+  applicantUid?: string;
 };
+
+type ViewMode = "list" | "detail" | "apply";
 
 const SOCIAL_ICONS = {
   linkedin: Linkedin,
@@ -59,25 +50,75 @@ const SOCIAL_ICONS = {
   personalSite: Globe,
 } as const;
 
-const RUNMOA_BASE = "https://aish.runmoa.com";
+/* ── Template Sub-components ── */
+function SectionTitle({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-2 md:mb-3">
+      <div className="w-1.5 h-1.5 bg-gray-400/50 rounded-sm" />
+      <h3 className="text-[14px] md:text-[15px] font-bold text-gray-900 tracking-tight">
+        {title}
+      </h3>
+    </div>
+  );
+}
 
-/* ── Comment Section ── */
-function CommentSection({ instructorId }: { instructorId: string }) {
+function InfoListItem({ text }: { text: string }) {
+  return (
+    <li className="flex items-start text-[13px] md:text-sm text-gray-600 font-light leading-relaxed">
+      <span className="mr-2 mt-[0.4rem] w-1 h-[1px] bg-gray-400 flex-shrink-0" />
+      <span className="tracking-tight">{text}</span>
+    </li>
+  );
+}
+
+function ReviewCard({
+  title,
+  content,
+  authorName,
+  date,
+}: {
+  title: string;
+  content: string;
+  authorName: string;
+  date: string;
+}) {
+  return (
+    <div className="bg-[#f8f9fa] rounded-2xl p-4 md:p-5 border border-gray-100/50 transition-colors hover:bg-gray-50">
+      <h4 className="text-[14px] md:text-[15px] font-bold text-gray-900 tracking-tight mb-1.5 md:mb-2">
+        {title || authorName}
+      </h4>
+      <div className="flex items-center gap-2 text-[11px] md:text-[12px] font-light text-gray-500 mb-2 md:mb-3 tracking-tight flex-wrap">
+        <span>{authorName}</span>
+        {date && (
+          <>
+            <div className="w-[1px] h-2.5 bg-gray-300" />
+            <span>{date}</span>
+          </>
+        )}
+      </div>
+      <p className="text-[12px] md:text-[13px] text-gray-600 font-light leading-relaxed tracking-tight">
+        {content}
+      </p>
+    </div>
+  );
+}
+
+/* ── Review Section (white-themed comments) ── */
+function ReviewSection({ instructorId }: { instructorId: string }) {
   const { user, profile, isAdmin } = useAuth();
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
   const [comments, setComments] = useState<InstructorComment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [loadingComments, setLoadingComments] = useState(true);
+  const [loaded, setLoaded] = useState(false);
 
   const loadComments = useCallback(async () => {
     try {
       const data = await getFilteredCollection<InstructorComment>(
         COLLECTIONS.INSTRUCTOR_COMMENTS,
         "instructorId",
-        instructorId
+        instructorId,
       );
-      // sort by createdAt desc (Firestore Timestamp → string fallback)
       data.sort((a, b) => {
         const ta =
           typeof a.createdAt === "object" && a.createdAt
@@ -93,7 +134,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
     } catch {
       setComments([]);
     } finally {
-      setLoadingComments(false);
+      setLoaded(true);
     }
   }, [instructorId]);
 
@@ -116,9 +157,8 @@ function CommentSection({ instructorId }: { instructorId: string }) {
       setNewComment("");
       invalidateCache(COLLECTIONS.INSTRUCTOR_COMMENTS);
       await loadComments();
-    } catch (err) {
-      console.error("댓글 작성 실패:", err);
-      alert("댓글 작성에 실패했습니다. 다시 시도해 주세요.");
+    } catch {
+      alert("댓글 작성에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -131,7 +171,7 @@ function CommentSection({ instructorId }: { instructorId: string }) {
     await loadComments();
   };
 
-  const formatTime = (ts: unknown) => {
+  const formatDate = (ts: unknown) => {
     if (!ts) return "";
     const ms =
       typeof ts === "object" && ts !== null && "seconds" in ts
@@ -141,532 +181,666 @@ function CommentSection({ instructorId }: { instructorId: string }) {
       year: "numeric",
       month: "short",
       day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
   };
 
   return (
-    <div
-      className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
-      style={{ animationDelay: "600ms" }}
-    >
-      <h3
-        className={cn(
-          "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
-        )}
-      >
-        <MessageCircle size={24} />
-        댓글 ({comments.length})
-      </h3>
+    <div className="lg:border-l lg:border-gray-100 lg:pl-10 pb-10 pt-6 lg:pt-0">
+      <div className="sticky top-8">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 bg-gray-900 rounded-sm" />
+            <h3 className="text-[14px] md:text-[15px] font-bold text-gray-900 tracking-tight">
+              강의평가
+            </h3>
+          </div>
+          {loaded && (
+            <span className="text-[13px] text-gray-400 font-light tracking-tight">
+              {comments.length}개 리뷰
+            </span>
+          )}
+        </div>
 
-      {/* Comment Input */}
-      <div className={cn("mb-8")}>
+        {/* Comment Input */}
         {user ? (
-          <div className={cn("flex gap-3")}>
-            <div
+          <div className="mb-4 flex gap-2">
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="리뷰를 남겨주세요..."
+              rows={2}
               className={cn(
-                "w-10 h-10 rounded-full bg-white/20 flex-shrink-0 overflow-hidden flex items-center justify-center"
+                "flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm",
+                "focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none placeholder:text-gray-400",
+              )}
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={!newComment.trim() || submitting}
+              className={cn(
+                "self-end px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg",
+                "hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors",
               )}
             >
-              {user.photoURL ? (
-                <img
-                  src={user.photoURL}
-                  alt=""
-                  className={cn("w-full h-full object-cover")}
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <User size={18} className={cn("text-white/60")} />
-              )}
-            </div>
-            <div className={cn("flex-1")}>
-              <textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="댓글을 입력하세요..."
-                rows={3}
-                className={cn(
-                  "w-full bg-white/10 border border-white/20 rounded-sm px-4 py-3 text-white placeholder-white/40 text-sm",
-                  "focus:outline-none focus:border-white/50 resize-none"
-                )}
-              />
-              <div className={cn("flex justify-end mt-2")}>
-                <button
-                  onClick={handleSubmit}
-                  disabled={!newComment.trim() || submitting}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm rounded-sm",
-                    "disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  )}
-                >
-                  <Send size={14} />
-                  {submitting ? "등록 중..." : "댓글 작성"}
-                </button>
-              </div>
-            </div>
+              <Send size={14} />
+            </button>
           </div>
         ) : (
           <button
             onClick={() =>
-              requireLogin(() => {}, "댓글을 작성하려면 로그인이 필요합니다.")
+              requireLogin(() => {}, "리뷰를 작성하려면 로그인이 필요합니다.")
             }
-            className={cn(
-              "w-full py-4 border border-dashed border-white/30 rounded-sm text-white/60 hover:text-white hover:border-white/50 transition-colors text-sm"
-            )}
+            className="w-full mb-4 py-3 border border-dashed border-gray-300 rounded-xl text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors text-sm"
           >
-            로그인하고 댓글 작성하기
+            로그인하고 리뷰 작성하기
           </button>
         )}
-      </div>
 
-      {/* Comment List */}
-      {loadingComments ? (
-        <div className={cn("flex justify-center py-8")}>
-          <div
-            className={cn(
-              "w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"
-            )}
-          />
-        </div>
-      ) : comments.length === 0 ? (
-        <p className={cn("text-center text-white/40 py-8 text-sm")}>
-          아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!
-        </p>
-      ) : (
-        <div className={cn("space-y-4")}>
-          {comments.map((comment) => (
-            <div
-              key={comment.id}
-              className={cn(
-                "flex gap-3 bg-white/5 rounded-sm p-4 border border-white/10"
-              )}
-            >
-              <div
-                className={cn(
-                  "w-9 h-9 rounded-full bg-white/20 flex-shrink-0 overflow-hidden flex items-center justify-center"
+        {/* Review List */}
+        {!loaded ? (
+          <div className="flex justify-center py-8">
+            <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
+          </div>
+        ) : comments.length === 0 ? (
+          <p className="text-center text-gray-400 py-8 text-sm">
+            아직 리뷰가 없습니다.
+          </p>
+        ) : (
+          <div className="space-y-3 md:space-y-4 max-h-[400px] md:max-h-[600px] lg:max-h-[800px] overflow-y-auto pr-1">
+            {comments.map((c) => (
+              <div key={c.id} className="relative">
+                <ReviewCard
+                  title=""
+                  content={c.content}
+                  authorName={c.authorName}
+                  date={formatDate(c.createdAt)}
+                />
+                {(user?.uid === c.authorUid || isAdmin) && (
+                  <button
+                    onClick={() => handleDelete(c.id!)}
+                    className="absolute top-3 right-3 text-gray-300 hover:text-red-400 transition-colors"
+                    title="삭제"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 )}
-              >
-                {comment.authorPhotoURL ? (
-                  <img
-                    src={comment.authorPhotoURL}
-                    alt=""
-                    className={cn("w-full h-full object-cover")}
-                    referrerPolicy="no-referrer"
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
+    </div>
+  );
+}
+
+/* ── Instructor Detail View (Template-based) ── */
+function InstructorDetailView({
+  instructor,
+  onBack,
+}: {
+  instructor: InstructorItem;
+  onBack: () => void;
+}) {
+  const { isAdmin } = useAuth();
+  const { toast } = useToast();
+  const { requireLogin, showLogin, loginMessage, closeLogin } = useLoginGuard();
+
+  const imageSrc = instructor.imageUrl || instructor.profileImageUrl;
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${instructor.name} - AISH 강사`, url });
+      } catch { /* cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast("링크가 복사되었습니다.", "success");
+    }
+  };
+
+  const handleContact = () => {
+    requireLogin(() => {
+      if (instructor.contactEmail?.trim()) {
+        window.location.href = `mailto:${instructor.contactEmail}`;
+      } else {
+        window.location.href = "/community?tab=inquiry";
+      }
+    }, "강사에게 메시지를 보내려면 로그인이 필요합니다.");
+  };
+
+  const handleHire = () => {
+    requireLogin(() => {
+      window.location.href = "/community?tab=inquiry";
+    }, "강사 섭외 문의를 하려면 로그인이 필요합니다.");
+  };
+
+  const handleFavorite = () => {
+    requireLogin(() => {
+      toast("관심강사로 등록되었습니다.", "success");
+    }, "관심강사 등록은 로그인이 필요합니다.");
+  };
+
+  const handleVideo = () => {
+    const ytUrl = instructor.socialLinks?.youtube;
+    if (ytUrl?.trim()) {
+      window.open(ytUrl, "_blank");
+    } else {
+      toast("등록된 영상이 없습니다.", "info");
+    }
+  };
+
+  const educationList = (instructor.education || []).map(
+    (e) => [e.degree, e.institution, e.year].filter(Boolean).join(" · "),
+  );
+
+  const programs = (instructor.programs || []).map((p) =>
+    typeof p === "string" ? { title: p, url: undefined } : p,
+  );
+
+  return (
+    <div className="min-h-screen bg-white font-sans text-gray-900">
+      {/* Header */}
+      <header className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-900 pb-4">
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft size={16} />
+            전체 강사소개
+          </button>
+          {isAdmin && (
+            <a
+              href="/admin/instructors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm"
+            >
+              <Pencil size={14} />
+              관리자 수정
+            </a>
+          )}
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10 md:pb-20">
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
+          {/* Left Column: Profile Card */}
+          <aside className="w-full max-w-[360px] mx-auto lg:max-w-none lg:w-[280px] flex-shrink-0">
+            <div className="border border-gray-200 overflow-hidden bg-white rounded-xl lg:rounded-none shadow-sm lg:shadow-none">
+              <div className="aspect-[3/4] w-full bg-gray-100 relative">
+                {imageSrc ? (
+                  <DriveOrExternalImage
+                    src={imageSrc}
+                    alt={instructor.name}
+                    className="w-full h-full object-cover"
+                    quiet
                   />
                 ) : (
-                  <User size={16} className={cn("text-white/60")} />
-                )}
-              </div>
-              <div className={cn("flex-1 min-w-0")}>
-                <div
-                  className={cn("flex items-center justify-between gap-2 mb-1")}
-                >
-                  <span className={cn("text-sm font-medium text-white")}>
-                    {comment.authorName}
-                  </span>
-                  <div className={cn("flex items-center gap-2")}>
-                    <span className={cn("text-xs text-white/40")}>
-                      {formatTime(comment.createdAt)}
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                    <span className="text-5xl font-bold text-gray-400">
+                      {instructor.name.charAt(0)}
                     </span>
-                    {(user?.uid === comment.authorUid || isAdmin) && (
-                      <button
-                        onClick={() => handleDelete(comment.id!)}
-                        className={cn(
-                          "text-white/30 hover:text-red-400 transition-colors"
-                        )}
-                        title="삭제"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
                   </div>
-                </div>
-                <p
-                  className={cn(
-                    "text-sm text-white/80 leading-relaxed whitespace-pre-wrap"
-                  )}
-                >
-                  {comment.content}
-                </p>
+                )}
+              </div>
+
+              {/* Action Buttons Grid */}
+              <div className="grid grid-cols-2 divide-x divide-y divide-gray-200 border-t border-gray-200 bg-white">
+                <ActionButton icon={UserPlus} label="강사 섭외하기" onClick={handleHire} />
+                <ActionButton icon={Heart} label="관심강사 등록" onClick={handleFavorite} />
+                <ActionButton icon={PlayCircle} label="관련영상 보기" onClick={handleVideo} />
+                <ActionButton icon={MessageSquare} label="메시지 보내기" onClick={handleContact} />
               </div>
             </div>
-          ))}
-        </div>
-      )}
 
-      <LoginModal
-        isOpen={showLogin}
-        onClose={closeLogin}
-        message={loginMessage}
-      />
-    </div>
-  );
-}
-
-/* ── Class History Section ── */
-function ClassHistorySection({ instructorName }: { instructorName: string }) {
-  const [classes, setClasses] = useState<RunmoaContent[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const q = instructorName.trim();
-    // Use Runmoa search param first, then fallback to case-insensitive local match
-    getRunmoaContents({ limit: 100, search: q })
-      .then((res) => {
-        const lower = q.toLowerCase();
-        const matched = res.data.filter((c) => {
-          const title = (c.title || "").toLowerCase();
-          const desc = (c.description_html || "").toLowerCase();
-          return title.includes(lower) || desc.includes(lower);
-        });
-        setClasses(matched);
-      })
-      .catch((err) => {
-        console.error("Runmoa contents fetch failed:", err);
-        setClasses([]);
-      })
-      .finally(() => setLoading(false));
-  }, [instructorName]);
-
-  if (loading) {
-    return (
-      <div
-        className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
-        style={{ animationDelay: "550ms" }}
-      >
-        <h3
-          className={cn(
-            "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
-          )}
-        >
-          <BookOpen size={24} />
-          수업 내역
-        </h3>
-        <div className={cn("flex justify-center py-8")}>
-          <div
-            className={cn(
-              "w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"
-            )}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (classes.length === 0) return null;
-
-  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
-
-  return (
-    <div
-      className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
-      style={{ animationDelay: "550ms" }}
-    >
-      <h3
-        className={cn(
-          "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
-        )}
-      >
-        <BookOpen size={24} />
-        수업 내역 ({classes.length})
-      </h3>
-      <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4")}>
-        {classes.map((cls) => (
-          <a
-            key={cls.content_id}
-            href={`${RUNMOA_BASE}/classes/${cls.content_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              "flex gap-4 bg-white/5 border border-white/10 rounded-sm p-4",
-              "hover:bg-white/10 hover:border-white/20 transition-all group"
-            )}
-          >
-            {cls.featured_image && (
-              <img
-                src={cls.featured_image}
-                alt={cls.title}
-                className={cn(
-                  "w-20 h-20 rounded-lg object-cover flex-shrink-0"
-                )}
-                referrerPolicy="no-referrer"
-              />
-            )}
-            <div className={cn("flex-1 min-w-0")}>
-              <div className={cn("flex items-start justify-between gap-2")}>
-                <h4
-                  className={cn(
-                    "text-sm font-semibold text-white line-clamp-2"
-                  )}
-                >
-                  {cls.title}
-                </h4>
-                <ExternalLink
-                  size={14}
-                  className={cn(
-                    "text-white/30 group-hover:text-white/60 flex-shrink-0 mt-0.5 transition-colors"
-                  )}
-                />
-              </div>
-              <p
-                className={cn(
-                  "text-xs text-white/50 mt-1 line-clamp-2"
-                )}
-              >
-                {stripHtml(cls.description_html).slice(0, 100)}
-              </p>
-              <div className={cn("flex items-center gap-2 mt-2")}>
-                <span
-                  className={cn(
-                    "text-xs px-2 py-0.5 rounded-full",
-                    cls.content_type === "offline"
-                      ? "bg-green-500/20 text-green-300"
-                      : cls.content_type === "live"
-                        ? "bg-blue-500/20 text-blue-300"
-                        : cls.content_type === "vod"
-                          ? "bg-purple-500/20 text-purple-300"
-                          : "bg-gray-500/20 text-gray-300"
-                  )}
-                >
-                  {cls.content_type === "offline"
-                    ? "오프라인"
-                    : cls.content_type === "live"
-                      ? "라이브"
-                      : cls.content_type === "vod"
-                        ? "VOD"
-                        : "디지털콘텐츠"}
-                </span>
-                {cls.is_free ? (
-                  <span
-                    className={cn(
-                      "text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300"
-                    )}
+            {/* Social Links */}
+            {instructor.socialLinks && (
+              <div className="mt-6 flex items-center gap-3 px-1">
+                {(
+                  Object.entries(instructor.socialLinks) as [
+                    keyof typeof SOCIAL_ICONS,
+                    string | null,
+                  ][]
+                ).map(([key, url]) => {
+                  if (!url?.trim()) return null;
+                  const Icon = SOCIAL_ICONS[key];
+                  if (!Icon) return null;
+                  return (
+                    <a
+                      key={key}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-400 hover:text-gray-700 transition-colors"
+                    >
+                      <Icon size={18} />
+                    </a>
+                  );
+                })}
+                {instructor.contactEmail?.trim() && (
+                  <a
+                    href={`mailto:${instructor.contactEmail}`}
+                    className="text-gray-400 hover:text-gray-700 transition-colors"
                   >
-                    무료
-                  </span>
-                ) : (
-                  <span className={cn("text-xs text-white/40")}>
-                    ₩
-                    {(cls.is_on_sale ? cls.sale_price : cls.base_price).toLocaleString()}
-                  </span>
+                    <Mail size={18} />
+                  </a>
                 )}
               </div>
+            )}
+          </aside>
+
+          {/* Right Column: Detail Information */}
+          <div className="flex-1 flex flex-col mt-4 lg:mt-0">
+            {/* Header: Name & Title */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 md:mb-6 pb-4 md:pb-6 border-b border-gray-200 gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
+                  {instructor.name}
+                </h2>
+                <span className="text-sm font-light text-gray-500 tracking-tight">
+                  {[instructor.title, instructor.organization].filter(Boolean).join(" · ")}
+                </span>
+              </div>
+              <button
+                onClick={handleShare}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#1a365d] text-white rounded-full text-sm font-medium hover:bg-[#122847] transition-colors w-full sm:w-auto justify-center"
+              >
+                <Share2 className="w-3.5 h-3.5 mr-1" />
+                공유하기
+              </button>
             </div>
-          </a>
-        ))}
-      </div>
+
+            {/* Content Layout (Info left, Reviews right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 lg:gap-10">
+              {/* Main Info Sections */}
+              <div className="flex flex-col divide-y divide-gray-100">
+                {/* 소개 */}
+                {instructor.bio && (
+                  <section className="py-5 md:py-6 first:pt-0">
+                    <SectionTitle title="소개" />
+                    <p className="text-sm text-gray-600 leading-relaxed tracking-tight mt-3">
+                      {instructor.bio}
+                    </p>
+                  </section>
+                )}
+
+                {/* 주요경력 (Specialties) */}
+                {(instructor.specialties || []).length > 0 && (
+                  <section className="py-5 md:py-6">
+                    <SectionTitle title="주요경력" />
+                    <ul className="mt-3 space-y-2">
+                      {(instructor.specialties || []).map((s, i) => (
+                        <InfoListItem key={i} text={s} />
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {/* 주요학력 (Education) */}
+                {educationList.length > 0 && (
+                  <section className="py-5 md:py-6">
+                    <SectionTitle title="주요학력" />
+                    <ul className="mt-3 space-y-1">
+                      {educationList.map((text, i) => (
+                        <InfoListItem key={i} text={text} />
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {/* 자격/수상 (Certifications) */}
+                {(instructor.certifications || []).length > 0 && (
+                  <section className="py-5 md:py-6">
+                    <SectionTitle title="자격 및 수상" />
+                    <ul className="mt-3 space-y-2">
+                      {(instructor.certifications || []).map((cert, i) => (
+                        <InfoListItem key={i} text={cert} />
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {/* 담당 프로그램 */}
+                {programs.length > 0 && (
+                  <section className="py-5 md:py-6">
+                    <SectionTitle title="담당 프로그램" />
+                    <ul className="mt-3 space-y-2">
+                      {programs.map((p, i) =>
+                        p.url ? (
+                          <li key={i}>
+                            <a
+                              href={p.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-[13px] md:text-sm text-brand-blue hover:underline font-light tracking-tight"
+                            >
+                              {p.title}
+                              <ExternalLink size={12} />
+                            </a>
+                          </li>
+                        ) : (
+                          <InfoListItem key={i} text={p.title} />
+                        ),
+                      )}
+                    </ul>
+                  </section>
+                )}
+              </div>
+
+              {/* Reviews Column */}
+              {typeof instructor.id === "string" && (
+                <ReviewSection instructorId={instructor.id} />
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>
   );
 }
-/* ── Instructor Programs Section ── */
-function InstructorProgramsSection({
-  programs,
-}: {
-  programs: (string | { title: string; url?: string })[];
-}) {
-  const [programContents, setProgramContents] = useState<
-    Map<string, RunmoaContent | null>
-  >(new Map());
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const parsedItems = (programs || []).map((p) =>
-      typeof p === "string" ? { title: p, url: null } : { title: p.title, url: p.url ?? null }
-    );
-    if (parsedItems.length === 0) {
-      setLoading(false);
+function ActionButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center justify-center py-4 md:py-5 px-2 gap-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors group"
+    >
+      <Icon strokeWidth={1.5} className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
+      <span className="text-[12px] md:text-[13px] font-medium tracking-tight">{label}</span>
+    </button>
+  );
+}
+
+/* ── Application Form ── */
+function ApplicationForm({
+  onBack,
+  onSubmitted,
+}: {
+  onBack: () => void;
+  onSubmitted: () => void;
+}) {
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    name: profile?.name || user?.displayName || "",
+    title: "",
+    organization: "",
+    bio: "",
+    specialtiesText: "",
+    educationText: "",
+    imageUrl: user?.photoURL || "",
+    contactEmail: user?.email || "",
+    linkedin: "",
+    youtube: "",
+    instagram: "",
+  });
+
+  const set = (key: string, value: string) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleSubmit = async () => {
+    if (!form.name.trim() || !form.title.trim()) {
+      toast("이름과 직함은 필수 항목입니다.", "error");
       return;
     }
-    setLoading(true);
-    Promise.allSettled(
-      parsedItems.map(({ title }) =>
-        getRunmoaContents({ search: title, limit: 10 })
-          .then((res) => {
-            const lower = title.toLowerCase();
-            const match = res.data.find((c) => {
-              const ct = c.title.toLowerCase();
-              return ct.includes(lower) || lower.includes(ct);
-            });
-            return { title, content: match ?? null };
-          })
-          .catch(() => ({ title, content: null as RunmoaContent | null }))
-      )
-    )
-      .then((results) => {
-        const map = new Map<string, RunmoaContent | null>();
-        results.forEach((r) => {
-          if (r.status === "fulfilled") {
-            map.set(r.value.title, r.value.content);
-          }
-        });
-        setProgramContents(map);
-      })
-      .finally(() => setLoading(false));
-  }, [programs]);
+    if (!user) return;
 
-  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+    setSubmitting(true);
+    try {
+      const specialties = form.specialtiesText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
-  const parsed = (programs || []).map((p) =>
-    typeof p === "string" ? { title: p, url: null } : { title: p.title, url: p.url ?? null }
-  );
+      const education = form.educationText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => ({ degree: line, institution: "", year: "" }));
+
+      await createDoc(COLLECTIONS.INSTRUCTORS, {
+        name: form.name.trim(),
+        title: form.title.trim(),
+        organization: form.organization.trim(),
+        bio: form.bio.trim(),
+        specialties,
+        education,
+        imageUrl: form.imageUrl.trim(),
+        contactEmail: form.contactEmail.trim(),
+        socialLinks: {
+          linkedin: form.linkedin.trim(),
+          youtube: form.youtube.trim(),
+          instagram: form.instagram.trim(),
+          github: "",
+          personalSite: "",
+        },
+        certifications: [],
+        programs: [],
+        isActive: false,
+        status: "pending",
+        applicantUid: user.uid,
+        displayOrder: 999,
+      });
+
+      toast("강사 신청이 완료되었습니다. 관리자 승인 후 프로필이 공개됩니다.", "success");
+      onSubmitted();
+    } catch {
+      toast("신청에 실패했습니다. 다시 시도해주세요.", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div
-      className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
-      style={{ animationDelay: "500ms" }}
-    >
-      <h3
-        className={cn(
-          "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
-        )}
-      >
-        <Briefcase size={24} />
-        담당 프로그램 ({parsed.length})
-      </h3>
-      {loading ? (
-        <div className={cn("flex justify-center py-8")}>
-          <div
-            className={cn(
-              "w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"
-            )}
+    <div className="min-h-screen bg-white">
+      <div className="max-w-2xl mx-auto px-4 py-10 md:py-16">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors mb-8"
+        >
+          <ArrowLeft size={16} />
+          전체 강사소개
+        </button>
+
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight mb-2">
+          강사 신청
+        </h1>
+        <p className="text-sm text-gray-500 mb-10">
+          아래 정보를 입력하고 신청하시면, 관리자 승인 후 강사 프로필이 공개됩니다.
+        </p>
+
+        <div className="space-y-6">
+          {/* 기본 정보 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField
+              label="이름 *"
+              value={form.name}
+              onChange={(v) => set("name", v)}
+              placeholder="홍길동"
+            />
+            <FormField
+              label="직함 *"
+              value={form.title}
+              onChange={(v) => set("title", v)}
+              placeholder="AI 교육 전문가"
+            />
+          </div>
+
+          <FormField
+            label="소속"
+            value={form.organization}
+            onChange={(v) => set("organization", v)}
+            placeholder="소속 기관 또는 회사"
           />
-        </div>
-      ) : (
-        <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4")}>
-          {parsed.map(({ title, url }, i) => {
-            const content = programContents.get(title);
-            const href = content
-              ? `${RUNMOA_BASE}/classes/${content.content_id}`
-              : url ?? null;
 
-            const card = (
-              <div
-                className={cn(
-                  "flex gap-4 bg-white/5 border border-white/10 rounded-sm p-4",
-                  "hover:bg-white/10 hover:border-white/20 transition-all group"
-                )}
-              >
-                {/* 미니 썸네일 (원본 비율) */}
-                {content?.featured_image ? (
-                  <div className={cn("w-20 flex-shrink-0 self-start")}>
-                    <img
-                      src={content.featured_image}
-                      alt={title}
-                      className={cn("w-full h-auto rounded")}
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className={cn(
-                      "w-20 h-16 flex-shrink-0 bg-white/10 rounded flex items-center justify-center"
-                    )}
-                  >
-                    <BookOpen size={20} className={cn("text-white/30")} />
-                  </div>
-                )}
-                {/* 정보 */}
-                <div className={cn("flex-1 min-w-0")}>
-                  <div className={cn("flex items-start justify-between gap-2")}>
-                    <h4
-                      className={cn(
-                        "text-sm font-semibold text-white line-clamp-2"
-                      )}
-                    >
-                      {title}
-                    </h4>
-                    {href && (
-                      <ExternalLink
-                        size={14}
-                        className={cn(
-                          "text-white/30 group-hover:text-white/60 flex-shrink-0 mt-0.5 transition-colors"
-                        )}
-                      />
-                    )}
-                  </div>
-                  {content ? (
-                    <>
-                      <p className={cn("text-xs text-white/50 mt-1 line-clamp-2")}>
-                        {stripHtml(content.description_html).slice(0, 100)}
-                      </p>
-                      <div className={cn("flex items-center gap-2 mt-2 flex-wrap")}>
-                        <span
-                          className={cn(
-                            "text-xs px-2 py-0.5 rounded-full",
-                            content.content_type === "offline"
-                              ? "bg-green-500/20 text-green-300"
-                              : content.content_type === "live"
-                                ? "bg-blue-500/20 text-blue-300"
-                                : content.content_type === "vod"
-                                  ? "bg-purple-500/20 text-purple-300"
-                                  : "bg-gray-500/20 text-gray-300"
-                          )}
-                        >
-                          {content.content_type === "offline"
-                            ? "오프라인"
-                            : content.content_type === "live"
-                              ? "라이브"
-                              : content.content_type === "vod"
-                                ? "VOD"
-                                : "디지털콘텐츠"}
-                        </span>
-                        {content.is_free ? (
-                          <span
-                            className={cn(
-                              "text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300"
-                            )}
-                          >
-                            무료
-                          </span>
-                        ) : (
-                          <span className={cn("text-xs text-white/40")}>
-                            ₩
-                            {(
-                              content.is_on_sale
-                                ? content.sale_price
-                                : content.base_price
-                            ).toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <p className={cn("text-xs text-white/40 mt-1")}>
-                      프로그램 상세 정보가 없습니다
-                    </p>
-                  )}
-                </div>
+          <FormField
+            label="한 줄 소개"
+            value={form.bio}
+            onChange={(v) => set("bio", v)}
+            placeholder="자신을 간단히 소개해 주세요."
+            multiline
+            rows={3}
+          />
+
+          <FormField
+            label="주요 경력"
+            value={form.specialtiesText}
+            onChange={(v) => set("specialtiesText", v)}
+            placeholder={"한 줄에 하나씩 입력해 주세요.\n예) AI 교육 10년\n예) 삼성전자 데이터분석팀 근무"}
+            multiline
+            rows={4}
+          />
+
+          <FormField
+            label="학력"
+            value={form.educationText}
+            onChange={(v) => set("educationText", v)}
+            placeholder={"한 줄에 하나씩 입력해 주세요.\n예) 서울대학교 컴퓨터공학 석사"}
+            multiline
+            rows={3}
+          />
+
+          <FormField
+            label="프로필 이미지 URL"
+            value={form.imageUrl}
+            onChange={(v) => set("imageUrl", v)}
+            placeholder="Google Drive 공유 링크 또는 이미지 URL"
+          />
+
+          <FormField
+            label="연락처 이메일"
+            value={form.contactEmail}
+            onChange={(v) => set("contactEmail", v)}
+            placeholder="example@email.com"
+          />
+
+          {/* SNS */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-3 block">
+              SNS (선택)
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="relative">
+                <Linkedin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={form.linkedin}
+                  onChange={(e) => set("linkedin", e.target.value)}
+                  placeholder="LinkedIn URL"
+                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                />
               </div>
-            );
+              <div className="relative">
+                <Youtube size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={form.youtube}
+                  onChange={(e) => set("youtube", e.target.value)}
+                  placeholder="YouTube URL"
+                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                />
+              </div>
+              <div className="relative">
+                <Instagram size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={form.instagram}
+                  onChange={(e) => set("instagram", e.target.value)}
+                  placeholder="Instagram URL"
+                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                />
+              </div>
+            </div>
+          </div>
 
-            return href ? (
-              <a
-                key={i}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {card}
-              </a>
-            ) : (
-              <div key={i}>{card}</div>
-            );
-          })}
+          {/* Submit */}
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={onBack}
+              className="flex-1 py-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className={cn(
+                "flex-1 py-3 rounded-lg bg-gray-900 text-white text-sm font-semibold",
+                "hover:bg-gray-800 disabled:opacity-50 transition-colors",
+              )}
+            >
+              {submitting ? "신청 중..." : "강사 신청하기"}
+            </button>
+          </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FormField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  multiline,
+  rows,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+  rows?: number;
+}) {
+  const cls = cn(
+    "w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm",
+    "focus:outline-none focus:ring-2 focus:ring-gray-200 placeholder:text-gray-400",
+  );
+  return (
+    <div>
+      <label className="text-sm font-medium text-gray-700 mb-1.5 block">{label}</label>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          rows={rows || 3}
+          className={cn(cls, "resize-none")}
+        />
+      ) : (
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cls}
+        />
       )}
     </div>
   );
 }
+
 /* ── Main Page ── */
 export default function InstructorsPage() {
   const [pc, setPc] = useState<PageContentBase>(DEFAULT_INSTRUCTORS);
   const [instructors, setInstructors] = useState<InstructorItem[]>(
     DEMO_INSTRUCTORS as InstructorItem[],
   );
-  const [selectedInstructor, setSelectedInstructor] =
-    useState<InstructorItem | null>(null);
-  const { isAdmin } = useAuth();
+  const [view, setView] = useState<ViewMode>("list");
+  const [selected, setSelected] = useState<InstructorItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const { user } = useAuth();
+  const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
 
   useEffect(() => {
     loadPageContent("instructors").then(setPc).catch(() => {});
@@ -684,379 +858,178 @@ export default function InstructorsPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (selectedInstructor) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [selectedInstructor]);
-
-  useEffect(() => {
-    if (!selectedInstructor) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelectedInstructor(null);
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedInstructor]);
-
   const imageSrc = (inst: InstructorItem) =>
     inst.imageUrl || inst.profileImageUrl;
 
-  return (
-    <div className={cn("py-16")}>
-      <div className={cn("max-w-5xl mx-auto px-4")}>
-        {/* Header */}
-        <div className={cn("text-center mb-12")}>
-          <h1 className={cn("text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3")}>
-            {pc.hero.title}
-          </h1>
-          <p className={cn("text-lg text-gray-500")}>
-            {pc.hero.subtitle}
-          </p>
-        </div>
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return instructors;
+    const q = searchQuery.toLowerCase();
+    return instructors.filter(
+      (i) =>
+        i.name.toLowerCase().includes(q) ||
+        (i.title || "").toLowerCase().includes(q) ||
+        (i.organization || "").toLowerCase().includes(q) ||
+        (i.specialties || []).some((s) => s.toLowerCase().includes(q)),
+    );
+  }, [instructors, searchQuery]);
 
-        {/* Card Grid */}
-        <div
-          className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6")}
-        >
-          {instructors.map((inst) => (
+  const handleSelectInstructor = (inst: InstructorItem) => {
+    setSelected(inst);
+    setView("detail");
+    window.scrollTo(0, 0);
+  };
+
+  const handleBack = () => {
+    setView("list");
+    setSelected(null);
+  };
+
+  const handleApply = () => {
+    requireLogin(() => {
+      setView("apply");
+      window.scrollTo(0, 0);
+    }, "강사 신청을 하려면 로그인이 필요합니다.");
+  };
+
+  /* Detail View */
+  if (view === "detail" && selected) {
+    return <InstructorDetailView instructor={selected} onBack={handleBack} />;
+  }
+
+  /* Application Form */
+  if (view === "apply" && user) {
+    return (
+      <ApplicationForm
+        onBack={handleBack}
+        onSubmitted={handleBack}
+      />
+    );
+  }
+
+  /* List View */
+  return (
+    <div className="min-h-screen bg-white">
+      <header className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-900 pb-4">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+            {pc.hero.title || "전체 강사소개"}
+          </h1>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative flex-1 md:w-72">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="강사 이름, 분야로 검색"
+                className={cn(
+                  "w-full pl-4 pr-10 py-2 md:py-2.5 text-sm font-light border border-gray-200 rounded-full",
+                  "focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-all placeholder:text-gray-400",
+                )}
+              />
+              {searchQuery ? (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label="검색어 지우기"
+                >
+                  <X size={14} />
+                </button>
+              ) : (
+                <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              )}
+            </div>
+            <button
+              onClick={handleApply}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold shrink-0",
+                "bg-gray-900 text-white hover:bg-gray-800 transition-colors",
+              )}
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline">강사 신청</span>
+            </button>
+          </div>
+        </div>
+        {pc.hero.subtitle && (
+          <p className="mt-4 text-sm text-gray-500">{pc.hero.subtitle}</p>
+        )}
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        {filtered.length === 0 ? (
+          <div className="py-20 text-center text-sm text-gray-400">
+            {searchQuery ? "검색 결과가 없습니다." : "등록된 강사가 없습니다."}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filtered.map((inst) => (
               <div
                 key={inst.id}
-                onClick={() => setSelectedInstructor(inst)}
+                onClick={() => handleSelectInstructor(inst)}
                 className={cn(
-                  "bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden hover-lift group",
-                  "cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+                  "bg-white rounded-xl border border-gray-200 overflow-hidden",
+                  "cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group",
                 )}
               >
                 {/* Image */}
-                <div className={cn("relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-brand-gray to-gray-200")}>
+                <div className="relative aspect-[4/5] overflow-hidden bg-gray-100">
                   {imageSrc(inst) ? (
                     <DriveOrExternalImage
                       src={imageSrc(inst)!}
                       alt={inst.name}
-                      className={cn("w-full h-full object-cover object-top")}
+                      className="w-full h-full object-cover object-top"
                       quiet
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-gray to-gray-200">
-                      <span className="text-5xl font-bold text-brand-blue">{inst.name.charAt(0)}</span>
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                      <span className="text-5xl font-bold text-gray-300">
+                        {inst.name.charAt(0)}
+                      </span>
                     </div>
                   )}
-                  <div
-                    className={cn(
-                      "absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent"
-                    )}
-                  />
+                  <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/30 to-transparent" />
                 </div>
 
-                {/* Info: 이름 → 직책(아래) / 경력 bullet / 소개 인용 */}
-                <div className={cn("px-6 py-4")}>
-                  {/* 0. 이름 + 직책(이름 아래) */}
-                  <div className={cn("mb-3 min-w-0")}>
-                    <h3 className={cn("text-xl font-bold text-gray-900 tracking-tighter leading-tight")}>
-                      {inst.name}
-                    </h3>
-                    {inst.title && (
-                      <p className={cn("mt-0.5 text-sm font-bold text-brand-blue tracking-tighter line-clamp-2 break-keep")}>
-                        {inst.title}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* 1. 주요경력 bullet — specialties 최대 3줄 */}
+                {/* Info */}
+                <div className="px-5 py-4">
+                  <h3 className="text-lg font-bold text-gray-900 tracking-tight">
+                    {inst.name}
+                  </h3>
+                  {inst.title && (
+                    <p className="mt-0.5 text-[13px] font-medium text-gray-500 tracking-tight line-clamp-1">
+                      {inst.title}
+                    </p>
+                  )}
                   {(inst.specialties || []).length > 0 && (
-                    <div className={cn("space-y-0.5 mb-3")}>
-                      {(inst.specialties || []).slice(0, 3).map((s, i) => (
-                        <div key={i} className={cn("flex items-center gap-2.5 py-0.5")}>
-                          <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-brand-blue" />
-                          <span className={cn("text-[13px] text-gray-700 font-medium truncate tracking-tighter")}>{s}</span>
+                    <div className="mt-3 space-y-0.5">
+                      {(inst.specialties || []).slice(0, 2).map((s, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="shrink-0 w-1 h-1 rounded-full bg-gray-400" />
+                          <span className="text-[12px] text-gray-500 truncate tracking-tight">
+                            {s}
+                          </span>
                         </div>
                       ))}
                     </div>
                   )}
-
-                  {/* 2. 소개 인용 박스 — bio 최대 3줄 */}
                   {inst.bio && (
-                    <div className={cn("bg-brand-gray/60 rounded-xl px-3.5 py-2.5 max-h-[5rem] overflow-hidden")}>
-                      <p className={cn(
-                        "text-[13px] text-gray-600 italic leading-snug text-center tracking-tighter font-medium",
-                        "line-clamp-3 break-keep"
-                      )}>
-                        &ldquo;{inst.bio}&rdquo;
-                      </p>
-                    </div>
+                    <p className="mt-3 text-[12px] text-gray-400 italic line-clamp-2 tracking-tight">
+                      &ldquo;{inst.bio}&rdquo;
+                    </p>
                   )}
                 </div>
-                <div className="px-6 pb-3">
-                  <span className="text-xs text-brand-blue font-medium group-hover:underline">프로필 보기 →</span>
+                <div className="px-5 pb-4">
+                  <span className="text-xs text-gray-400 font-medium group-hover:text-gray-700 transition-colors">
+                    프로필 보기 →
+                  </span>
                 </div>
               </div>
             ))}
-        </div>
-      </div>
-
-      {/* Detail Modal */}
-      {selectedInstructor && (
-        <div className={cn("fixed inset-0 z-50 bg-brand-blue overflow-y-auto")} role="dialog" aria-modal="true">
-          {/* Top buttons */}
-          <div className={cn("absolute top-4 right-4 z-10 flex items-center gap-2")}>
-            {isAdmin && (
-              <a
-                href={`/admin/instructors`}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white rounded-sm transition-colors text-sm"
-                )}
-                title="강사 정보 수정"
-              >
-                <Pencil size={16} />
-                수정
-              </a>
-            )}
-            <button
-              onClick={() => setSelectedInstructor(null)}
-              className={cn(
-                "text-white/80 hover:text-white transition-colors p-2.5"
-              )}
-              aria-label="닫기"
-            >
-              <X size={28} />
-            </button>
           </div>
+        )}
+      </main>
 
-          <div className={cn("max-w-7xl mx-auto px-5 py-16 sm:px-12 lg:px-20")}>
-            {/* Hero */}
-            <div
-              className={cn(
-                "grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-24 items-center"
-              )}
-              style={{ animationDelay: "0ms" }}
-            >
-              {/* Left: Text */}
-              <div
-                className={cn("lg:col-span-7 order-2 lg:order-1 animate-fade-in-up")}
-                style={{ animationDelay: "100ms" }}
-              >
-                <p
-                  className={cn(
-                    "text-sm uppercase tracking-widest text-blue-200 mb-4"
-                  )}
-                >
-                  Meet The Instructor
-                </p>
-                <h2
-                  className={cn(
-                    "text-4xl sm:text-5xl lg:text-6xl font-serif text-white tracking-tight mb-4"
-                  )}
-                >
-                  {selectedInstructor.name}
-                </h2>
-                <p className={cn("text-lg text-blue-100 mb-6")}>
-                  {selectedInstructor.title} · {selectedInstructor.organization}
-                </p>
-
-                {/* 주요경력 bullet */}
-                {(selectedInstructor.specialties || []).length > 0 && (
-                  <div className={cn("mb-6 space-y-2")}>
-                    {(selectedInstructor.specialties || []).map((s, i) => (
-                      <div key={i} className={cn("flex items-center gap-3")}>
-                        <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-300" />
-                        <span className={cn("text-[15px] text-white font-semibold tracking-tight")}>{s}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* 소개 인용 박스 */}
-                {selectedInstructor.bio && (
-                  <div className={cn("bg-white/10 rounded-xl px-6 py-5 mb-8")}>
-                    <p className={cn(
-                      "text-[15px] text-blue-50 italic leading-[1.8] text-center tracking-tight font-medium break-keep"
-                    )}>
-                      &ldquo;{selectedInstructor.bio}&rdquo;
-                    </p>
-                  </div>
-                )}
-
-                {/* Social links */}
-                {selectedInstructor.socialLinks && (
-                  <div className={cn("flex items-center gap-4 mb-4")}>
-                    {(
-                      Object.entries(selectedInstructor.socialLinks) as [
-                        keyof typeof SOCIAL_ICONS,
-                        string | null,
-                      ][]
-                    ).map(([key, url]) => {
-                      if (!url?.trim()) return null;
-                      const Icon = SOCIAL_ICONS[key];
-                      if (!Icon) return null;
-                      return (
-                        <a
-                          key={key}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "text-white hover:text-blue-300 transition-colors"
-                          )}
-                        >
-                          <Icon size={20} />
-                        </a>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Contact email */}
-                {selectedInstructor.contactEmail?.trim() && (
-                  <div className={cn("flex items-center gap-2 text-blue-200")}>
-                    <Mail size={16} />
-                    <span className={cn("text-sm")}>
-                      {selectedInstructor.contactEmail}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Right: Image */}
-              <div
-                className={cn(
-                  "lg:col-span-5 order-1 lg:order-2 animate-fade-in-up"
-                )}
-                style={{ animationDelay: "200ms" }}
-              >
-                <div className={cn("relative rounded-sm overflow-hidden shadow-2xl")}>
-                  {imageSrc(selectedInstructor) ? (
-                    <DriveOrExternalImage
-                      src={imageSrc(selectedInstructor)!}
-                      alt={selectedInstructor.name}
-                      className={cn("object-cover object-top w-full aspect-[4/5]")}
-                      quiet
-                    />
-                  ) : (
-                    <div
-                      className={cn(
-                        "w-full aspect-[4/5] bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center"
-                      )}
-                    >
-                      <GraduationCap className={cn("w-24 h-24 text-white/40")} />
-                    </div>
-                  )}
-                  <div
-                    className={cn(
-                      "absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
-                    )}
-                  />
-                </div>
-                {/* Floating name card */}
-                <div
-                  className={cn(
-                    "relative -mt-8 mx-auto w-[90%] bg-white text-center rounded-sm p-6 shadow-2xl"
-                  )}
-                >
-                  <p
-                    className={cn(
-                      "text-xl font-serif font-bold text-brand-blue"
-                    )}
-                  >
-                    {selectedInstructor.name}
-                  </p>
-                  <p
-                    className={cn(
-                      "uppercase tracking-widest text-xs text-gray-500 mt-1"
-                    )}
-                  >
-                    {selectedInstructor.title}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Education */}
-            {selectedInstructor.education &&
-              selectedInstructor.education.length > 0 && (
-                <div
-                  className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
-                  style={{ animationDelay: "400ms" }}
-                >
-                  <h3
-                    className={cn(
-                      "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
-                    )}
-                  >
-                    <GraduationCap size={24} />
-                    Education
-                  </h3>
-                  <div className={cn("space-y-4")}>
-                    {selectedInstructor.education.map((edu, i) => (
-                      <div key={i}>
-                        <p className={cn("font-bold text-white")}>
-                          {edu.degree}
-                        </p>
-                        <p className={cn("text-blue-100")}>
-                          {edu.institution}
-                        </p>
-                        <p className={cn("text-blue-200 text-sm")}>
-                          {edu.year}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            {/* Certifications */}
-            {selectedInstructor.certifications &&
-              selectedInstructor.certifications.length > 0 && (
-                <div
-                  className={cn("mt-16 lg:mt-24 animate-fade-in-up")}
-                  style={{ animationDelay: "500ms" }}
-                >
-                  <h3
-                    className={cn(
-                      "text-2xl font-bold text-white border-b-2 border-white/40 pb-3 mb-8 flex items-center gap-3"
-                    )}
-                  >
-                    <Award size={24} />
-                    Certifications
-                  </h3>
-                  <div className={cn("flex flex-wrap gap-2")}>
-                    {selectedInstructor.certifications.map((cert) => (
-                      <span
-                        key={cert}
-                        className={cn(
-                          "px-3 py-1.5 rounded-sm bg-white/10 text-white text-sm"
-                        )}
-                      >
-                        {cert}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            {/* Programs (담당 프로그램) */}
-            {(selectedInstructor.programs || []).length > 0 && (
-              <InstructorProgramsSection
-                programs={selectedInstructor.programs || []}
-              />
-            )}
-
-            {/* Class History */}
-            <ClassHistorySection
-              instructorName={selectedInstructor.name}
-            />
-
-            {/* Comments */}
-            {typeof selectedInstructor.id === "string" && (
-              <CommentSection
-                instructorId={selectedInstructor.id}
-              />
-            )}
-          </div>
-        </div>
-      )}
+      <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>
   );
 }
