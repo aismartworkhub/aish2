@@ -20,8 +20,12 @@ import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import type { InstructorComment } from "@/types/firestore";
+import { getRunmoaContents } from "@/lib/runmoa-api";
+import type { RunmoaContent } from "@/types/runmoa";
 import { loadPageContent, DEFAULT_INSTRUCTORS } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
+
+const RUNMOA_BASE = "https://aish.runmoa.com";
 
 /* ── Types ── */
 type InstructorItem = Omit<
@@ -429,6 +433,9 @@ function InstructorDetailView({
                 )}
               </div>
             )}
+
+            {/* 관련 강의 */}
+            <SidebarClasses instructorName={instructor.name} />
           </aside>
 
           {/* Right Column: Detail Information */}
@@ -539,6 +546,128 @@ function InstructorDetailView({
       </main>
 
       <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
+    </div>
+  );
+}
+
+/* ── Sidebar: 관련 강의 위젯 ── */
+function SidebarClasses({ instructorName }: { instructorName: string }) {
+  const [classes, setClasses] = useState<RunmoaContent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = instructorName.trim();
+    getRunmoaContents({ limit: 50, search: q })
+      .then((res) => {
+        const lower = q.toLowerCase();
+        const matched = res.data.filter((c) => {
+          const title = (c.title || "").toLowerCase();
+          const desc = (c.description_html || "").toLowerCase();
+          return title.includes(lower) || desc.includes(lower);
+        });
+        setClasses(matched.slice(0, 3));
+      })
+      .catch(() => setClasses([]))
+      .finally(() => setLoading(false));
+  }, [instructorName]);
+
+  if (loading) {
+    return (
+      <div className="mt-8">
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <div className="w-1.5 h-1.5 bg-gray-900 rounded-sm" />
+          <h3 className="text-[14px] md:text-[15px] font-bold text-gray-900 tracking-tight">
+            진행중인 강의
+          </h3>
+        </div>
+        <div className="flex justify-center py-6">
+          <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-500 rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (classes.length === 0) return null;
+
+  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-center gap-2 mb-3 px-1">
+        <div className="w-1.5 h-1.5 bg-gray-900 rounded-sm" />
+        <h3 className="text-[14px] md:text-[15px] font-bold text-gray-900 tracking-tight">
+          진행중인 강의
+        </h3>
+      </div>
+      <div className="space-y-3">
+        {classes.map((cls) => (
+          <a
+            key={cls.content_id}
+            href={`${RUNMOA_BASE}/classes/${cls.content_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block"
+          >
+            <div className="flex gap-3 md:gap-4 bg-white border border-gray-200 rounded-xl p-3 md:p-4 hover:bg-gray-50 hover:border-gray-300 transition-all group shadow-sm">
+              {cls.featured_image && (
+                <div className="w-16 md:w-20 flex-shrink-0 self-start">
+                  <img
+                    alt={cls.title}
+                    className="w-full h-auto rounded-lg border border-gray-100"
+                    referrerPolicy="no-referrer"
+                    src={cls.featured_image}
+                  />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="text-[12px] md:text-[13px] font-bold text-gray-900 line-clamp-2 leading-tight">
+                    {cls.title}
+                  </h4>
+                  <ExternalLink
+                    size={14}
+                    className="text-gray-400 group-hover:text-gray-600 flex-shrink-0 mt-0.5 transition-colors"
+                  />
+                </div>
+                <p className="text-[11px] md:text-[11.5px] text-gray-500 mt-1.5 line-clamp-2 leading-snug">
+                  {stripHtml(cls.description_html).slice(0, 80)}
+                </p>
+                <div className="flex items-center gap-1.5 md:gap-2 mt-2 md:mt-3 flex-wrap">
+                  <span
+                    className={cn(
+                      "text-[9px] md:text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                      cls.content_type === "offline"
+                        ? "bg-green-50 text-green-700 border-green-200/60"
+                        : cls.content_type === "live"
+                          ? "bg-blue-50 text-blue-700 border-blue-200/60"
+                          : cls.content_type === "vod"
+                            ? "bg-purple-50 text-purple-700 border-purple-200/60"
+                            : "bg-gray-50 text-gray-600 border-gray-200/60",
+                    )}
+                  >
+                    {cls.content_type === "offline"
+                      ? "오프라인"
+                      : cls.content_type === "live"
+                        ? "라이브"
+                        : cls.content_type === "vod"
+                          ? "VOD"
+                          : "디지털콘텐츠"}
+                  </span>
+                  {cls.is_free ? (
+                    <span className="text-[9px] md:text-[10px] font-medium px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200/60">
+                      무료
+                    </span>
+                  ) : (
+                    <span className="text-[11px] md:text-[12px] font-bold text-gray-800">
+                      ₩{(cls.is_on_sale ? cls.sale_price : cls.base_price).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
     </div>
   );
 }
