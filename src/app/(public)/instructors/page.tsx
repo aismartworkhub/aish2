@@ -20,7 +20,7 @@ import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import type { InstructorComment } from "@/types/firestore";
-import { getRunmoaContents } from "@/lib/runmoa-api";
+import { getRunmoaContents, getRunmoaContentById } from "@/lib/runmoa-api";
 import type { RunmoaContent } from "@/types/runmoa";
 import { loadPageContent, DEFAULT_INSTRUCTORS } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
@@ -435,7 +435,7 @@ function InstructorDetailView({
             )}
 
             {/* 관련 강의 */}
-            <SidebarClasses instructorName={instructor.name} />
+            <SidebarClasses instructorName={instructor.name} programs={programs} />
           </aside>
 
           {/* Right Column: Detail Information */}
@@ -551,25 +551,139 @@ function InstructorDetailView({
 }
 
 /* ── Sidebar: 관련 강의 위젯 ── */
-function SidebarClasses({ instructorName }: { instructorName: string }) {
-  const [classes, setClasses] = useState<RunmoaContent[]>([]);
+type ClassCard = {
+  id: string;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  href: string;
+  contentType?: string;
+  price?: string;
+  isFree?: boolean;
+};
+
+function extractRunmoaId(url: string): number | null {
+  const m = url.match(/\/classes\/(\d+)/);
+  return m ? Number(m[1]) : null;
+}
+
+function SidebarClasses({
+  instructorName,
+  programs,
+}: {
+  instructorName: string;
+  programs: { title: string; url?: string }[];
+}) {
+  const [cards, setCards] = useState<ClassCard[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = instructorName.trim();
-    getRunmoaContents({ limit: 50, search: q })
-      .then((res) => {
-        const lower = q.toLowerCase();
-        const matched = res.data.filter((c) => {
-          const title = (c.title || "").toLowerCase();
-          const desc = (c.description_html || "").toLowerCase();
-          return title.includes(lower) || desc.includes(lower);
+    let cancelled = false;
+
+    async function load() {
+      const result: ClassCard[] = [];
+      const seenIds = new Set<string>();
+
+      // 1) programs 필드에서 Runmoa URL 추출 → API로 상세 정보 가져오기
+      const runmoaIds = programs
+        .map((p) => ({ title: p.title, url: p.url, id: p.url ? extractRunmoaId(p.url) : null }))
+        .filter((p) => p.id !== null);
+
+      if (runmoaIds.length > 0) {
+        const fetches = runmoaIds.map(async (p) => {
+          try {
+            const cls = await getRunmoaContentById(p.id!);
+            const key = String(cls.content_id);
+            if (!seenIds.has(key)) {
+              seenIds.add(key);
+              const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+              result.push({
+                id: key,
+                title: cls.title,
+                description: stripHtml(cls.description_html).slice(0, 80),
+                imageUrl: cls.featured_image,
+                href: `${RUNMOA_BASE}/classes/${cls.content_id}`,
+                contentType: cls.content_type,
+                price: cls.is_free
+                  ? "무료"
+                  : `₩${(cls.is_on_sale ? cls.sale_price : cls.base_price).toLocaleString()}`,
+                isFree: cls.is_free,
+              });
+            }
+          } catch { /* 개별 실패 무시 */ }
         });
-        setClasses(matched.slice(0, 3));
-      })
-      .catch(() => setClasses([]))
-      .finally(() => setLoading(false));
-  }, [instructorName]);
+        await Promise.allSettled(fetches);
+      }
+
+      // 2) programs 필드에서 URL만 있는 항목 (Runmoa 아닌 URL 포함)
+      for (const p of programs) {
+        if (!p.url) continue;
+        const rmId = extractRunmoaId(p.url);
+        if (rmId && seenIds.has(String(rmId))) continue;
+        const key = p.url;
+        if (seenIds.has(key)) continue;
+        seenIds.add(key);
+        result.push({
+          id: key,
+          title: p.title,
+          href: p.url,
+        });
+      }
+
+      // 3) API 이름 검색 (보조: 위에서 못 찾은 경우)
+      if (result.length === 0) {
+        try {
+          const q = instructorName.trim();
+          const res = await getRunmoaContents({ limit: 20, search: q });
+          const lower = q.toLowerCase();
+          const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+          for (const cls of res.data) {
+            const title = (cls.title || "").toLowerCase();
+            const desc = (cls.description_html || "").toLowerCase();
+            if (title.includes(lower) || desc.includes(lower)) {
+              const key = String(cls.content_id);
+              if (!seenIds.has(key)) {
+                seenIds.add(key);
+                result.push({
+                  id: key,
+                  title: cls.title,
+                  description: stripHtml(cls.description_html).slice(0, 80),
+                  imageUrl: cls.featured_image,
+                  href: `${RUNMOA_BASE}/classes/${cls.content_id}`,
+                  contentType: cls.content_type,
+                  price: cls.is_free
+                    ? "무료"
+                    : `₩${(cls.is_on_sale ? cls.sale_price : cls.base_price).toLocaleString()}`,
+                  isFree: cls.is_free,
+                });
+              }
+            }
+          }
+        } catch { /* API 실패 무시 */ }
+      }
+
+      // 4) programs 필드의 URL 없는 항목도 표시
+      for (const p of programs) {
+        if (p.url) continue;
+        const key = `prog-${p.title}`;
+        if (seenIds.has(key)) continue;
+        seenIds.add(key);
+        result.push({
+          id: key,
+          title: p.title,
+          href: `${RUNMOA_BASE}/classes`,
+        });
+      }
+
+      if (!cancelled) {
+        setCards(result.slice(0, 5));
+        setLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [instructorName, programs]);
 
   if (loading) {
     return (
@@ -587,9 +701,7 @@ function SidebarClasses({ instructorName }: { instructorName: string }) {
     );
   }
 
-  if (classes.length === 0) return null;
-
-  const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").trim();
+  if (cards.length === 0) return null;
 
   return (
     <div className="mt-8">
@@ -600,69 +712,77 @@ function SidebarClasses({ instructorName }: { instructorName: string }) {
         </h3>
       </div>
       <div className="space-y-3">
-        {classes.map((cls) => (
+        {cards.map((card) => (
           <a
-            key={cls.content_id}
-            href={`${RUNMOA_BASE}/classes/${cls.content_id}`}
+            key={card.id}
+            href={card.href}
             target="_blank"
             rel="noopener noreferrer"
             className="block"
           >
             <div className="flex gap-3 md:gap-4 bg-white border border-gray-200 rounded-xl p-3 md:p-4 hover:bg-gray-50 hover:border-gray-300 transition-all group shadow-sm">
-              {cls.featured_image && (
+              {card.imageUrl && (
                 <div className="w-16 md:w-20 flex-shrink-0 self-start">
                   <img
-                    alt={cls.title}
+                    alt={card.title}
                     className="w-full h-auto rounded-lg border border-gray-100"
                     referrerPolicy="no-referrer"
-                    src={cls.featured_image}
+                    src={card.imageUrl}
                   />
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <h4 className="text-[12px] md:text-[13px] font-bold text-gray-900 line-clamp-2 leading-tight">
-                    {cls.title}
+                    {card.title}
                   </h4>
                   <ExternalLink
                     size={14}
                     className="text-gray-400 group-hover:text-gray-600 flex-shrink-0 mt-0.5 transition-colors"
                   />
                 </div>
-                <p className="text-[11px] md:text-[11.5px] text-gray-500 mt-1.5 line-clamp-2 leading-snug">
-                  {stripHtml(cls.description_html).slice(0, 80)}
-                </p>
-                <div className="flex items-center gap-1.5 md:gap-2 mt-2 md:mt-3 flex-wrap">
-                  <span
-                    className={cn(
-                      "text-[9px] md:text-[10px] font-medium px-2 py-0.5 rounded-full border",
-                      cls.content_type === "offline"
-                        ? "bg-green-50 text-green-700 border-green-200/60"
-                        : cls.content_type === "live"
-                          ? "bg-blue-50 text-blue-700 border-blue-200/60"
-                          : cls.content_type === "vod"
-                            ? "bg-purple-50 text-purple-700 border-purple-200/60"
-                            : "bg-gray-50 text-gray-600 border-gray-200/60",
+                {card.description && (
+                  <p className="text-[11px] md:text-[11.5px] text-gray-500 mt-1.5 line-clamp-2 leading-snug">
+                    {card.description}
+                  </p>
+                )}
+                {(card.contentType || card.price) && (
+                  <div className="flex items-center gap-1.5 md:gap-2 mt-2 md:mt-3 flex-wrap">
+                    {card.contentType && (
+                      <span
+                        className={cn(
+                          "text-[9px] md:text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                          card.contentType === "offline"
+                            ? "bg-green-50 text-green-700 border-green-200/60"
+                            : card.contentType === "live"
+                              ? "bg-blue-50 text-blue-700 border-blue-200/60"
+                              : card.contentType === "vod"
+                                ? "bg-purple-50 text-purple-700 border-purple-200/60"
+                                : "bg-gray-50 text-gray-600 border-gray-200/60",
+                        )}
+                      >
+                        {card.contentType === "offline"
+                          ? "오프라인"
+                          : card.contentType === "live"
+                            ? "라이브"
+                            : card.contentType === "vod"
+                              ? "VOD"
+                              : "디지털콘텐츠"}
+                      </span>
                     )}
-                  >
-                    {cls.content_type === "offline"
-                      ? "오프라인"
-                      : cls.content_type === "live"
-                        ? "라이브"
-                        : cls.content_type === "vod"
-                          ? "VOD"
-                          : "디지털콘텐츠"}
-                  </span>
-                  {cls.is_free ? (
-                    <span className="text-[9px] md:text-[10px] font-medium px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200/60">
-                      무료
-                    </span>
-                  ) : (
-                    <span className="text-[11px] md:text-[12px] font-bold text-gray-800">
-                      ₩{(cls.is_on_sale ? cls.sale_price : cls.base_price).toLocaleString()}
-                    </span>
-                  )}
-                </div>
+                    {card.price && (
+                      card.isFree ? (
+                        <span className="text-[9px] md:text-[10px] font-medium px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 border border-yellow-200/60">
+                          무료
+                        </span>
+                      ) : (
+                        <span className="text-[11px] md:text-[12px] font-bold text-gray-800">
+                          {card.price}
+                        </span>
+                      )
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </a>
