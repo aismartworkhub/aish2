@@ -726,11 +726,27 @@ function CommunityContent() {
   return (
     <div className="py-16">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">{pc.hero.title}</h1>
-          <p className="text-lg text-gray-500">
-            {pc.hero.subtitle}
-          </p>
+        <div className="mb-12 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+          <div className="text-center sm:text-left">
+            <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">{pc.hero.title}</h1>
+            <p className="text-lg text-gray-500">{pc.hero.subtitle}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              requireLogin(() => {
+                setActiveTab("free");
+                setShowFreePostForm(true);
+              }, "글을 작성하려면 로그인이 필요합니다.")
+            }
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold",
+              "bg-brand-blue text-white hover:bg-brand-lightBlue transition-colors shrink-0",
+            )}
+          >
+            <Plus size={16} />
+            작성하기
+          </button>
         </div>
 
         {/* 통합 검색 */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getContents, getBoardsByGroup } from "@/lib/content-engine";
 import { loadAllLegacyMediaAsContent } from "@/lib/legacy-adapter";
@@ -9,6 +9,8 @@ import { getBoardsByGroupDefault } from "@/lib/board-defaults";
 import { normalizeUrl } from "@/lib/ai-content-dedup";
 import type { Content, BoardConfig } from "@/types/content";
 import { ContentCard, ContentDetail } from "@/components/content";
+import { useLoginGuard } from "@/hooks/useLoginGuard";
+import LoginModal from "@/components/public/LoginModal";
 
 const ALL_KEY = "__all__";
 const SHORTS_KEY = "__shorts__";
@@ -20,6 +22,7 @@ export default function MediaPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
+  const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
 
   useEffect(() => {
     let cancelled = false;
@@ -115,9 +118,26 @@ export default function MediaPage() {
     <div className="py-10">
       <div className="mx-auto max-w-6xl px-4">
         {/* 헤더 */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">콘텐츠</h1>
-          <p className="mt-2 text-gray-500">영상, 이미지, 자료 등 다양한 콘텐츠를 만나보세요</p>
+        <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+          <div className="text-center sm:text-left">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">콘텐츠</h1>
+            <p className="mt-2 text-gray-500">영상, 이미지, 자료 등 다양한 콘텐츠를 만나보세요</p>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              requireLogin(() => {
+                window.location.href = "/community?tab=free";
+              }, "콘텐츠를 작성하려면 로그인이 필요합니다.")
+            }
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold",
+              "bg-gray-900 text-white hover:bg-gray-800 transition-colors shrink-0",
+            )}
+          >
+            <Plus size={16} />
+            작성하기
+          </button>
         </div>
 
         {/* 검색 */}
@@ -225,6 +245,7 @@ export default function MediaPage() {
           </div>
         )}
       </div>
+      <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>
   );
 }
