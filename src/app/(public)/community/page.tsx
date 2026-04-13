@@ -12,7 +12,7 @@ import {
 import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
 import { getCollection, getFilteredCollection, createDoc, removeDoc, invalidateCache, COLLECTIONS } from "@/lib/firestore";
-import { getContents } from "@/lib/content-engine";
+import { getContents, getBoardsByGroup } from "@/lib/content-engine";
 import { loadPageContent, DEFAULT_COMMUNITY } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
 import DOMPurify from "dompurify";
@@ -269,6 +269,7 @@ function CommunityContent() {
   const [resourceList, setResourceList] = useState(RESOURCES);
   const [galleryList, setGalleryList] = useState(GALLERY_IMAGES);
   const [customBoards, setCustomBoards] = useState<{ boardType: string; posts: { id: string; title: string; date: string; views: number; pinned: boolean; content?: string }[] }[]>([]);
+  const [dynamicBoards, setDynamicBoards] = useState<{ key: string; label: string; contents: { id: string; title: string; body?: string; date: string; views: number; pinned: boolean; authorName: string }[] }[]>([]);
   const [expandedNoticeId, setExpandedNoticeId] = useState<string | number | null>(null);
   const [expandedResourceId, setExpandedResourceId] = useState<string | number | null>(null);
   const [expandedCustomPostId, setExpandedCustomPostId] = useState<string | null>(null);
@@ -531,6 +532,36 @@ function CommunityContent() {
         if (!cancelled && reviewData.length > 0) {
           setReviews(reviewData.map((d) => ({ ...d, isApproved: d.isApproved ?? false })));
         }
+
+        // Firestore boards 컬렉션에서 커뮤니티 게시판 동적 로드
+        const FIXED_KEYS = new Set(["community-notice", "community-free", "community-qna", "community-review", "community-faq"]);
+        try {
+          const communityBoardConfigs = await getBoardsByGroup("community");
+          const extraBoards = communityBoardConfigs.filter(
+            (b) => b.isActive && !FIXED_KEYS.has(b.key),
+          );
+          if (!cancelled && extraBoards.length > 0) {
+            const dynamicResults = await Promise.all(
+              extraBoards.map(async (b) => {
+                const items = await getContents(b.key).catch(() => []);
+                return {
+                  key: b.key,
+                  label: b.label,
+                  contents: items.map((c) => ({
+                    id: c.id,
+                    title: c.title,
+                    body: c.body,
+                    date: toDateString(c.createdAt),
+                    views: c.views || 0,
+                    pinned: c.isPinned || false,
+                    authorName: c.authorName,
+                  })),
+                };
+              }),
+            );
+            if (!cancelled) setDynamicBoards(dynamicResults);
+          }
+        } catch { /* 동적 보드 로드 실패 무시 */ }
       } catch (e) {
         console.error(e);
       }
@@ -764,7 +795,12 @@ function CommunityContent() {
         {/* 탭 네비게이션 */}
         <div className="relative mb-10 border-b border-brand-border" role="tablist">
           <div className="flex overflow-x-auto scrollbar-hide -mb-px">
-            {[...FIXED_TABS, ...customBoards.map((cb) => ({
+            {[...FIXED_TABS, ...dynamicBoards.map((db) => ({
+              key: db.key,
+              label: db.label,
+              icon: FileText,
+              color: "text-gray-600 bg-gray-50",
+            })), ...customBoards.map((cb) => ({
               key: cb.boardType.toLowerCase(),
               label: cb.boardType,
               icon: FileText,
@@ -1283,6 +1319,50 @@ function CommunityContent() {
             </div>
           </div>
         )}
+
+        {/* 동적 게시판 (Firestore boards 컬렉션) */}
+        {dynamicBoards.map((db) => (
+          activeTab === db.key && (
+            <div key={db.key} className="card-base overflow-hidden">
+              <div className="p-6 border-b border-brand-border">
+                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">{db.label}</h2>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {db.contents.length === 0 ? (
+                  <div className="px-6 py-12 text-center text-gray-400 text-sm">게시물이 없습니다.</div>
+                ) : db.contents.map((post) => (
+                  <div key={post.id}>
+                    <button
+                      onClick={() => setExpandedCustomPostId(expandedCustomPostId === post.id ? null : post.id)}
+                      className="w-full flex items-center px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      {post.pinned && <Pin size={14} className="text-brand-blue mr-2 shrink-0" />}
+                      <span className={cn("text-sm flex-1", post.pinned ? "font-semibold text-gray-900" : "text-gray-700")}>
+                        {post.title}
+                      </span>
+                      <div className="flex items-center gap-4 shrink-0 ml-4">
+                        <span className="text-xs text-gray-400 flex items-center gap-1"><Eye size={12} />{post.views}</span>
+                        <span className="text-xs text-gray-400">{post.date}</span>
+                        {expandedCustomPostId === post.id ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                      </div>
+                    </button>
+                    {expandedCustomPostId === post.id && (
+                      <div className="px-6 pb-4 text-sm text-gray-600 bg-gray-50 border-t border-brand-border">
+                        <div
+                          className="pt-3 prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(post.body || "상세 내용은 추후 업데이트 예정입니다."),
+                          }}
+                        />
+                        <p className="text-xs text-gray-400 mt-3">{post.authorName}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        ))}
 
         {/* 커스텀 게시판 */}
         {customBoards.map((cb) => (

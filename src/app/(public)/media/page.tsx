@@ -3,18 +3,18 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getContents } from "@/lib/content-engine";
+import { getContents, getBoardsByGroup } from "@/lib/content-engine";
 import { loadAllLegacyMediaAsContent } from "@/lib/legacy-adapter";
 import { getBoardsByGroupDefault } from "@/lib/board-defaults";
 import { normalizeUrl } from "@/lib/ai-content-dedup";
 import type { Content, BoardConfig } from "@/types/content";
 import { ContentCard, ContentDetail } from "@/components/content";
 
-const MEDIA_BOARDS = getBoardsByGroupDefault("media");
 const ALL_KEY = "__all__";
 const SHORTS_KEY = "__shorts__";
 
 export default function MediaPage() {
+  const [boards, setBoards] = useState<BoardConfig[]>([]);
   const [contents, setContents] = useState<Content[]>([]);
   const [activeTab, setActiveTab] = useState(ALL_KEY);
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,11 +24,22 @@ export default function MediaPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      // 0) Firestore에서 게시판 목록 로드 (없으면 기본값 폴백)
+      let mediaBoards: BoardConfig[];
+      try {
+        mediaBoards = await getBoardsByGroup("media");
+        if (mediaBoards.length === 0) mediaBoards = getBoardsByGroupDefault("media");
+      } catch {
+        mediaBoards = getBoardsByGroupDefault("media");
+      }
+      if (cancelled) return;
+      setBoards(mediaBoards);
+
       let all: Content[] = [];
 
       // 1) 새 contents 컬렉션에서 로드
       try {
-        const promises = MEDIA_BOARDS.map((b) =>
+        const promises = mediaBoards.map((b) =>
           getContents(b.key).catch(() => [] as Content[]),
         );
         const results = await Promise.all(promises);
@@ -63,8 +74,8 @@ export default function MediaPage() {
 
   const boardForContent = useCallback(
     (c: Content): BoardConfig | undefined =>
-      MEDIA_BOARDS.find((b) => b.key === c.boardKey),
-    [],
+      boards.find((b) => b.key === c.boardKey),
+    [boards],
   );
 
   const filtered = useMemo(() => {
@@ -140,7 +151,7 @@ export default function MediaPage() {
             onClick={() => setActiveTab(ALL_KEY)}
             label="전체"
           />
-          {MEDIA_BOARDS.map((b) => (
+          {boards.map((b) => (
             <TabButton
               key={b.key}
               active={activeTab === b.key}
