@@ -340,9 +340,13 @@ function InstructorDetailView({
     (e) => [e.degree, e.institution, e.year].filter(Boolean).join(" · "),
   );
 
-  const programs = (instructor.programs || []).map((p) =>
-    typeof p === "string" ? { title: p, url: undefined } : p,
-  );
+  const programs = (instructor.programs || []).map((p) => {
+    if (typeof p !== "string") return p;
+    if (p.startsWith("http://") || p.startsWith("https://")) {
+      return { title: p, url: p };
+    }
+    return { title: p, url: undefined };
+  });
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
