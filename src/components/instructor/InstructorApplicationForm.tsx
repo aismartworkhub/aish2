@@ -136,6 +136,7 @@ export function InstructorApplicationForm({
         },
         certifications,
         programs: [],
+        pastPrograms: [],
         isActive: false,
         status: "pending",
         applicantUid: user.uid,

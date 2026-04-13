@@ -38,6 +38,8 @@ type InstructorItem = Omit<
   education?: { degree: string; institution: string; year: string }[];
   certifications?: string[];
   programs?: (string | { title: string; url?: string })[];
+  /** 과거 진행 이력 (미저장 레거시 문서는 undefined → 본문에 programs와 동일 표시) */
+  pastPrograms?: (string | { title: string; url?: string })[];
   contactEmail?: string;
   isActive?: boolean;
   displayOrder?: number;
@@ -54,6 +56,18 @@ const SOCIAL_ICONS = {
   github: Github,
   personalSite: Globe,
 } as const;
+
+function normalizeProgramList(
+  raw: (string | { title: string; url?: string })[] | undefined,
+): { title: string; url?: string }[] {
+  return (raw || []).map((p) => {
+    if (typeof p !== "string") return { title: p.title, url: p.url };
+    if (p.startsWith("http://") || p.startsWith("https://")) {
+      return { title: p, url: p };
+    }
+    return { title: p, url: undefined };
+  });
+}
 
 /* ── Template Sub-components ── */
 function SectionTitle({ title }: { title: string }) {
@@ -340,13 +354,11 @@ function InstructorDetailView({
     (e) => [e.degree, e.institution, e.year].filter(Boolean).join(" · "),
   );
 
-  const programs = (instructor.programs || []).map((p) => {
-    if (typeof p !== "string") return p;
-    if (p.startsWith("http://") || p.startsWith("https://")) {
-      return { title: p, url: p };
-    }
-    return { title: p, url: undefined };
-  });
+  const ongoingPrograms = normalizeProgramList(instructor.programs);
+  const historyPrograms =
+    instructor.pastPrograms !== undefined
+      ? normalizeProgramList(instructor.pastPrograms)
+      : ongoingPrograms;
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
@@ -440,7 +452,7 @@ function InstructorDetailView({
             )}
 
             {/* 관련 강의 */}
-            <SidebarClasses instructorName={instructor.name} programs={programs} />
+            <SidebarClasses instructorName={instructor.name} programs={ongoingPrograms} />
           </aside>
 
           {/* Right Column: Detail Information */}
@@ -514,12 +526,13 @@ function InstructorDetailView({
                   </section>
                 )}
 
-                {/* 담당 프로그램 */}
-                {programs.length > 0 && (
+                {/* 담당 프로그램 (진행 이력) */}
+                {historyPrograms.length > 0 && (
                   <section className="py-5 md:py-6">
                     <SectionTitle title="담당 프로그램" />
-                    <ul className="mt-3 space-y-2">
-                      {programs.map((p, i) =>
+                    <p className="text-xs text-gray-500 mt-2 mb-2">과거 진행·이력</p>
+                    <ul className="mt-1 space-y-2">
+                      {historyPrograms.map((p, i) =>
                         p.url ? (
                           <li key={i}>
                             <a

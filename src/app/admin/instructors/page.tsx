@@ -32,6 +32,8 @@ interface Instructor {
   contactEmail: string;
   socialLinks: { linkedin: string; youtube: string; instagram: string; github: string; personalSite: string };
   programs: (string | { title: string; url?: string })[];
+  /** 과거 진행·이력 (공개 페이지 "담당 프로그램") */
+  pastPrograms?: (string | { title: string; url?: string })[];
   status?: "approved" | "pending" | "rejected";
   applicantUid?: string;
 }
@@ -42,7 +44,10 @@ interface InstructorForm {
   education: { degree: string; institution: string; year: string }[];
   certifications: string[]; contactEmail: string;
   socialLinks: { linkedin: string; youtube: string; instagram: string; github: string; personalSite: string };
+  /** 진행 중 강의 (공개 "진행중인 강의" 위젯) */
   programs: (string | { title: string; url?: string })[];
+  /** 과거 진행 이력 (공개 "담당 프로그램") */
+  pastPrograms: (string | { title: string; url?: string })[];
 }
 
 const EMPTY_FORM: InstructorForm = {
@@ -51,6 +56,7 @@ const EMPTY_FORM: InstructorForm = {
   education: [], certifications: [], contactEmail: "",
   socialLinks: { linkedin: "", youtube: "", instagram: "", github: "", personalSite: "" },
   programs: [],
+  pastPrograms: [],
 };
 
 const instructorSort = (a: Instructor, b: Instructor) => (a.displayOrder || 0) - (b.displayOrder || 0);
@@ -68,6 +74,7 @@ function formFromInstructor(item: Instructor): InstructorForm {
       personalSite: item.socialLinks?.personalSite || "",
     },
     programs: item.programs || [],
+    pastPrograms: item.pastPrograms || [],
   };
 }
 
@@ -89,6 +96,8 @@ export default function AdminInstructorsPage() {
   const [certInput, setCertInput] = useState("");
   const [progInput, setProgInput] = useState("");
   const [progUrlInput, setProgUrlInput] = useState("");
+  const [pastProgInput, setPastProgInput] = useState("");
+  const [pastProgUrlInput, setPastProgUrlInput] = useState("");
 
   // AI
   const [aiSource, setAiSource] = useState<"url" | "file" | "text">("url");
@@ -142,7 +151,8 @@ export default function AdminInstructorsPage() {
     setForm(EMPTY_FORM);
     setEditId(null);
     setIsCreating(true);
-    setSpecInput(""); setCertInput(""); setProgInput("");
+    setSpecInput(""); setCertInput(""); setProgInput(""); setProgUrlInput("");
+    setPastProgInput(""); setPastProgUrlInput("");
     setAiUrl(""); setAiText("");
     setShowModal(true);
   };
@@ -150,7 +160,8 @@ export default function AdminInstructorsPage() {
     setForm(formFromInstructor(item));
     setEditId(item.id);
     setIsCreating(false);
-    setSpecInput(""); setCertInput(""); setProgInput("");
+    setSpecInput(""); setCertInput(""); setProgInput(""); setProgUrlInput("");
+    setPastProgInput(""); setPastProgUrlInput("");
     setShowModal(true);
   };
   const closeModal = () => {
@@ -234,36 +245,50 @@ export default function AdminInstructorsPage() {
     setForm({ ...form, [field]: form[field].filter((x) => x !== value) });
   };
 
-  const addProgram = () => {
-    const trimmedTitle = progInput.trim();
+  const appendProgram = (
+    field: "programs" | "pastPrograms",
+    titleInput: string,
+    urlInput: string,
+    clearInputs: () => void,
+  ) => {
+    const trimmedTitle = titleInput.trim();
     if (!trimmedTitle) return;
-    const manualUrl = progUrlInput.trim() || undefined;
-
-    const exists = form.programs.some(p =>
-      typeof p === 'string' ? p === trimmedTitle : p.title === trimmedTitle
+    const manualUrl = urlInput.trim() || undefined;
+    const list = form[field];
+    const exists = list.some((p) =>
+      typeof p === "string" ? p === trimmedTitle : p.title === trimmedTitle,
     );
-
-    if (!exists) {
-      const matched = programList?.find((p) => p.title === trimmedTitle);
-      const url = manualUrl
-        || (matched ? `https://aish.runmoa.com/classes/${matched.content_id}` : undefined);
-
-      setForm({
-        ...form,
-        programs: [...form.programs, url ? { title: trimmedTitle, url } : trimmedTitle],
-      });
-      setProgInput("");
-      setProgUrlInput("");
-    }
-  };
-
-  const removeProgram = (titleToRemove: string) => {
+    if (exists) return;
+    const matched = programList?.find((p) => p.title === trimmedTitle);
+    const url =
+      manualUrl ||
+      (matched ? `https://aish.runmoa.com/classes/${matched.content_id}` : undefined);
     setForm({
       ...form,
-      programs: form.programs.filter((p) => {
-        const title = typeof p === 'string' ? p : p.title;
+      [field]: [...list, url ? { title: trimmedTitle, url } : trimmedTitle],
+    });
+    clearInputs();
+  };
+
+  const addOngoingProgram = () =>
+    appendProgram("programs", progInput, progUrlInput, () => {
+      setProgInput("");
+      setProgUrlInput("");
+    });
+
+  const addPastProgram = () =>
+    appendProgram("pastPrograms", pastProgInput, pastProgUrlInput, () => {
+      setPastProgInput("");
+      setPastProgUrlInput("");
+    });
+
+  const removeProgram = (field: "programs" | "pastPrograms", titleToRemove: string) => {
+    setForm({
+      ...form,
+      [field]: form[field].filter((p) => {
+        const title = typeof p === "string" ? p : p.title;
         return title !== titleToRemove;
-      })
+      }),
     });
   };
 
@@ -640,9 +665,10 @@ export default function AdminInstructorsPage() {
                 </div>
               </div>
 
-              {/* Programs */}
+              {/* 진행 중인 강의 → 공개 페이지 좌측 "진행중인 강의" */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">담당 프로그램</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">진행 중인 강의</label>
+                <p className="text-xs text-gray-500 mb-2">현재 모집·진행 중인 강의입니다. 공개 강사 페이지 좌측 카드에 표시됩니다.</p>
                 <div className="flex gap-2 mb-2">
                   <div className="flex-1 flex flex-col gap-2">
                     <select
@@ -658,23 +684,65 @@ export default function AdminInstructorsPage() {
                     <input
                       value={progUrlInput}
                       onChange={(e) => setProgUrlInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addProgram())}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOngoingProgram())}
                       className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                       placeholder="CTA 외부 링크 URL (선택사항)"
                     />
                   </div>
-                  <button onClick={addProgram} className="px-3 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 self-start mt-[1px]">추가</button>
+                  <button type="button" onClick={addOngoingProgram} className="px-3 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 self-start mt-[1px]">추가</button>
                 </div>
                 <div className="flex flex-col gap-1">
                   {form.programs.map((p, idx) => {
-                    const isObj = typeof p !== 'string';
+                    const isObj = typeof p !== "string";
                     const title = isObj ? p.title : p;
                     const url = isObj ? p.url : null;
                     return (
                       <div key={idx} className="flex items-center gap-2 text-sm bg-green-50 text-green-700 px-3 py-1.5 rounded-md">
                         <span className="font-medium">{title}</span>
                         {url && <span className="text-xs text-green-600 truncate max-w-[200px] border-l border-green-200 pl-2 ml-1">{url}</span>}
-                        <button onClick={() => removeProgram(title)} className="text-green-400 hover:text-green-700 ml-auto">&times;</button>
+                        <button type="button" onClick={() => removeProgram("programs", title)} className="text-green-400 hover:text-green-700 ml-auto">&times;</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 담당 프로그램 (진행 이력) → 공개 본문 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">담당 프로그램 (진행 이력)</label>
+                <p className="text-xs text-gray-500 mb-2">과거에 맡았거나 진행했던 프로그램입니다. 공개 페이지 본문 &quot;담당 프로그램&quot;에 표시됩니다.</p>
+                <div className="flex gap-2 mb-2">
+                  <div className="flex-1 flex flex-col gap-2">
+                    <select
+                      value={pastProgInput}
+                      onChange={(e) => setPastProgInput(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    >
+                      <option value="">프로그램 선택...</option>
+                      {programList?.map((p) => (
+                        <option key={p.content_id || p.title} value={p.title}>{p.title}</option>
+                      ))}
+                    </select>
+                    <input
+                      value={pastProgUrlInput}
+                      onChange={(e) => setPastProgUrlInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPastProgram())}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      placeholder="링크 URL (선택사항)"
+                    />
+                  </div>
+                  <button type="button" onClick={addPastProgram} className="px-3 py-2 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 self-start mt-[1px]">추가</button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {form.pastPrograms.map((p, idx) => {
+                    const isObj = typeof p !== "string";
+                    const title = isObj ? p.title : p;
+                    const url = isObj ? p.url : null;
+                    return (
+                      <div key={idx} className="flex items-center gap-2 text-sm bg-slate-50 text-slate-700 px-3 py-1.5 rounded-md border border-slate-100">
+                        <span className="font-medium">{title}</span>
+                        {url && <span className="text-xs text-slate-600 truncate max-w-[200px] border-l border-slate-200 pl-2 ml-1">{url}</span>}
+                        <button type="button" onClick={() => removeProgram("pastPrograms", title)} className="text-slate-400 hover:text-slate-700 ml-auto">&times;</button>
                       </div>
                     );
                   })}
