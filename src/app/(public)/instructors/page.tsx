@@ -667,7 +667,29 @@ function SidebarClasses({
         addCard({ id: p.url, title: p.title, href: p.url });
       }
 
-      // 3) API 이름 검색 (보조: 위에서 못 찾은 경우)
+      // 3) URL 없는 프로그램 → Runmoa API 제목 매칭으로 상세 정보 확보
+      const titleOnlyPrograms = programs.filter(
+        (p) => !p.url && !seenIds.has(`prog-${p.title}`),
+      );
+      if (titleOnlyPrograms.length > 0) {
+        try {
+          const allContents = await getRunmoaContents({ limit: 100 });
+          for (const p of titleOnlyPrograms) {
+            const matched = allContents.data.find(
+              (c) => c.title === p.title,
+            );
+            if (matched) {
+              addCard(runmoaToCard(matched));
+            }
+          }
+        } catch (err) {
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[SidebarClasses] Title match failed:", err);
+          }
+        }
+      }
+
+      // 4) API 이름 검색 (보조: 위 단계에서 결과를 못 찾은 경우)
       if (result.length === 0) {
         try {
           const q = instructorName.trim();
@@ -687,7 +709,7 @@ function SidebarClasses({
         }
       }
 
-      // 4) programs 필드의 URL 없는 항목도 표시
+      // 5) 여전히 매칭 안 된 URL 없는 항목도 최소 카드로 표시
       for (const p of programs) {
         if (p.url) continue;
         addCard({

@@ -237,17 +237,20 @@ export default function AdminInstructorsPage() {
   const addProgram = () => {
     const trimmedTitle = progInput.trim();
     if (!trimmedTitle) return;
-    const url = progUrlInput.trim() || undefined;
-    
-    // Check if already exists
-    const exists = form.programs.some(p => 
+    const manualUrl = progUrlInput.trim() || undefined;
+
+    const exists = form.programs.some(p =>
       typeof p === 'string' ? p === trimmedTitle : p.title === trimmedTitle
     );
-    
+
     if (!exists) {
+      const matched = programList?.find((p) => p.title === trimmedTitle);
+      const url = manualUrl
+        || (matched ? `https://aish.runmoa.com/classes/${matched.content_id}` : undefined);
+
       setForm({
         ...form,
-        programs: [...form.programs, url ? { title: trimmedTitle, url } : trimmedTitle]
+        programs: [...form.programs, url ? { title: trimmedTitle, url } : trimmedTitle],
       });
       setProgInput("");
       setProgUrlInput("");
