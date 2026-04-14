@@ -24,6 +24,7 @@ export default function ProfilePage() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
   const [showInstructorApply, setShowInstructorApply] = useState(false);
   const [instructorStatus, setInstructorStatus] = useState<ApplicationStatus>("none");
   const [statusLoading, setStatusLoading] = useState(true);
@@ -41,6 +42,8 @@ export default function ProfilePage() {
     interests: [] as string[],
     socialLinksData: { linkedin: "", youtube: "", instagram: "", github: "" },
   });
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -109,7 +112,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading || !user) {
+  if (!mounted || loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 border-3 border-brand-blue border-t-transparent rounded-full animate-spin" />

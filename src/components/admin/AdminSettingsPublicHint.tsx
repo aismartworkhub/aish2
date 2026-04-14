@@ -14,7 +14,7 @@ const COPY: Record<
     title: "공개 페이지에 어떻게 반영되나요?",
     lines: [
       "활성화된 히어로 슬라이드 → 메인(/) 최상단 히어로 영역",
-      "실무전문가 / Specialty 이미지 → 메인 페이지 해당 섹션 카드 배경",
+      "AI실전마스터 / Specialty 이미지 → 메인 페이지 해당 섹션 카드 배경",
     ],
     publicPath: "/",
     publicLabel: "메인 페이지 열기",

@@ -152,6 +152,7 @@ export const COLLECTIONS = {
   CONTENTS: "contents",
   CONTENT_COMMENTS: "contentComments",
   REACTIONS: "reactions",
+  COURSE_PROPOSALS: "courseProposals",
 } as const;
 
 export const PAGE_DOC_ID = (key: string) => `page_${key}`;

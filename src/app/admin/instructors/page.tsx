@@ -6,7 +6,7 @@ import {
   Sparkles, Link, Upload, FileText,
 } from "lucide-react";
 import { cn, toDirectImageUrl } from "@/lib/utils";
-import { COLLECTIONS, createDoc, upsertDoc, removeDoc, updateDocFields } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, removeDoc, updateDocFields, getFilteredCollection } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { useRunmoaContents } from "@/hooks/useRunmoaContents";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
@@ -36,6 +36,19 @@ interface Instructor {
   pastPrograms?: (string | { title: string; url?: string })[];
   status?: "approved" | "pending" | "rejected";
   applicantUid?: string;
+}
+
+interface CourseProposal {
+  id: string;
+  instructorDocId: string;
+  applicantUid: string;
+  applicantName: string;
+  title: string;
+  summary: string;
+  descriptionHtml: string;
+  attachments: { name: string; url: string }[];
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
 }
 
 interface InstructorForm {
@@ -109,6 +122,10 @@ export default function AdminInstructorsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profileImageRef = useRef<HTMLInputElement>(null);
 
+  // 강의 제안
+  const [courseProposals, setCourseProposals] = useState<CourseProposal[]>([]);
+  const [proposalsLoading, setProposalsLoading] = useState(false);
+
   // 프로필 이미지 리사이즈 → base64 (400x500, JPEG 80%)
   const handleProfileImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -154,6 +171,7 @@ export default function AdminInstructorsPage() {
     setSpecInput(""); setCertInput(""); setProgInput(""); setProgUrlInput("");
     setPastProgInput(""); setPastProgUrlInput("");
     setAiUrl(""); setAiText("");
+    setCourseProposals([]);
     setShowModal(true);
   };
   const openEdit = (item: Instructor) => {
@@ -162,7 +180,35 @@ export default function AdminInstructorsPage() {
     setIsCreating(false);
     setSpecInput(""); setCertInput(""); setProgInput(""); setProgUrlInput("");
     setPastProgInput(""); setPastProgUrlInput("");
+    setCourseProposals([]);
     setShowModal(true);
+    loadCourseProposals(item.id);
+  };
+  const loadCourseProposals = async (instructorId: string) => {
+    setProposalsLoading(true);
+    try {
+      const list = await getFilteredCollection<CourseProposal>(
+        COLLECTIONS.COURSE_PROPOSALS,
+        "instructorDocId",
+        instructorId,
+      );
+      setCourseProposals(list.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
+    } catch {
+      setCourseProposals([]);
+    } finally {
+      setProposalsLoading(false);
+    }
+  };
+  const updateProposalStatus = async (proposalId: string, status: "approved" | "rejected") => {
+    try {
+      await updateDocFields(COLLECTIONS.COURSE_PROPOSALS, proposalId, { status });
+      setCourseProposals((prev) =>
+        prev.map((p) => (p.id === proposalId ? { ...p, status } : p)),
+      );
+      toast(status === "approved" ? "강의 제안이 승인되었습니다." : "강의 제안이 반려되었습니다.", "success");
+    } catch {
+      toast("상태 변경에 실패했습니다.", "error");
+    }
   };
   const closeModal = () => {
     setShowModal(false);
@@ -788,6 +834,75 @@ export default function AdminInstructorsPage() {
                 </div>
               </div>
             </div>
+
+            {/* 강의 제안 섹션 (편집 모드에서만 표시) */}
+            {!isCreating && editId && (
+              <div className="px-6 py-4 border-t border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <FileText size={16} />
+                  강의 제안 ({courseProposals.length})
+                </h3>
+                {proposalsLoading ? (
+                  <p className="text-xs text-gray-400 py-3">로딩 중...</p>
+                ) : courseProposals.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-3">제안된 강의가 없습니다.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {courseProposals.map((cp) => (
+                      <div key={cp.id} className="border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900">{cp.title}</p>
+                            {cp.summary && <p className="text-xs text-gray-500 mt-0.5">{cp.summary}</p>}
+                            {cp.attachments.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {cp.attachments.map((att, ai) => (
+                                  <a
+                                    key={ai}
+                                    href={att.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-0.5 rounded"
+                                  >
+                                    <Link size={10} />
+                                    {att.name}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {cp.status === "pending" ? (
+                              <>
+                                <button
+                                  onClick={() => updateProposalStatus(cp.id, "approved")}
+                                  className="px-2 py-1 text-xs font-medium bg-green-50 text-green-700 rounded hover:bg-green-100 transition-colors"
+                                >
+                                  승인
+                                </button>
+                                <button
+                                  onClick={() => updateProposalStatus(cp.id, "rejected")}
+                                  className="px-2 py-1 text-xs font-medium bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors"
+                                >
+                                  반려
+                                </button>
+                              </>
+                            ) : (
+                              <span className={cn(
+                                "text-xs px-2 py-1 rounded-full font-medium",
+                                cp.status === "approved" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700",
+                              )}>
+                                {cp.status === "approved" ? "승인됨" : "반려됨"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">

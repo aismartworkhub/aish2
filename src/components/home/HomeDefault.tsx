@@ -162,11 +162,11 @@ export default function HomeDefault(props: HomeDataProps) {
         </div>
       </section>
 
-      {/* S3: 실무전문가 */}
+      {/* S3: AI실전마스터 */}
       <section className="py-24 md:py-28">
         <div className="text-center mb-16">
           <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
-            {pageContent.sections.education?.title ?? "실무전문가"}
+            {pageContent.sections.education?.title ?? "AI실전마스터"}
           </h2>
           <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
             {pageContent.sections.education?.description ?? "각 분야 현업 전문가가 여러분의 성장을 이끕니다."}

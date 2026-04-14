@@ -615,7 +615,7 @@ function AdminSettingsInner() {
 
           <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
             <p className="text-sm text-gray-500">
-              실무전문가·Specialty 카드(제목·이미지)는{" "}
+              AI실전마스터·Specialty 카드(제목·이미지)는{" "}
               <a href="/admin/pages" className="underline font-medium text-primary-600">페이지 관리 &gt; 홈</a>
               에서 관리합니다.
             </p>

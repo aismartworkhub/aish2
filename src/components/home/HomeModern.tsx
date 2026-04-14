@@ -231,11 +231,11 @@ export default function HomeModern(props: HomeDataProps) {
         </div>
       </section>
 
-      {/* 실무전문가 */}
+      {/* AI실전마스터 */}
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900">현업 최고 수준의 실무전문가</h2>
+            <h2 className="text-3xl font-bold text-gray-900">현업 최고 수준의 AI실전마스터</h2>
             <p className="mt-2 text-gray-600">이론이 아닌 진짜 실무를 경험한 전문가들과 함께하세요.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">

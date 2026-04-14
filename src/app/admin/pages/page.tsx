@@ -24,7 +24,7 @@ const PAGE_TABS: { key: PageKey; label: string }[] = [
   { key: "home", label: "홈" },
   { key: "about", label: "소개" },
   { key: "programs", label: "교육 프로그램" },
-  { key: "instructors", label: "실무전문가" },
+  { key: "instructors", label: "AI실전마스터" },
   { key: "workathon", label: "스마트워크톤" },
   { key: "videos", label: "영상·콘텐츠" },
   { key: "community", label: "커뮤니티" },
@@ -399,7 +399,7 @@ function EducationCardsEditor({
   };
 
   return (
-    <Card title="실무전문가(홈) 카드">
+    <Card title="AI실전마스터(홈) 카드">
       <div className="space-y-3">
         {cards.map((c, i) => (
           <div key={i} className="rounded-lg border border-gray-100 p-3 space-y-2">

@@ -20,7 +20,7 @@ export interface QuickBannerDemo {
 export const DEMO_STATS = [
  { label: "누적 수강생", value: 1500, unit: "명", icon: "Users" },
  { label: "진행 기수", value: 11, unit: "기", icon: "GraduationCap" },
- { label: "실무전문가", value: 5, unit: "인", icon: "UserCheck" },
+ { label: "AI실전마스터", value: 5, unit: "인", icon: "UserCheck" },
  { label: "정부과제", value: 3, unit: "건", icon: "Building" },
 ];
 
