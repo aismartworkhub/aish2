@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Search, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getContents, getBoardsByGroup } from "@/lib/content-engine";
@@ -22,6 +23,7 @@ export default function MediaPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
 
   useEffect(() => {
@@ -36,18 +38,35 @@ export default function MediaPage() {
         mediaBoards = getBoardsByGroupDefault("media");
       }
       if (cancelled) return;
+
+      const communityFreeBoard = getBoardsByGroupDefault("community")
+        .find((b) => b.key === "community-free");
+      if (communityFreeBoard) {
+        const hasCF = mediaBoards.some((b) => b.key === "community-free");
+        if (!hasCF) mediaBoards = [...mediaBoards, { ...communityFreeBoard, label: "묻고 답하기" }];
+      }
       setBoards(mediaBoards);
 
       let all: Content[] = [];
 
-      // 1) 새 contents 컬렉션에서 로드
+      // 1) 새 contents 컬렉션에서 로드 (media 보드 + community-free 중 AI 수집분)
+      const boardKeysToLoad = [
+        ...mediaBoards.map((b) => b.key),
+        "community-free",
+      ];
+      const uniqueKeys = [...new Set(boardKeysToLoad)];
       try {
-        const promises = mediaBoards.map((b) =>
-          getContents(b.key).catch(() => [] as Content[]),
+        const promises = uniqueKeys.map((key) =>
+          getContents(key).catch((err) => {
+            if (process.env.NODE_ENV === "development") console.warn(`getContents(${key}) 실패:`, err);
+            return [] as Content[];
+          }),
         );
         const results = await Promise.all(promises);
         all = results.flat();
-      } catch { /* 전체 실패 시 빈 배열 유지 */ }
+      } catch (err) {
+        if (process.env.NODE_ENV === "development") console.error("콘텐츠 로드 실패:", err);
+      }
 
       // 2) 레거시 데이터 병합 (URL 기반 중복 제거)
       try {
@@ -127,7 +146,7 @@ export default function MediaPage() {
             type="button"
             onClick={() =>
               requireLogin(() => {
-                window.location.href = "/community?tab=free";
+                router.push("/community?tab=free");
               }, "콘텐츠를 작성하려면 로그인이 필요합니다.")
             }
             className={cn(

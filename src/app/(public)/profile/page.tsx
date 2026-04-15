@@ -11,6 +11,7 @@ import {
   InstructorApplicationForm,
   checkInstructorApplicationStatus,
   type ApplicationStatus,
+  type ApplicationCheckResult,
 } from "@/components/instructor/InstructorApplicationForm";
 
 const INPUT_CLASS = "w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-colors";
@@ -26,7 +27,7 @@ export default function ProfilePage() {
 
   const [mounted, setMounted] = useState(false);
   const [showInstructorApply, setShowInstructorApply] = useState(false);
-  const [instructorStatus, setInstructorStatus] = useState<ApplicationStatus>("none");
+  const [instructorCheck, setInstructorCheck] = useState<ApplicationCheckResult>({ status: "none" });
   const [statusLoading, setStatusLoading] = useState(true);
 
   const [interestInput, setInterestInput] = useState("");
@@ -57,9 +58,9 @@ export default function ProfilePage() {
       return;
     }
     let cancelled = false;
-    checkInstructorApplicationStatus(user.uid).then((s) => {
+    checkInstructorApplicationStatus(user.uid).then((result) => {
       if (!cancelled) {
-        setInstructorStatus(s);
+        setInstructorCheck(result);
         setStatusLoading(false);
       }
     });
@@ -361,14 +362,19 @@ export default function ProfilePage() {
       </div>
       {/* 강사 신청 */}
       <InstructorApplySection
-        status={instructorStatus}
+        status={instructorCheck.status}
+        rejectionReason={instructorCheck.rejectionReason}
         statusLoading={statusLoading}
         showForm={showInstructorApply}
         onShowForm={() => setShowInstructorApply(true)}
         onBack={() => setShowInstructorApply(false)}
         onSubmitted={() => {
-          setInstructorStatus("pending");
+          setInstructorCheck({ status: "pending" });
           setShowInstructorApply(false);
+        }}
+        onReapply={() => {
+          setInstructorCheck({ status: "none" });
+          setShowInstructorApply(true);
         }}
       />
 
@@ -453,18 +459,22 @@ export default function ProfilePage() {
 /* ── 강사 신청 섹션 ── */
 function InstructorApplySection({
   status,
+  rejectionReason,
   statusLoading,
   showForm,
   onShowForm,
   onBack,
   onSubmitted,
+  onReapply,
 }: {
   status: ApplicationStatus;
+  rejectionReason?: string;
   statusLoading: boolean;
   showForm: boolean;
   onShowForm: () => void;
   onBack: () => void;
   onSubmitted: () => void;
+  onReapply: () => void;
 }) {
   if (statusLoading) {
     return (
@@ -477,7 +487,7 @@ function InstructorApplySection({
     );
   }
 
-  if (showForm && status === "none") {
+  if (showForm && (status === "none" || status === "rejected")) {
     return (
       <div className="mt-8 bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
         <InstructorApplicationForm
@@ -512,7 +522,7 @@ function InstructorApplySection({
       color: "text-red-600",
       bg: "bg-red-50 border-red-200",
       dot: "bg-red-400",
-      desc: "관리자에게 문의하시거나 다시 신청해 주세요.",
+      desc: "신청이 반려되었습니다. 수정 후 다시 신청할 수 있습니다.",
     },
   };
 
@@ -533,6 +543,11 @@ function InstructorApplySection({
               <span className={statusConfig[status].color}>{statusConfig[status].label}</span>
             </div>
           )}
+          {status === "rejected" && rejectionReason && (
+            <p className="text-sm text-red-600 mt-2 bg-red-50 rounded-lg px-3 py-2">
+              반려 사유: {rejectionReason}
+            </p>
+          )}
         </div>
         {status === "none" && (
           <button
@@ -540,6 +555,14 @@ function InstructorApplySection({
             className="px-4 py-2 text-sm font-medium text-brand-blue border border-brand-blue/30 rounded-lg hover:bg-brand-blue/5 transition-colors shrink-0"
           >
             신청하기
+          </button>
+        )}
+        {status === "rejected" && (
+          <button
+            onClick={onReapply}
+            className="px-4 py-2 text-sm font-medium text-white bg-brand-blue rounded-lg hover:bg-brand-blue/90 transition-colors shrink-0"
+          >
+            다시 신청하기
           </button>
         )}
       </div>

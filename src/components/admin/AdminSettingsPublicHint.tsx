@@ -62,7 +62,7 @@ const COPY: Record<
     title: "AI 콘텐츠 수집이란?",
     lines: [
       "YouTube, GitHub, Reddit 등에서 최신 AI 콘텐츠를 자동 수집하고 Gemini가 한국어로 요약·점수화합니다.",
-      "수집된 콘텐츠는 콘텐츠실·자료실·자유게시판에 자동 분류됩니다.",
+      "수집된 콘텐츠는 콘텐츠실·자료실·묻고 답하기에 자동 분류됩니다.",
     ],
     publicPath: "/media",
     publicLabel: "콘텐츠실 열기",

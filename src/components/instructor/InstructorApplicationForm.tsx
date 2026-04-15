@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/Toast";
-import { COLLECTIONS, createDoc, getFilteredCollection } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, getFilteredCollection, updateDocFields } from "@/lib/firestore";
 import { cn } from "@/lib/utils";
 import { useRunmoaContents } from "@/hooks/useRunmoaContents";
 import { SimpleHtmlEditor } from "@/components/ui/SimpleHtmlEditor";
@@ -46,6 +46,13 @@ interface ExistingApplication {
   id: string;
   status?: string;
   applicantUid?: string;
+  rejectionReason?: string;
+}
+
+export interface ApplicationCheckResult {
+  status: ApplicationStatus;
+  docId?: string;
+  rejectionReason?: string;
 }
 
 export function InstructorApplicationForm({
@@ -57,6 +64,7 @@ export function InstructorApplicationForm({
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [existingStatus, setExistingStatus] = useState<ApplicationStatus>("none");
+  const [existingDocId, setExistingDocId] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
 
   /* ── 기본 정보 ── */
@@ -163,8 +171,10 @@ export function InstructorApplicationForm({
           user.uid,
         );
         if (!cancelled && existing.length > 0) {
-          const status = existing[0].status as ApplicationStatus;
+          const doc = existing[0];
+          const status = doc.status as ApplicationStatus;
           setExistingStatus(status || "pending");
+          if (status === "rejected") setExistingDocId(doc.id);
         }
       } catch {
         // 조회 실패 시 신청 가능하도록 유지
@@ -225,7 +235,7 @@ export function InstructorApplicationForm({
         url: c.url,
       }));
 
-      const instructorDocId = await createDoc(COLLECTIONS.INSTRUCTORS, {
+      const instructorData = {
         name: form.name.trim(),
         title: form.title.trim(),
         organization: form.organization.trim(),
@@ -248,7 +258,18 @@ export function InstructorApplicationForm({
         status: "pending",
         applicantUid: user.uid,
         displayOrder: 999,
-      });
+      };
+
+      let instructorDocId: string;
+      if (existingDocId) {
+        await updateDocFields(COLLECTIONS.INSTRUCTORS, existingDocId, {
+          ...instructorData,
+          rejectionReason: "",
+        });
+        instructorDocId = existingDocId;
+      } else {
+        instructorDocId = await createDoc(COLLECTIONS.INSTRUCTORS, instructorData);
+      }
 
       for (const proposal of proposals) {
         await createDoc(COLLECTIONS.COURSE_PROPOSALS, {
@@ -288,9 +309,6 @@ export function InstructorApplicationForm({
   }
   if (existingStatus === "approved") {
     return <StatusCard status="approved" onBack={onBack} variant={variant} />;
-  }
-  if (existingStatus === "rejected") {
-    return <StatusCard status="rejected" onBack={onBack} variant={variant} />;
   }
 
   const isEmbed = variant === "embed";
@@ -788,7 +806,7 @@ function FormField({
 /* ── 신청 상태 확인 유틸 (외부에서도 사용) ── */
 export async function checkInstructorApplicationStatus(
   uid: string,
-): Promise<ApplicationStatus> {
+): Promise<ApplicationCheckResult> {
   try {
     const existing = await getFilteredCollection<ExistingApplication>(
       COLLECTIONS.INSTRUCTORS,
@@ -796,10 +814,15 @@ export async function checkInstructorApplicationStatus(
       uid,
     );
     if (existing.length > 0) {
-      return (existing[0].status as ApplicationStatus) || "pending";
+      const doc = existing[0];
+      return {
+        status: (doc.status as ApplicationStatus) || "pending",
+        docId: doc.id,
+        rejectionReason: doc.rejectionReason,
+      };
     }
   } catch {
     // ignore
   }
-  return "none";
+  return { status: "none" };
 }

@@ -59,6 +59,12 @@ export interface Instructor {
   contactEmail: string;
   isActive: boolean;
   displayOrder: number;
+  pastPrograms?: (string | { title: string; url?: string })[];
+  status?: "pending" | "approved" | "rejected";
+  applicantUid?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
 }
 
 export interface Post {

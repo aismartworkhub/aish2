@@ -105,7 +105,7 @@ export const DEFAULT_BOARDS: BoardConfig[] = [
   },
   {
     key: "community-free",
-    label: "자유게시판",
+    label: "묻고 답하기",
     group: "community",
     layout: "list",
     writeRole: "member",

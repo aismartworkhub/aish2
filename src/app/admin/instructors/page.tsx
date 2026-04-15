@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   Plus, Search, Edit, Trash2, X, Save, ChevronUp, ChevronDown,
-  Sparkles, Link, Upload, FileText,
+  Sparkles, Link, Upload, FileText, Check, XCircle, Clock,
 } from "lucide-react";
 import { cn, toDirectImageUrl } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 import { COLLECTIONS, createDoc, upsertDoc, removeDoc, updateDocFields, getFilteredCollection } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { useRunmoaContents } from "@/hooks/useRunmoaContents";
@@ -36,6 +37,9 @@ interface Instructor {
   pastPrograms?: (string | { title: string; url?: string })[];
   status?: "approved" | "pending" | "rejected";
   applicantUid?: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
 }
 
 interface CourseProposal {
@@ -91,13 +95,26 @@ function formFromInstructor(item: Instructor): InstructorForm {
   };
 }
 
+type ListTab = "all" | "pending";
+
+const STATUS_BADGE: Record<string, { label: string; color: string }> = {
+  pending: { label: "심사중", color: "bg-amber-50 text-amber-700" },
+  approved: { label: "승인됨", color: "bg-green-50 text-green-700" },
+  rejected: { label: "반려됨", color: "bg-red-50 text-red-700" },
+};
+
 export default function AdminInstructorsPage() {
   const { toast } = useToast();
+  const { user: adminUser } = useAuth();
   const { data: items, setData: setItems, loading, error, refresh } =
     useFirestoreCollection<Instructor>(COLLECTIONS.INSTRUCTORS, instructorSort);
   const { data: programList } = useRunmoaContents({ limit: 100 });
 
+  const [listTab, setListTab] = useState<ListTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [rejectTarget, setRejectTarget] = useState<Instructor | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -157,11 +174,13 @@ export default function AdminInstructorsPage() {
     if (profileImageRef.current) profileImageRef.current.value = "";
   };
 
-  const filtered = items.filter((i) =>
-    i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    i.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (i.organization || "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = items.filter((i) => {
+    if (listTab === "pending" && i.status !== "pending") return false;
+    const q = searchQuery.toLowerCase();
+    return !q || i.name.toLowerCase().includes(q) ||
+      i.title.toLowerCase().includes(q) ||
+      (i.organization || "").toLowerCase().includes(q);
+  });
 
   // Modal open/close
   const openCreate = () => {
@@ -255,6 +274,44 @@ export default function AdminInstructorsPage() {
       toast("상태 변경에 실패했습니다.", "error");
     }
   };
+
+  const approveInstructor = async (item: Instructor) => {
+    try {
+      const updates = {
+        status: "approved" as const,
+        isActive: true,
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: adminUser?.email || "",
+      };
+      await updateDocFields(COLLECTIONS.INSTRUCTORS, item.id, updates);
+      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, ...updates } : i));
+      toast("강사 신청이 승인되었습니다.", "success");
+    } catch {
+      toast("승인에 실패했습니다.", "error");
+    }
+  };
+
+  const rejectInstructor = async () => {
+    if (!rejectTarget) return;
+    try {
+      const updates = {
+        status: "rejected" as const,
+        isActive: false,
+        rejectionReason: rejectReason.trim() || undefined,
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: adminUser?.email || "",
+      };
+      await updateDocFields(COLLECTIONS.INSTRUCTORS, rejectTarget.id, updates);
+      setItems((prev) => prev.map((i) => i.id === rejectTarget.id ? { ...i, ...updates } : i));
+      toast("강사 신청이 반려되었습니다.", "success");
+      setRejectTarget(null);
+      setRejectReason("");
+    } catch {
+      toast("반려에 실패했습니다.", "error");
+    }
+  };
+
+  const pendingCount = useMemo(() => items.filter((i) => i.status === "pending").length, [items]);
 
   const moveOrder = async (index: number, direction: -1 | 1) => {
     const newIndex = index + direction;
@@ -441,8 +498,27 @@ export default function AdminInstructorsPage() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+      {/* Tabs + Search */}
+      <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm space-y-3">
+        <div className="flex gap-2">
+          <button onClick={() => setListTab("all")}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
+              listTab === "all" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>
+            전체 강사
+          </button>
+          <button onClick={() => setListTab("pending")}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-1.5",
+              listTab === "pending" ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700 hover:bg-amber-100")}>
+            <Clock size={14} />
+            신청 대기
+            {pendingCount > 0 && (
+              <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-bold",
+                listTab === "pending" ? "bg-white/30 text-white" : "bg-amber-200 text-amber-800")}>
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        </div>
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" placeholder="강사 이름, 직함, 소속으로 검색..." value={searchQuery}
@@ -485,21 +561,35 @@ export default function AdminInstructorsPage() {
                 </div>
               </div>
               <p className="text-sm text-gray-600 line-clamp-2 mb-3">{item.bio || "소개 없음"}</p>
+              <div className="flex flex-wrap gap-1 mb-3">
+                {(item.specialties || []).slice(0, 4).map((s) => (
+                  <span key={s} className="text-xs bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full">{s}</span>
+                ))}
+              </div>
               <div className="flex items-center justify-between">
-                <div className="flex flex-wrap gap-1">
-                  {(item.specialties || []).slice(0, 4).map((s) => (
-                    <span key={s} className="text-xs bg-primary-50 text-primary-700 px-2 py-0.5 rounded-full">{s}</span>
-                  ))}
+                <div className="flex items-center gap-1.5">
+                  {item.status && STATUS_BADGE[item.status] && (
+                    <span className={cn("text-xs px-2 py-1 rounded-full font-medium", STATUS_BADGE[item.status].color)}>
+                      {STATUS_BADGE[item.status].label}
+                    </span>
+                  )}
+                  <button onClick={() => toggleActive(item)}
+                    className={cn("text-xs px-2 py-1 rounded-full", item.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500")}>
+                    {item.isActive ? "활성" : "비활성"}
+                  </button>
                 </div>
                 {item.status === "pending" && (
-                  <span className="text-xs px-2 py-1 rounded-full bg-amber-50 text-amber-700 font-medium">
-                    승인 대기
-                  </span>
+                  <div className="flex gap-1">
+                    <button onClick={() => approveInstructor(item)}
+                      className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 font-medium transition-colors">
+                      <Check size={12} />승인
+                    </button>
+                    <button onClick={() => { setRejectTarget(item); setRejectReason(""); }}
+                      className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 font-medium transition-colors">
+                      <XCircle size={12} />반려
+                    </button>
+                  </div>
                 )}
-                <button onClick={() => toggleActive(item)}
-                  className={cn("text-xs px-2 py-1 rounded-full", item.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500")}>
-                  {item.isActive ? "활성" : "비활성"}
-                </button>
               </div>
             </div>
           );
@@ -529,6 +619,32 @@ export default function AdminInstructorsPage() {
         </div>
       )}
 
+      {/* Reject Reason Modal */}
+      {rejectTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setRejectTarget(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">강사 신청 반려</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              <span className="font-medium text-gray-700">{rejectTarget.name}</span>님의 신청을 반려합니다.
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="반려 사유를 입력하세요 (선택사항)"
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-red-500/20 resize-none"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setRejectTarget(null)}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+              <button onClick={rejectInstructor}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700">반려</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -540,6 +656,43 @@ export default function AdminInstructorsPage() {
             </div>
 
             <div className="px-6 py-5 space-y-4">
+              {/* Application Status Banner */}
+              {!isCreating && editId && (() => {
+                const current = items.find((i) => i.id === editId);
+                if (!current?.applicantUid) return null;
+                const badge = STATUS_BADGE[current.status || "pending"];
+                return (
+                  <div className={cn("rounded-xl border p-4 flex items-center justify-between",
+                    current.status === "pending" ? "border-amber-200 bg-amber-50/50" :
+                    current.status === "rejected" ? "border-red-200 bg-red-50/50" : "border-green-200 bg-green-50/50")}>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-800">회원 신청</span>
+                        {badge && <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", badge.color)}>{badge.label}</span>}
+                      </div>
+                      {current.rejectionReason && (
+                        <p className="text-xs text-red-600 mt-1">반려 사유: {current.rejectionReason}</p>
+                      )}
+                      {current.reviewedAt && (
+                        <p className="text-xs text-gray-400 mt-0.5">처리일: {new Date(current.reviewedAt).toLocaleDateString("ko-KR")}</p>
+                      )}
+                    </div>
+                    {current.status === "pending" && (
+                      <div className="flex gap-2">
+                        <button onClick={() => approveInstructor(current)}
+                          className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 font-medium transition-colors">
+                          <Check size={12} />승인
+                        </button>
+                        <button onClick={() => { setRejectTarget(current); setRejectReason(""); }}
+                          className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium transition-colors">
+                          <XCircle size={12} />반려
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* AI Section */}
               {isCreating && (
                 <div className="rounded-xl border border-primary-100 bg-primary-50/30 p-4 space-y-3">

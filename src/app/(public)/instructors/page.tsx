@@ -925,7 +925,7 @@ export default function InstructorsPage() {
       .then((data) => {
         if (data.length === 0) return;
         const active = data
-          .filter((i) => i.isActive !== false)
+          .filter((i) => i.isActive !== false && i.status !== "pending" && i.status !== "rejected")
           .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
         if (active.length > 0) setInstructors(active);
       })

@@ -7,7 +7,7 @@ import {
   Bell, FolderOpen, Award, HelpCircle, Handshake, Images, FileText,
   ChevronDown, ChevronUp, ExternalLink, Mail, Phone, Building,
   Star, Download, Eye, Pin, Search, X,
-  MessageCircle, Send, Trash2, User, Heart, BookmarkPlus, Plus, Play,
+  MessageCircle, Send, Trash2, User, Heart, BookmarkPlus, Plus, Play, LayoutGrid,
 } from "lucide-react";
 import { cn, toDateString, isValidEmail, isValidPhone } from "@/lib/utils";
 import { DEMO_FAQ } from "@/lib/demo-data";
@@ -59,11 +59,13 @@ function mergeFreeRowsByCanonicalId(fromPosts: FreeRow[], fromContents: FreeRow[
   return Array.from(map.values());
 }
 
-type TabKey = "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery" | string;
+type TabKey = "all" | "notice" | "resource" | "certificate" | "faq" | "inquiry" | "gallery" | string;
+
+const ALL_TAB_KEY: TabKey = "all";
 
 const FIXED_TABS: { key: TabKey; label: string; icon: React.ElementType; color: string }[] = [
   { key: "notice", label: "공지사항", icon: Bell, color: "text-blue-600 bg-blue-50" },
-  { key: "free", label: "자유게시판", icon: MessageCircle, color: "text-indigo-600 bg-indigo-50" },
+  { key: "free", label: "묻고 답하기", icon: MessageCircle, color: "text-indigo-600 bg-indigo-50" },
   { key: "review", label: "수강후기", icon: Star, color: "text-orange-600 bg-orange-50" },
   { key: "resource", label: "자료실", icon: FolderOpen, color: "text-green-600 bg-green-50" },
   { key: "faq", label: "FAQ", icon: HelpCircle, color: "text-yellow-600 bg-yellow-50" },
@@ -253,7 +255,7 @@ function CommunityContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as TabKey | null;
   const [pc, setPc] = useState<PageContentBase>(DEFAULT_COMMUNITY);
-  const [activeTab, setActiveTab] = useState<TabKey>(tabParam || "notice");
+  const [activeTab, setActiveTab] = useState<TabKey>(tabParam || ALL_TAB_KEY);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [inquiryForm, setInquiryForm] = useState({ name: "", email: "", phone: "", company: "", subject: "", message: "" });
   const [inquirySubmitted, setInquirySubmitted] = useState(false);
@@ -291,7 +293,7 @@ function CommunityContent() {
   const [freePostContent, setFreePostContent] = useState("");
 
   // 수강 후기
-  const [reviews, setReviews] = useState<{ id: string; authorName: string; authorCohort: string; content: string; rating: number; programTitle: string; isApproved: boolean; authorUid?: string }[]>([]);
+  const [reviews, setReviews] = useState<{ id: string; authorName: string; authorCohort: string; content: string; rating: number; programTitle: string; isApproved: boolean; authorUid?: string; createdAt?: string }[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewForm, setReviewForm] = useState({ programTitle: "", rating: 5, content: "" });
 
@@ -811,6 +813,20 @@ function CommunityContent() {
         {/* 탭 네비게이션 */}
         <div className="relative mb-10 border-b border-brand-border" role="tablist">
           <div className="flex overflow-x-auto scrollbar-hide -mb-px">
+            <button
+              role="tab"
+              aria-selected={activeTab === ALL_TAB_KEY}
+              onClick={() => setActiveTab(ALL_TAB_KEY)}
+              className={cn(
+                "inline-flex items-center gap-2 whitespace-nowrap px-5 py-3 text-sm font-medium transition-all",
+                activeTab === ALL_TAB_KEY
+                  ? "border-b-2 border-brand-blue text-brand-blue font-semibold bg-transparent"
+                  : "border-b-2 border-transparent text-gray-500 hover:text-gray-700 bg-transparent"
+              )}
+            >
+              <LayoutGrid size={16} />
+              전체보기
+            </button>
             {[...FIXED_TABS, ...dynamicBoards.map((db) => ({
               key: db.key,
               label: db.label,
@@ -840,6 +856,101 @@ function CommunityContent() {
             ))}
           </div>
         </div>
+
+        {/* 전체보기 */}
+        {activeTab === ALL_TAB_KEY && (
+          <div className="space-y-8">
+            {/* 공지사항 미리보기 */}
+            <section className="card-base overflow-hidden">
+              <div className="p-5 border-b border-brand-border flex items-center justify-between">
+                <h3 className="text-lg font-bold text-brand-dark flex items-center gap-2"><Bell size={18} className="text-blue-500" />공지사항</h3>
+                <button type="button" onClick={() => setActiveTab("notice")} className="text-sm text-brand-blue hover:underline">더보기</button>
+              </div>
+              <div className="divide-y divide-brand-border/50">
+                {sortedNotices.slice(0, 3).map((n) => (
+                  <div key={n.id} className="px-5 py-3 flex items-center gap-3">
+                    {n.pinned && <Pin size={14} className="text-blue-500 shrink-0" />}
+                    <span className="text-sm text-gray-800 truncate flex-1">{n.title}</span>
+                    <span className="text-xs text-gray-400 shrink-0">{n.date}</span>
+                  </div>
+                ))}
+                {noticeList.length === 0 && <p className="p-5 text-sm text-gray-400 text-center">등록된 공지가 없습니다.</p>}
+              </div>
+            </section>
+
+            {/* 묻고 답하기 미리보기 */}
+            <section className="card-base overflow-hidden">
+              <div className="p-5 border-b border-brand-border flex items-center justify-between">
+                <h3 className="text-lg font-bold text-brand-dark flex items-center gap-2"><MessageCircle size={18} className="text-indigo-500" />묻고 답하기</h3>
+                <button type="button" onClick={() => setActiveTab("free")} className="text-sm text-brand-blue hover:underline">더보기</button>
+              </div>
+              <div className="divide-y divide-brand-border/50">
+                {freePosts.slice(0, 3).map((p) => (
+                  <div key={p.id} className="px-5 py-3 flex items-center gap-3">
+                    <span className="text-sm text-gray-800 truncate flex-1">{p.title}</span>
+                    <span className="text-xs text-gray-500 shrink-0">{p.authorName}</span>
+                    <span className="text-xs text-gray-400 shrink-0">{p.date}</span>
+                  </div>
+                ))}
+                {freePosts.length === 0 && <p className="p-5 text-sm text-gray-400 text-center">등록된 글이 없습니다.</p>}
+              </div>
+            </section>
+
+            {/* 수강후기 미리보기 */}
+            <section className="card-base overflow-hidden">
+              <div className="p-5 border-b border-brand-border flex items-center justify-between">
+                <h3 className="text-lg font-bold text-brand-dark flex items-center gap-2"><Star size={18} className="text-orange-500" />수강후기</h3>
+                <button type="button" onClick={() => setActiveTab("review")} className="text-sm text-brand-blue hover:underline">더보기</button>
+              </div>
+              <div className="divide-y divide-brand-border/50">
+                {reviews.slice(0, 3).map((r) => (
+                  <div key={r.id} className="px-5 py-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium text-gray-800">{r.authorName}</span>
+                      <span className="text-xs text-gray-400">{toDateString(r.createdAt)}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 line-clamp-1">{r.content}</p>
+                  </div>
+                ))}
+                {reviews.length === 0 && <p className="p-5 text-sm text-gray-400 text-center">등록된 후기가 없습니다.</p>}
+              </div>
+            </section>
+
+            {/* 자료실 미리보기 */}
+            <section className="card-base overflow-hidden">
+              <div className="p-5 border-b border-brand-border flex items-center justify-between">
+                <h3 className="text-lg font-bold text-brand-dark flex items-center gap-2"><FolderOpen size={18} className="text-green-500" />자료실</h3>
+                <button type="button" onClick={() => setActiveTab("resource")} className="text-sm text-brand-blue hover:underline">더보기</button>
+              </div>
+              <div className="divide-y divide-brand-border/50">
+                {resourceList.slice(0, 3).map((r) => (
+                  <div key={r.id} className="px-5 py-3 flex items-center gap-3">
+                    <span className="text-sm text-gray-800 truncate flex-1">{r.title}</span>
+                    <span className="text-xs text-gray-500 shrink-0">{r.author}</span>
+                    <span className="text-xs text-gray-400 shrink-0">{r.date}</span>
+                  </div>
+                ))}
+                {resourceList.length === 0 && <p className="p-5 text-sm text-gray-400 text-center">등록된 자료가 없습니다.</p>}
+              </div>
+            </section>
+
+            {/* FAQ 미리보기 */}
+            <section className="card-base overflow-hidden">
+              <div className="p-5 border-b border-brand-border flex items-center justify-between">
+                <h3 className="text-lg font-bold text-brand-dark flex items-center gap-2"><HelpCircle size={18} className="text-yellow-500" />FAQ</h3>
+                <button type="button" onClick={() => setActiveTab("faq")} className="text-sm text-brand-blue hover:underline">더보기</button>
+              </div>
+              <div className="divide-y divide-brand-border/50">
+                {faqList.slice(0, 3).map((f, i) => (
+                  <div key={i} className="px-5 py-3">
+                    <span className="text-sm text-gray-800">{f.question}</span>
+                  </div>
+                ))}
+                {faqList.length === 0 && <p className="p-5 text-sm text-gray-400 text-center">등록된 FAQ가 없습니다.</p>}
+              </div>
+            </section>
+          </div>
+        )}
 
         {/* 공지사항 */}
         {activeTab === "notice" && (
@@ -1234,8 +1345,8 @@ function CommunityContent() {
           <div className="card-base overflow-hidden">
             <div className="p-6 border-b border-brand-border flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">자유게시판</h2>
-                <p className="text-sm text-gray-500 mt-1">자유롭게 질문과 정보를 나눠보세요.</p>
+                <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">묻고 답하기</h2>
+                <p className="text-sm text-gray-500 mt-1">궁금한 점을 질문하고 서로 답변을 나눠보세요.</p>
               </div>
               {user && (
                 <button onClick={() => setShowFreePostForm(!showFreePostForm)} className="btn-primary btn-sm">

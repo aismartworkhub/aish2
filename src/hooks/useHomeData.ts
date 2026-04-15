@@ -56,7 +56,7 @@ export const COMMUNITY_SHORTCUTS = [
   { label: "갤러리", href: "/community?tab=gallery", icon: Images },
   { label: "자료실", href: "/community?tab=resource", icon: FolderOpen },
   { label: "수강 후기", href: "/community?tab=review", icon: Star },
-  { label: "묻고답하기", href: "/community?tab=free", icon: MessageCircle },
+  { label: "묻고 답하기", href: "/community?tab=free", icon: MessageCircle },
   { label: "FAQ", href: "/community?tab=faq", icon: HelpCircle },
   { label: "수료증 발급", href: "/community?tab=certificate", icon: Award },
   { label: "협력 문의", href: "/community?tab=inquiry", icon: Handshake },
@@ -145,7 +145,10 @@ export function useHomeData() {
         if (firestorePrograms.length > 0) setPrograms(firestorePrograms);
         if (firestoreInstructors.length > 0) {
           const active = firestoreInstructors
-            .filter((ins) => (ins as { isActive?: boolean }).isActive !== false)
+            .filter((ins) => {
+              const i = ins as { isActive?: boolean; status?: string };
+              return i.isActive !== false && i.status !== "pending" && i.status !== "rejected";
+            })
             .sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 999) - ((b as { displayOrder?: number }).displayOrder ?? 999));
           setInstructors(active);
         }

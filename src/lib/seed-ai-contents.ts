@@ -121,7 +121,7 @@ export const SEED_CONTENTS: ContentInput[] = [
     answer: "8GB VRAM 기준으로 추천드립니다: 1) Qwen2.5-7B-Instruct (Q4_K_M) — 한국어 성능 우수, 2) Llama-3.1-8B-Instruct (Q4_K_M) — 범용 성능 좋음, 3) EXAONE-3.5-7.8B — LG에서 만든 한국어 특화 모델. Ollama에서 `ollama pull qwen2.5:7b` 명령으로 바로 설치 가능합니다.",
   },
 
-  // ── 게시판 자유게시판 (community-free) — 정회원 모드 ──
+  // ── 게시판 묻고 답하기 (community-free) — 정회원 모드 ──
   {
     boardKey: "community-free",
     title: "[추천] 2026 AI 학습 로드맵 — 유튜브 채널 & GitHub 모음",
