@@ -121,31 +121,6 @@ export const SEED_CONTENTS: ContentInput[] = [
     answer: "8GB VRAM 기준으로 추천드립니다: 1) Qwen2.5-7B-Instruct (Q4_K_M) — 한국어 성능 우수, 2) Llama-3.1-8B-Instruct (Q4_K_M) — 범용 성능 좋음, 3) EXAONE-3.5-7.8B — LG에서 만든 한국어 특화 모델. Ollama에서 `ollama pull qwen2.5:7b` 명령으로 바로 설치 가능합니다.",
   },
 
-  // ── 게시판 묻고 답하기 (community-free) — 정회원 모드 ──
-  {
-    boardKey: "community-free",
-    title: "[추천] 2026 AI 학습 로드맵 — 유튜브 채널 & GitHub 모음",
-    body: "AI를 체계적으로 학습하고 싶은 분들을 위해 추천 리소스를 정리했습니다.\n\n**한국어 유튜브 채널**\n- 테디노트: LangChain, RAG 등 실무 튜토리얼\n- 조코딩: AI 도구 활용, 프로젝트 기반 학습\n\n**영어 유튜브 채널**\n- 3Blue1Brown: 수학/AI 시각적 설명\n- Andrej Karpathy: 딥러닝 실전 강의\n\n**GitHub (오픈소스)**\n- microsoft/generative-ai-for-beginners (MIT)\n- teddylee777/langchain-kr (MIT)\n\n**레딧/커뮤니티**\n- r/MachineLearning — ML 논문 및 뉴스\n- r/LocalLLaMA — 로컬 LLM 운영\n\n**국내 뉴스**\n- AI타임스 (aitimes.com)\n- 공공데이터포털 (data.go.kr)",
-    mediaType: "none",
-    authorUid: MEMBER_UID,
-    authorName: MEMBER_NAME,
-    tags: ["AI", "학습자료", "유튜브", "GitHub", "추천"],
-    isPinned: true,
-    isApproved: true,
-  },
-  {
-    boardKey: "community-free",
-    title: "Claude MCP로 AI 에이전트 만들어본 후기",
-    body: "조코딩 유튜브에서 본 'AI 에이전트' 영상 보고 직접 만들어봤습니다. Claude의 MCP(Model Context Protocol)를 사용하면 외부 도구(파일 시스템, 데이터베이스, API 등)를 AI가 직접 호출할 수 있어서 정말 신기했습니다.\n\n실습 후기:\n- 설정은 생각보다 간단 (JSON 설정 파일 하나)\n- 파일 읽기/쓰기가 바로 가능해서 업무 자동화에 활용 가능\n- 아직 보안 측면에서는 신중하게 접근 필요\n\n참고 영상: https://www.youtube.com/watch?v=TmpL2i3AuPk",
-    mediaType: "youtube",
-    mediaUrl: "https://www.youtube.com/watch?v=TmpL2i3AuPk",
-    thumbnailUrl: "https://img.youtube.com/vi/TmpL2i3AuPk/mqdefault.jpg",
-    authorUid: MEMBER_UID,
-    authorName: MEMBER_NAME,
-    tags: ["MCP", "AI에이전트", "Claude", "후기"],
-    isPinned: false,
-    isApproved: true,
-  },
 ];
 
 export async function seedAiContents(): Promise<{ success: number; skipped: number; failed: number }> {
