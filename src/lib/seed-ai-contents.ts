@@ -3,6 +3,7 @@
  * 관리자 페이지에서 한 번 호출하여 Firestore에 삽입합니다.
  */
 import { createContentIfNew } from "@/lib/content-engine";
+import { COLLECTIONS, invalidateCache } from "@/lib/firestore";
 import type { ContentInput } from "@/types/content";
 
 const ADMIN_UID = "seed-admin";
@@ -122,6 +123,35 @@ export const SEED_CONTENTS: ContentInput[] = [
   },
 
 ];
+
+const REMOVED_SEED_TITLES = [
+  "[추천] 2026 AI 학습 로드맵 — 유튜브 채널 & GitHub 모음",
+  "Claude MCP로 AI 에이전트 만들어본 후기",
+];
+
+export async function cleanupRemovedSeeds(): Promise<number> {
+  const { collection, query, where, getDocs, deleteDoc, doc } = await import("firebase/firestore");
+  const { db } = await import("./firebase");
+
+  const snap = await getDocs(
+    query(
+      collection(db, COLLECTIONS.CONTENTS),
+      where("boardKey", "==", "community-free"),
+      where("authorUid", "==", MEMBER_UID),
+    ),
+  );
+
+  let deleted = 0;
+  for (const d of snap.docs) {
+    const title = d.data().title as string;
+    if (REMOVED_SEED_TITLES.includes(title)) {
+      await deleteDoc(doc(db, COLLECTIONS.CONTENTS, d.id));
+      deleted++;
+    }
+  }
+  if (deleted > 0) invalidateCache(COLLECTIONS.CONTENTS);
+  return deleted;
+}
 
 export async function seedAiContents(): Promise<{ success: number; skipped: number; failed: number }> {
   let success = 0;

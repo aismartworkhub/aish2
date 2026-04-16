@@ -8,6 +8,7 @@ import { DEFAULT_BOARDS } from "@/lib/board-defaults";
 import { getBoards, upsertBoard, createContent } from "@/lib/content-engine";
 import { removeDoc, COLLECTIONS } from "@/lib/firestore";
 import { runFullMigration, type MigrationResult } from "@/lib/migration";
+import { cleanupRemovedSeeds } from "@/lib/seed-ai-contents";
 import { useAuth } from "@/contexts/AuthContext";
 import type { BoardConfig, BoardGroup, BoardLayout, BoardWriteRole, ContentInput } from "@/types/content";
 
@@ -194,6 +195,16 @@ export default function AdminBoardsPage() {
     }
   };
 
+  const handleCleanupSeeds = async () => {
+    if (!confirm("삭제된 시드 콘텐츠(community-free)를 Firestore에서 정리합니다. 진행하시겠습니까?")) return;
+    try {
+      const deleted = await cleanupRemovedSeeds();
+      toast(deleted > 0 ? `시드 콘텐츠 ${deleted}건 삭제 완료` : "삭제할 시드 콘텐츠가 없습니다.", deleted > 0 ? "success" : "info");
+    } catch (e) {
+      toast(`시드 정리 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    }
+  };
+
   const handleMigration = async () => {
     if (!confirm("기존 데이터를 통합 콘텐츠(contents)로 마이그레이션합니다.\n이미 이전된 항목은 건너뜁니다. 진행하시겠습니까?")) return;
     setMigrating(true);
@@ -320,6 +331,16 @@ export default function AdminBoardsPage() {
             )}
           >
             {seeding ? "추가 중..." : "샘플 데이터"}
+          </button>
+          <button
+            onClick={handleCleanupSeeds}
+            className={cn(
+              "flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700",
+              "hover:bg-red-100 disabled:opacity-50",
+            )}
+          >
+            <Trash2 size={14} />
+            시드 정리
           </button>
           <button
             onClick={handleSeedDefaults}
