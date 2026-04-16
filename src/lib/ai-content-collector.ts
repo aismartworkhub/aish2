@@ -20,6 +20,9 @@ export interface RawCollectedItem {
 export interface CollectOptions {
   youtubeApiKey?: string;
   maxPerSource?: number;
+  youtubeKeywords?: string;
+  githubKeywords?: string;
+  redditSubreddits?: string[];
 }
 
 export interface CollectResult {
@@ -39,16 +42,19 @@ function withTimeout(ms: number): AbortSignal {
 
 // ── YouTube Data API v3 ──
 
+const DEFAULT_YT_KEYWORDS = "AI OR 인공지능 OR LLM OR 머신러닝 OR GPT";
+
 export async function fetchYouTubeAI(
   apiKey: string,
   maxResults = 5,
+  keywords?: string,
 ): Promise<RawCollectedItem[]> {
   if (!apiKey) return [];
 
   const publishedAfter = sevenDaysAgoISO();
   const params = new URLSearchParams({
     part: "snippet",
-    q: "AI OR 인공지능 OR LLM OR 머신러닝 OR GPT",
+    q: keywords || DEFAULT_YT_KEYWORDS,
     type: "video",
     order: "date",
     relevanceLanguage: "ko",
@@ -81,10 +87,12 @@ export async function fetchYouTubeAI(
 
 // ── GitHub Search API ──
 
-export async function fetchGitHubAI(maxResults = 5): Promise<RawCollectedItem[]> {
+const DEFAULT_GH_KEYWORDS = 'AI OR LLM OR "machine learning" OR "deep learning"';
+
+export async function fetchGitHubAI(maxResults = 5, keywords?: string): Promise<RawCollectedItem[]> {
   const since = sevenDaysAgoISO().split("T")[0];
   const q = encodeURIComponent(
-    `AI OR LLM OR "machine learning" OR "deep learning" pushed:>${since} stars:>10`,
+    `${keywords || DEFAULT_GH_KEYWORDS} pushed:>${since} stars:>10`,
   );
 
   const res = await fetch(
@@ -110,8 +118,10 @@ export async function fetchGitHubAI(maxResults = 5): Promise<RawCollectedItem[]>
 
 // ── Reddit JSON API ──
 
-export async function fetchRedditAI(maxResults = 5): Promise<RawCollectedItem[]> {
-  const subreddits = ["artificial", "MachineLearning", "LocalLLaMA"];
+const DEFAULT_SUBREDDITS = ["artificial", "MachineLearning", "LocalLLaMA"];
+
+export async function fetchRedditAI(maxResults = 5, subredditOverrides?: string[]): Promise<RawCollectedItem[]> {
+  const subreddits = subredditOverrides?.length ? subredditOverrides : DEFAULT_SUBREDDITS;
   const cutoff = Date.now() - SEVEN_DAYS_MS;
   const all: RawCollectedItem[] = [];
 
@@ -281,9 +291,9 @@ export async function collectAll(
   };
 
   const fetchers: [ContentSource, Promise<RawCollectedItem[]>][] = [
-    ["youtube", fetchYouTubeAI(options.youtubeApiKey ?? "", max)],
-    ["github", fetchGitHubAI(max)],
-    ["reddit", fetchRedditAI(max)],
+    ["youtube", fetchYouTubeAI(options.youtubeApiKey ?? "", max, options.youtubeKeywords)],
+    ["github", fetchGitHubAI(max, options.githubKeywords)],
+    ["reddit", fetchRedditAI(max, options.redditSubreddits)],
     ["xcom", fetchXcomAI(max)],
     ["instagram", fetchInstagramAI(max)],
   ];

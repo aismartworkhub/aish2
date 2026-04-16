@@ -153,14 +153,23 @@ export function useHomeData() {
           setInstructors(active);
         }
         try {
-          const [runmoaRes, eventsData, lectureContents] = await Promise.all([
+          const [runmoaRes, eventsData, lectureContents, resourceContents] = await Promise.all([
             getRunmoaContents({ status: "publish", limit: 8 }),
             getCollection<AdminEvent & { id: string }>(COLLECTIONS.ADMIN_EVENTS),
             getContents("media-lecture", { maxItems: 4 }),
+            getContents("media-resource", { maxItems: 4 }),
           ]);
           if (runmoaRes.data.length > 0) setRunmoaPrograms(runmoaRes.data);
           if (eventsData.length > 0) setAdminEvents(eventsData.filter((e) => e.status !== "COMPLETED" && e.status !== "CANCELLED"));
-          if (lectureContents.length > 0) setLatestContents(lectureContents.filter((c) => c.isApproved !== false).slice(0, 4));
+          const merged = [...lectureContents, ...resourceContents]
+            .filter((c) => c.isApproved !== false)
+            .sort((a, b) => {
+              const ta = typeof a.createdAt === "string" ? new Date(a.createdAt).getTime() : 0;
+              const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() : 0;
+              return tb - ta;
+            })
+            .slice(0, 4);
+          if (merged.length > 0) setLatestContents(merged);
         } catch { /* Runmoa/Event/Contents 실패 시 무시 */ }
         if (firestoreReviews.length > 0) setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false));
         if (firestoreEvents.length > 0) {

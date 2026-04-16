@@ -8,7 +8,7 @@ import {
  Star, Trophy, HelpCircle, Mail, ImageIcon, Handshake, Clock,
  Award, Shield, ChevronDown, ChevronRight, X,
  Megaphone, Zap, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
- Archive,
+ Archive, Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, Image: ImageIcon, Handshake, Clock,
  Award, Shield, Megaphone, Zap, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
- Archive,
+ Archive, Sparkles,
 };
 
 interface NavChild {
@@ -52,6 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
    title: "콘텐츠 관리",
    items: [
      { label: "통합 콘텐츠", href: "/admin/contents", icon: "Layers" },
+     { label: "AI 콘텐츠", href: "/admin/ai-content", icon: "Sparkles" },
      { label: "게시판 설정", href: "/admin/boards", icon: "LayoutGrid" },
      { label: "자료실", href: "/admin/resources", icon: "FolderOpen" },
    ],

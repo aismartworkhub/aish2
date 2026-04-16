@@ -417,7 +417,7 @@ function AdminSettingsInner() {
                       curated = unique.map((item) => ({
                         title: item.title,
                         body: item.description || item.title,
-                        boardKey: item.source === "youtube" ? "media-lecture" : item.source === "github" ? "media-resource" : "community-free",
+                        boardKey: item.source === "youtube" ? "media-lecture" : "media-resource",
                         mediaType: (item.source === "youtube" ? "youtube" : "link") as "youtube" | "link",
                         mediaUrl: item.url,
                         thumbnailUrl: item.thumbnailUrl,

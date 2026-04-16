@@ -153,6 +153,7 @@ export const COLLECTIONS = {
   CONTENT_COMMENTS: "contentComments",
   REACTIONS: "reactions",
   COURSE_PROPOSALS: "courseProposals",
+  AI_COLLECTOR_HISTORY: "aiCollectorHistory",
 } as const;
 
 export const PAGE_DOC_ID = (key: string) => `page_${key}`;

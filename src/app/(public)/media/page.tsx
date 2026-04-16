@@ -16,10 +16,30 @@ import LoginModal from "@/components/public/LoginModal";
 const ALL_KEY = "__all__";
 const SHORTS_KEY = "__shorts__";
 
+type SourceTab = typeof ALL_KEY | "youtube" | "github" | "gallery" | "resource" | "xcom" | typeof SHORTS_KEY;
+
+const SOURCE_TABS: { key: SourceTab; label: string }[] = [
+  { key: ALL_KEY, label: "전체" },
+  { key: "youtube", label: "유튜브" },
+  { key: "github", label: "GitHub" },
+  { key: "gallery", label: "갤러리" },
+  { key: "resource", label: "자료실" },
+];
+
+function inferSource(c: Content): string {
+  if (c.mediaType === "youtube" || c.mediaUrl?.includes("youtube.com") || c.mediaUrl?.includes("youtu.be")) return "youtube";
+  if (c.mediaUrl?.includes("github.com")) return "github";
+  if (c.mediaUrl?.includes("x.com") || c.mediaUrl?.includes("twitter.com")) return "xcom";
+  if (c.mediaType === "image" || c.boardKey === "media-gallery") return "gallery";
+  if (c.boardKey === "media-resource") return "resource";
+  if (c.mediaType === "link") return "resource";
+  return "resource";
+}
+
 export default function MediaPage() {
   const [boards, setBoards] = useState<BoardConfig[]>([]);
   const [contents, setContents] = useState<Content[]>([]);
-  const [activeTab, setActiveTab] = useState(ALL_KEY);
+  const [activeTab, setActiveTab] = useState<SourceTab>(ALL_KEY);
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +49,6 @@ export default function MediaPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      // 0) Firestore에서 게시판 목록 로드 (없으면 기본값 폴백)
       let mediaBoards: BoardConfig[];
       try {
         mediaBoards = await getBoardsByGroup("media");
@@ -38,23 +57,11 @@ export default function MediaPage() {
         mediaBoards = getBoardsByGroupDefault("media");
       }
       if (cancelled) return;
-
-      const communityFreeBoard = getBoardsByGroupDefault("community")
-        .find((b) => b.key === "community-free");
-      if (communityFreeBoard) {
-        const hasCF = mediaBoards.some((b) => b.key === "community-free");
-        if (!hasCF) mediaBoards = [...mediaBoards, { ...communityFreeBoard, label: "묻고 답하기" }];
-      }
       setBoards(mediaBoards);
 
       let all: Content[] = [];
 
-      // 1) 새 contents 컬렉션에서 로드 (media 보드 + community-free 중 AI 수집분)
-      const boardKeysToLoad = [
-        ...mediaBoards.map((b) => b.key),
-        "community-free",
-      ];
-      const uniqueKeys = [...new Set(boardKeysToLoad)];
+      const uniqueKeys = [...new Set(mediaBoards.map((b) => b.key))];
       try {
         const promises = uniqueKeys.map((key) =>
           getContents(key).catch((err) => {
@@ -68,19 +75,14 @@ export default function MediaPage() {
         if (process.env.NODE_ENV === "development") console.error("콘텐츠 로드 실패:", err);
       }
 
-      // 2) 레거시 데이터 병합 (URL 기반 중복 제거)
       try {
         const legacy = await loadAllLegacyMediaAsContent();
-        const existUrls = new Set(
-          all.map((c) => normalizeUrl(c.mediaUrl || "")),
-        );
+        const existUrls = new Set(all.map((c) => normalizeUrl(c.mediaUrl || "")));
         const existIds = new Set(all.map((c) => c.id));
         all = [
           ...all,
           ...legacy.filter(
-            (l) =>
-              !existIds.has(l.id) &&
-              !existUrls.has(normalizeUrl(l.mediaUrl || "")),
+            (l) => !existIds.has(l.id) && !existUrls.has(normalizeUrl(l.mediaUrl || "")),
           ),
         ];
       } catch { /* 레거시 로드 실패 무시 */ }
@@ -95,17 +97,31 @@ export default function MediaPage() {
   }, []);
 
   const boardForContent = useCallback(
-    (c: Content): BoardConfig | undefined =>
-      boards.find((b) => b.key === c.boardKey),
+    (c: Content): BoardConfig | undefined => boards.find((b) => b.key === c.boardKey),
     [boards],
   );
+
+  const visibleTabs = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of contents) {
+      const src = inferSource(c);
+      counts[src] = (counts[src] ?? 0) + 1;
+    }
+    const hasShorts = contents.some((c) => c.isShort);
+    const hasXcom = (counts["xcom"] ?? 0) > 0;
+
+    const tabs = SOURCE_TABS.filter((t) => t.key === ALL_KEY || (counts[t.key] ?? 0) > 0);
+    if (hasXcom) tabs.push({ key: "xcom", label: "X.com" });
+    if (hasShorts) tabs.push({ key: SHORTS_KEY as SourceTab, label: "Shorts" });
+    return tabs;
+  }, [contents]);
 
   const filtered = useMemo(() => {
     let list = contents;
     if (activeTab === SHORTS_KEY) {
       list = list.filter((c) => c.isShort);
     } else if (activeTab !== ALL_KEY) {
-      list = list.filter((c) => c.boardKey === activeTab);
+      list = list.filter((c) => inferSource(c) === activeTab);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -183,29 +199,17 @@ export default function MediaPage() {
           )}
         </div>
 
-        {/* 카테고리 탭 */}
+        {/* 소스 유형별 탭 */}
         <div className="mb-8 flex flex-wrap justify-center gap-2">
-          <TabButton
-            active={activeTab === ALL_KEY}
-            onClick={() => setActiveTab(ALL_KEY)}
-            label="전체"
-          />
-          {boards.map((b) => (
+          {visibleTabs.map((t) => (
             <TabButton
-              key={b.key}
-              active={activeTab === b.key}
-              onClick={() => setActiveTab(b.key)}
-              label={b.label}
+              key={t.key}
+              active={activeTab === t.key}
+              onClick={() => setActiveTab(t.key)}
+              label={t.label}
+              accent={t.key === SHORTS_KEY}
             />
           ))}
-          {shorts.length > 0 && (
-            <TabButton
-              active={activeTab === SHORTS_KEY}
-              onClick={() => setActiveTab(SHORTS_KEY)}
-              label="Shorts"
-              accent
-            />
-          )}
         </div>
 
         {/* Shorts 섹션 (전체 탭에서만) */}
