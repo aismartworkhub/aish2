@@ -196,7 +196,7 @@ export interface Like {
 export interface Bookmark {
   id?: string;
   targetId: string;
-  targetType: "NOTICE" | "RESOURCE" | "FREE";
+  targetType: "NOTICE" | "RESOURCE" | "FREE" | "INSTRUCTOR";
   userId: string;
   createdAt: string;
 }
@@ -204,14 +204,16 @@ export interface Bookmark {
 export interface AppNotification {
   id?: string;
   recipientUid: string;
-  type: "NEW_COMMENT" | "NEW_POST" | "ADMIN_NOTICE" | "POST_APPROVED";
+  type: "NEW_COMMENT" | "NEW_POST" | "ADMIN_NOTICE" | "POST_APPROVED" | string;
   title: string;
   message: string;
   linkUrl?: string;
   linkTab?: string;
   linkTargetId?: string;
+  senderUid?: string;
+  senderName?: string;
   isRead: boolean;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface PostComment {

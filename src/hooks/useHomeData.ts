@@ -63,10 +63,10 @@ export const COMMUNITY_SHORTCUTS = [
 ];
 
 const RECENT_NOTICES = [
-  { tag: "모집", title: "AI 기초 정규과정 11기 수강생 모집 안내", date: "2026.03.15" },
-  { tag: "소식", title: "제4회 스마트워크톤 사전 등록으로 참가 신청이 곧 마감됩니다", date: "2026.03.14" },
-  { tag: "안내", title: "2026년 상반기 교육 일정 안내", date: "2026.03.10" },
-  { tag: "성과", title: "제3회 스마트워크톤 결과 발표", date: "2026.02.28" },
+  { id: "", tag: "모집", title: "AI 기초 정규과정 11기 수강생 모집 안내", date: "2026.03.15" },
+  { id: "", tag: "소식", title: "제4회 스마트워크톤 사전 등록으로 참가 신청이 곧 마감됩니다", date: "2026.03.14" },
+  { id: "", tag: "안내", title: "2026년 상반기 교육 일정 안내", date: "2026.03.10" },
+  { id: "", tag: "성과", title: "제3회 스마트워크톤 결과 발표", date: "2026.02.28" },
 ];
 
 export function useHomeData() {
@@ -79,6 +79,13 @@ export function useHomeData() {
   const [reviews, setReviews] = useState(DEMO_REVIEWS);
   const [workathon, setWorkathon] = useState<typeof DEMO_WORKATHON & { posterUrl?: string }>(DEMO_WORKATHON);
   const [notices, setNotices] = useState(RECENT_NOTICES);
+
+  const [isDemoStats, setIsDemoStats] = useState(true);
+  const [isDemoPrograms, setIsDemoPrograms] = useState(true);
+  const [isDemoReviews, setIsDemoReviews] = useState(true);
+  const [isDemoWorkathon, setIsDemoWorkathon] = useState(true);
+  const [isDemoNotices, setIsDemoNotices] = useState(true);
+  const [isDemoInstructors, setIsDemoInstructors] = useState(true);
   const [featuredVideos, setFeaturedVideos] = useState<{ id: string; title: string; youtubeUrl: string; category?: string; thumbnailUrl?: string }[]>([]);
   const [heroSlides, setHeroSlides] = useState<HeroSlidePublic[]>(() => pickActiveHeroSlides(undefined));
   const [heroIndex, setHeroIndex] = useState(0);
@@ -89,6 +96,7 @@ export function useHomeData() {
     DEMO_INSTRUCTORS.filter((i) => i.isActive !== false)
   );
   const [latestContents, setLatestContents] = useState<Content[]>([]);
+  const [isHomeDataLoading, setIsHomeDataLoading] = useState(true);
 
   const dDay = calculateDDay(workathon.eventDate);
   const revealRefs = useRef<HTMLElement[]>([]);
@@ -122,6 +130,7 @@ export function useHomeData() {
 
   useEffect(() => {
     const loadData = async () => {
+      setIsHomeDataLoading(true);
       try {
         const [
           ctaLoaded, heroDoc, bannerDoc,
@@ -142,7 +151,7 @@ export function useHomeData() {
         setCtaCfg(ctaLoaded);
         setHeroSlides(pickActiveHeroSlides(heroDoc?.slides));
         if (bannerDoc) setSiteBanner(bannerDoc);
-        if (firestorePrograms.length > 0) setPrograms(firestorePrograms);
+        if (firestorePrograms.length > 0) { setPrograms(firestorePrograms); setIsDemoPrograms(false); }
         if (firestoreInstructors.length > 0) {
           const active = firestoreInstructors
             .filter((ins) => {
@@ -151,6 +160,7 @@ export function useHomeData() {
             })
             .sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 999) - ((b as { displayOrder?: number }).displayOrder ?? 999));
           setInstructors(active);
+          setIsDemoInstructors(false);
         }
         try {
           const [runmoaRes, eventsData, lectureContents, resourceContents] = await Promise.all([
@@ -171,12 +181,13 @@ export function useHomeData() {
             .slice(0, 4);
           if (merged.length > 0) setLatestContents(merged);
         } catch { /* Runmoa/Event/Contents 실패 시 무시 */ }
-        if (firestoreReviews.length > 0) setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false));
+        if (firestoreReviews.length > 0) { setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false)); setIsDemoReviews(false); }
         if (firestoreEvents.length > 0) {
           const sortedEv = [...firestoreEvents].sort((a, b) => (b.eventDate || "").localeCompare(a.eventDate || ""));
           setWorkathon(sortedEv[0]);
+          setIsDemoWorkathon(false);
         }
-        if (statDoc?.items && statDoc.items.length > 0) setStats(statDoc.items);
+        if (statDoc?.items && statDoc.items.length > 0) { setStats(statDoc.items); setIsDemoStats(false); }
         if (firestoreVideos.length > 0) {
           const withUrl = firestoreVideos.filter((v) => v.youtubeUrl?.trim());
           const pool = withUrl.length > 0 ? withUrl : firestoreVideos;
@@ -193,11 +204,13 @@ export function useHomeData() {
               return db > da ? 1 : db < da ? -1 : 0;
             })
             .slice(0, 4)
-            .map((p) => ({ tag: p.category || "공지", title: p.title, date: toDateString(p.createdAt || p.date) }));
-          if (recentNotices.length > 0) setNotices(recentNotices);
+            .map((p) => ({ id: p.id || "", tag: p.category || "공지", title: p.title, date: toDateString(p.createdAt || p.date) }));
+          if (recentNotices.length > 0) { setNotices(recentNotices); setIsDemoNotices(false); }
         }
       } catch (e) {
         console.error("Failed to load data, using demo data:", e);
+      } finally {
+        setIsHomeDataLoading(false);
       }
     };
     loadData();
@@ -245,6 +258,9 @@ export function useHomeData() {
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,
     latestContents,
+    isDemoStats, isDemoPrograms, isDemoReviews,
+    isDemoWorkathon, isDemoNotices, isDemoInstructors,
+    isHomeDataLoading,
   };
 }
 

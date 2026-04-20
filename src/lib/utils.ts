@@ -18,9 +18,71 @@ export function truncate(str: string, length: number): string {
   return str.slice(0, length) + "...";
 }
 
+const HTML_SCRIPT_BLOCK_RE = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
+const HTML_STYLE_BLOCK_RE = /<style\b[^>]*>[\s\S]*?<\/style>/gi;
+const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
+const HTML_TAG_RE = /<[^>]*>/g;
+
+/** 태그만 지우면 <style> 본문(CSS)이 그대로 남는 문제 방지 */
+function looksLikeCssOrScopedStyleSnippet(text: string): boolean {
+  const s = text.trim();
+  if (s.length < 8) return false;
+  if (/\.rmclass-/i.test(s)) return true;
+  if (/^\/\*[\s\S]*\*\/\s*[\s\S]*\{/.test(s) && /[{}]/.test(s)) return true;
+  if (
+    /^(\/\*|\.[a-zA-Z0-9_-]+|#[a-zA-Z0-9_-]+|@[a-z-]+)/.test(s) &&
+    /--[\w-]+\s*:/.test(s) &&
+    /[{};]/.test(s)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Runmoa 등에서 내려오는 HTML에서 카드용 짧은 일반 텍스트만 추출한다.
+ * <script>/<style> 블록 전체를 먼저 제거한 뒤 태그를 벗긴다.
+ */
+export function htmlToPlainTextSummary(html: string, maxLen?: number): string {
+  if (!html) return "";
+  let t = html
+    .replace(HTML_SCRIPT_BLOCK_RE, " ")
+    .replace(HTML_STYLE_BLOCK_RE, " ")
+    .replace(HTML_COMMENT_RE, " ");
+  t = t.replace(HTML_TAG_RE, " ");
+  t = t
+    .replace(/&nbsp;|&#160;|&#xA0;/gi, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'");
+  t = t.replace(/\s+/g, " ").trim();
+  if (looksLikeCssOrScopedStyleSnippet(t)) return "";
+  if (maxLen !== undefined && maxLen > 0 && t.length > maxLen) {
+    t = t.slice(0, maxLen);
+  }
+  return t;
+}
+
 /** http(s) 외부 URL이면 true (새 탭 / noopener 처리용) */
 export function isExternalHref(href: string): boolean {
   return /^https?:\/\//i.test(href.trim());
+}
+
+/** 알림 문서의 linkUrl / linkTab / linkTargetId로 이동 경로 계산 */
+export function resolveNotificationHref(n: {
+  linkUrl?: string;
+  linkTab?: string;
+  linkTargetId?: string;
+}): string {
+  const u = n.linkUrl?.trim();
+  if (u) return u;
+  const tab = n.linkTab?.trim();
+  const id = n.linkTargetId?.trim();
+  if (tab && id) return `/community?tab=${encodeURIComponent(tab)}&postId=${encodeURIComponent(id)}`;
+  if (tab) return `/community?tab=${encodeURIComponent(tab)}`;
+  return "/community?tab=notice";
 }
 
 /**

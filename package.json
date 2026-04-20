@@ -2,12 +2,15 @@
  "name": "aish-website",
  "version": "1.0.0",
  "private": true,
- "scripts": {
+  "scripts": {
   "dev": "next dev",
   "build": "next build",
   "start": "next start",
-  "lint": "next lint",
-  "test": "node scripts/remote-push-test.mjs"
+  "lint": "eslint src",
+  "test": "node scripts/remote-push-test.mjs",
+  "verify": "npm run lint && npm run build",
+  "ralph:deploy": "bash scripts/ralph-loop-deploy.sh",
+  "ralph:verify-only": "npm run verify && npm run verify && npm run verify"
  },
  "dependencies": {
   "@google/generative-ai": "^0.24.1",

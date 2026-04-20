@@ -2,9 +2,11 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { User, onAuthStateChanged, signOut as firebaseSignOut, deleteUser } from "firebase/auth";
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc, updateDoc, serverTimestamp, deleteField } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { SUPER_ADMIN_EMAIL, ADMIN_ROLES, type UserRole } from "@/lib/constants";
+import { callGasWebapp } from "@/lib/gas-client";
+import { loadUserGeminiApiKey, saveUserGeminiApiKey, deleteUserPrivateSettings } from "@/lib/user-private-settings";
 
 export interface UserProfile {
   uid: string;
@@ -23,8 +25,12 @@ export interface UserProfile {
   companyProduct?: string;
   companyWebsite?: string;
   companySocial?: string;
+  companyRole?: string;
+  companyIntro?: string;
+  companyIndustry?: string;
   bio?: string;
   interests?: string[];
+  geminiApiKey?: string;
   socialLinks?: {
     linkedin?: string;
     youtube?: string;
@@ -109,6 +115,19 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     const role: UserRole = isSuperAdmin ? "superadmin" : (data.role ?? "user");
     const needsRoleUpdate = isSuperAdmin && data.role !== "superadmin";
 
+    let geminiFromPrivate = await loadUserGeminiApiKey(user.uid);
+    const legacyGemini =
+      typeof data.geminiApiKey === "string" ? data.geminiApiKey.trim() : "";
+    if (legacyGemini && !geminiFromPrivate.trim()) {
+      try {
+        await saveUserGeminiApiKey(user.uid, legacyGemini);
+        geminiFromPrivate = legacyGemini;
+        await updateDoc(ref, { geminiApiKey: deleteField() });
+      } catch {
+        geminiFromPrivate = legacyGemini;
+      }
+    }
+
     // non-blocking: 프로필 반환을 지연시키지 않도록 await 하지 않음
     setDoc(ref, {
       ...(needsRoleUpdate ? { role: "superadmin" } : {}),
@@ -133,6 +152,13 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
       companyProduct: data.companyProduct ?? "",
       companyWebsite: data.companyWebsite ?? "",
       companySocial: data.companySocial ?? "",
+      companyRole: data.companyRole ?? "",
+      companyIntro: data.companyIntro ?? "",
+      companyIndustry: data.companyIndustry ?? "",
+      bio: data.bio ?? "",
+      interests: data.interests ?? [],
+      geminiApiKey: geminiFromPrivate.trim() || legacyGemini,
+      socialLinks: data.socialLinks ?? {},
     };
   }
 
@@ -154,6 +180,16 @@ async function ensureUserProfile(user: User): Promise<UserProfile> {
     await setDoc(ref, { role: "superadmin" }, { merge: true });
     return { uid: user.uid, ...newProfile, role: "superadmin" as UserRole };
   }
+
+  // Phase 2: 환영 이메일(플래그) + 관리자 알림 — callGasWebapp에서 phase2/URL/세부 플래그 처리
+  void callGasWebapp("welcome-email", {
+    email: user.email ?? "",
+    displayName: user.displayName ?? "",
+  });
+  void callGasWebapp("admin-notify", {
+    subject: "신규 회원 가입",
+    body: `새 회원이 가입했습니다.\n이름: ${user.displayName ?? ""}\n이메일: ${user.email ?? ""}`,
+  });
 
   return { uid: user.uid, ...newProfile };
 }
@@ -235,6 +271,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const deleteAccount = async () => {
     if (!user) throw new Error("로그인되지 않았습니다.");
     clearProfileCache();
+    await deleteUserPrivateSettings(user.uid);
     await deleteDoc(doc(db, "users", user.uid));
     // Firebase Auth 계정 삭제 (본인만 가능)
     await deleteUser(user);

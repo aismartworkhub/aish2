@@ -10,6 +10,9 @@ import { calculateDDay, cn, isExternalHref } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
+import SampleBadge from "@/components/ui/SampleBadge";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { STAT_ICONS, COMMUNITY_SHORTCUTS } from "@/hooks/useHomeData";
 import type { HomeDataProps } from "@/hooks/useHomeData";
 
@@ -24,7 +27,16 @@ export default function HomeDefault(props: HomeDataProps) {
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,
     latestContents,
+    isDemoStats, isDemoPrograms, isDemoReviews,
+    isDemoWorkathon, isDemoNotices, isDemoInstructors,
+    isHomeDataLoading,
   } = props;
+
+  const ff = useFeatureFlags();
+  const p1 = ff.phase1.enabled;
+  const showSampleBadge = p1 && ff.phase1.demoSampleBadge === true;
+  const showProgramSkeleton =
+    p1 && ff.phase1.loadingSkeleton === true && isHomeDataLoading && isDemoPrograms && runmoaPrograms.length === 0;
 
   return (
     <>
@@ -322,7 +334,11 @@ export default function HomeDefault(props: HomeDataProps) {
           />
           <div className="absolute inset-0 bg-brand-blue/60" />
           <div className="relative z-10">
-            <p className="text-brand-lightBlue text-xs font-semibold tracking-widest uppercase mb-3">Smart Workathon</p>
+            <p className="text-brand-lightBlue text-xs font-semibold tracking-widest uppercase mb-3">
+              Smart Workathon {showSampleBadge && isDemoWorkathon && (
+                <SampleBadge className="border-amber-400/50 bg-amber-500/20 text-amber-200" adminLink="/admin/workathon" />
+              )}
+            </p>
             <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-5">{workathon.title}</h2>
             <p className="text-white/80 text-base leading-relaxed max-w-[400px]">{workathon.description}</p>
             <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-white/60">
@@ -373,7 +389,9 @@ export default function HomeDefault(props: HomeDataProps) {
         <div className="container-custom">
           <div className="flex items-end justify-between mb-12">
             <div>
-              <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Program</h2>
+              <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">
+                Program {showSampleBadge && isDemoPrograms && <SampleBadge adminLink="/admin/programs" />}
+              </h2>
               <p className="mt-2 text-gray-500 text-lg">진행중인 교육 과정</p>
             </div>
             <Link href="/programs" className="hidden md:inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
@@ -381,7 +399,11 @@ export default function HomeDefault(props: HomeDataProps) {
             </Link>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {runmoaPrograms.length > 0
+            {showProgramSkeleton ? (
+              <div className="col-span-full">
+                <CardGridSkeleton count={4} />
+              </div>
+            ) : runmoaPrograms.length > 0
               ? runmoaPrograms.slice(0, 8).map((c) => (
                   <a key={c.content_id} href={`https://aish.runmoa.com/classes/${c.content_id}`} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
                     className="group bg-white rounded overflow-hidden border border-brand-border hover-lift">
@@ -495,7 +517,7 @@ export default function HomeDefault(props: HomeDataProps) {
                 ? latestContents.map((content) => {
                     const isYoutube = content.mediaType === "youtube" && content.mediaUrl;
                     return (
-                      <Link key={content.id} href="/media" ref={addRevealRef}
+                      <Link key={content.id} href={p1 && ff.phase1.contentDeepLink ? `/media?id=${content.id}` : "/media"} ref={addRevealRef}
                         className="group bg-white rounded overflow-hidden border border-brand-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                         <div className="aspect-video bg-gray-100 relative overflow-hidden">
                           {isYoutube ? (
@@ -618,13 +640,13 @@ export default function HomeDefault(props: HomeDataProps) {
         </div>
         <div className="flex-1 bg-white p-12 md:p-16">
           <div className="flex items-end justify-between border-b-2 border-brand-blue pb-5 mb-8">
-            <h3 className="text-[28px] font-bold text-gray-900">NewsRoom</h3>
+            <h3 className="text-[28px] font-bold text-gray-900">NewsRoom {showSampleBadge && isDemoNotices && <SampleBadge adminLink="/admin/posts?type=NOTICE" />}</h3>
             <Link href="/community?tab=notice" className="text-sm text-gray-500 hover:text-brand-blue transition-colors">전체보기 +</Link>
           </div>
           <ul className="space-y-0">
             {notices.map((notice, index) => (
               <li key={index}>
-                <Link href="/community?tab=notice"
+                <Link href={notice.id ? `/community?tab=notice&postId=${notice.id}` : "/community?tab=notice"}
                   className="flex items-center justify-between py-5 border-b border-brand-border hover:pl-2.5 hover:text-brand-blue transition-all group">
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="text-sm font-medium text-brand-blue shrink-0">[{notice.tag}]</span>

@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { SITE_NAME, SITE_FULL_NAME, NAV_ITEMS } from "@/lib/constants";
+import { isExternalHref } from "@/lib/utils";
 import { useSiteCta } from "@/hooks/useSiteCta";
 
 export default function Footer() {
   const { buttonUrl: CTA_URL, buttonText: CTA_TEXT } = useSiteCta();
+  const ctaOpensNewTab = isExternalHref(CTA_URL);
   return (
     <footer className="bg-brand-dark text-gray-300">
       <div className="max-w-[1440px] mx-auto px-4 py-12">
@@ -58,8 +60,8 @@ export default function Footer() {
             </p>
             <Link
               href={CTA_URL}
-              target="_blank"
-              rel="noopener noreferrer"
+              target={ctaOpensNewTab ? "_blank" : undefined}
+              rel={ctaOpensNewTab ? "noopener noreferrer" : undefined}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-sm bg-brand-blue text-white text-sm font-semibold hover:bg-brand-lightBlue uppercase tracking-widest transition-colors"
             >
               {CTA_TEXT}

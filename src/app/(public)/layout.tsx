@@ -3,6 +3,7 @@ import Footer from "@/components/public/Footer";
 import FloatingCta from "@/components/public/FloatingCta";
 import QuickBannerDisplay from "@/components/public/QuickBannerDisplay";
 import ProfileCompletionBanner from "@/components/public/ProfileCompletionBanner";
+import AiCounselor from "@/components/public/AiCounselor";
 
 export default function PublicLayout({
  children,
@@ -19,6 +20,7 @@ export default function PublicLayout({
      </div>
      <Footer />
      <FloatingCta />
+     <AiCounselor />
    </>
  );
 }

@@ -5,7 +5,7 @@ import {
   Plus, Search, Filter, ExternalLink, RefreshCw,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, htmlToPlainTextSummary } from "@/lib/utils";
 import {
   RUNMOA_CONTENT_TYPE_LABELS,
   RUNMOA_STATUS_LABELS,
@@ -21,10 +21,6 @@ const ITEMS_PER_PAGE = 20;
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat("ko-KR").format(price);
-}
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, "").trim();
 }
 
 export default function AdminProgramsPage() {
@@ -156,7 +152,9 @@ export default function AdminProgramsPage() {
                   </td>
                 </tr>
               ) : (
-                contents.map((c) => (
+                contents.map((c) => {
+                  const rowDesc = htmlToPlainTextSummary(c.description_html, 60);
+                  return (
                   <tr
                     key={c.content_id}
                     className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer"
@@ -181,11 +179,11 @@ export default function AdminProgramsPage() {
                           <div className="font-medium text-gray-900 text-sm truncate max-w-xs">
                             {c.title}
                           </div>
-                          {c.description_html && (
+                          {rowDesc ? (
                             <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">
-                              {stripHtml(c.description_html).slice(0, 60)}
+                              {rowDesc}
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </td>
@@ -235,7 +233,8 @@ export default function AdminProgramsPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

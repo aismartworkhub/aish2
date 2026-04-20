@@ -10,6 +10,8 @@ import { calculateDDay, cn, isExternalHref } from "@/lib/utils";
 import StatusBadge from "@/components/ui/StatusBadge";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
+import SampleBadge from "@/components/ui/SampleBadge";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import type { HomeDataProps } from "@/hooks/useHomeData";
 
 function Badge({ children, variant = "primary" }: { children: React.ReactNode; variant?: "primary" | "secondary" | "accent" }) {
@@ -35,7 +37,13 @@ export default function HomeModern(props: HomeDataProps) {
     dDay, addRevealRef, currentHero,
     primaryCtaHref, primaryCtaLabel,
     latestContents,
+    isDemoStats, isDemoPrograms, isDemoReviews,
+    isDemoWorkathon, isDemoNotices, isDemoInstructors,
   } = props;
+
+  const ff = useFeatureFlags();
+  const p1 = ff.phase1.enabled;
+  const showSampleBadge = p1 && ff.phase1.demoSampleBadge === true;
 
   return (
     <>
@@ -115,7 +123,7 @@ export default function HomeModern(props: HomeDataProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-end mb-8">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900">맞춤형 실무 교육</h2>
+              <h2 className="text-3xl font-bold text-gray-900">맞춤형 실무 교육 {showSampleBadge && isDemoPrograms && <SampleBadge adminLink="/admin/programs" />}</h2>
               <p className="mt-2 text-gray-600">당신의 커리어를 한 단계 성장시켜줄 핵심 강의</p>
             </div>
             <Link href="/programs" className="hidden sm:flex items-center text-brand-blue font-medium hover:text-brand-blue/80 transition-colors">
@@ -184,6 +192,7 @@ export default function HomeModern(props: HomeDataProps) {
               </div>
               <div className="relative z-10">
                 <Badge variant="secondary"><span className="text-brand-blue">{dDay} 마감임박</span></Badge>
+                {showSampleBadge && isDemoWorkathon && <span className="ml-2"><SampleBadge className="border-amber-400/50 bg-amber-500/20 text-amber-200" adminLink="/admin/workathon" /></span>}
                 <h2 className="mt-4 text-3xl font-bold leading-tight">{workathon.title}</h2>
                 <p className="mt-4 text-blue-100">{workathon.description}</p>
                 <ul className="mt-6 space-y-2 text-sm text-blue-50">
@@ -202,13 +211,13 @@ export default function HomeModern(props: HomeDataProps) {
             <div className="bg-white rounded-sm p-8 shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <MessageCircle className="w-6 h-6 mr-2 text-brand-blue" /> NewsRoom
+                  <MessageCircle className="w-6 h-6 mr-2 text-brand-blue" /> NewsRoom {showSampleBadge && isDemoNotices && <SampleBadge adminLink="/admin/posts?type=NOTICE" />}
                 </h2>
                 <Link href="/community?tab=notice" className="text-sm font-medium text-gray-500 hover:text-brand-blue">더보기</Link>
               </div>
               <div className="space-y-4">
                 {notices.map((notice, idx) => (
-                  <Link key={idx} href="/community?tab=notice"
+                  <Link key={idx} href={notice.id ? `/community?tab=notice&postId=${notice.id}` : "/community?tab=notice"}
                     className="group flex items-start justify-between p-3 rounded-sm hover:bg-gray-50 transition-colors cursor-pointer border border-transparent hover:border-gray-100">
                     <div className="flex-1 min-w-0 pr-4">
                       <div className="flex items-center space-x-2 mb-1">
@@ -286,7 +295,7 @@ export default function HomeModern(props: HomeDataProps) {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                   {latestContents.map((content) => (
-                    <Link key={content.id} href="/media" ref={addRevealRef}
+                    <Link key={content.id} href={p1 && ff.phase1.contentDeepLink ? `/media?id=${content.id}` : "/media"} ref={addRevealRef}
                       className="bg-gray-800 rounded-sm p-5 hover:bg-gray-700 transition-colors cursor-pointer border border-gray-700">
                       {content.mediaType === "youtube" && content.thumbnailUrl && (
                         <div className="aspect-video rounded-sm overflow-hidden mb-3 relative">

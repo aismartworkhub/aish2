@@ -97,6 +97,62 @@ export function resolveHeroCtaText(slide: HeroSlidePublic, siteCtaText: string):
 
 export { DEFAULT_HERO_SLIDE };
 
+/* ── Feature Flags ── */
+
+export interface PhaseFlags {
+  enabled: boolean;
+  [key: string]: boolean | string;
+}
+
+export interface FeatureFlags {
+  phase1: PhaseFlags;
+  phase2: PhaseFlags & { gasWebappUrl: string };
+  phase3: PhaseFlags;
+  phase4: PhaseFlags;
+  phase5: PhaseFlags;
+}
+
+export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
+  phase1: { enabled: false, demoSampleBadge: true, contentDeepLink: true, loadingSkeleton: true },
+  phase2: { enabled: false, gasWebappUrl: "", welcomeEmail: true, businessCardDrive: true },
+  phase3: { enabled: false, geminiKeyInput: true, businessCardScan: true, extendedProfile: true },
+  phase4: { enabled: false, notificationSystem: true, shareButton: true, popularPosts: true },
+  phase5: { enabled: false, aiCounselor: true },
+};
+
+let ffCache: FeatureFlags | null = null;
+let ffInflight: Promise<FeatureFlags> | null = null;
+
+export async function loadFeatureFlags(): Promise<FeatureFlags> {
+  if (ffCache) return ffCache;
+  if (!ffInflight) {
+    ffInflight = getSingletonDoc<Partial<FeatureFlags>>(COLLECTIONS.SETTINGS, "featureFlags")
+      .then((doc) => {
+        const merge = (def: PhaseFlags, loaded?: Partial<PhaseFlags>): PhaseFlags =>
+          loaded ? { ...def, ...loaded } : { ...def };
+        const next: FeatureFlags = {
+          phase1: merge(DEFAULT_FEATURE_FLAGS.phase1, doc?.phase1),
+          phase2: { ...DEFAULT_FEATURE_FLAGS.phase2, ...doc?.phase2 } as FeatureFlags["phase2"],
+          phase3: merge(DEFAULT_FEATURE_FLAGS.phase3, doc?.phase3),
+          phase4: merge(DEFAULT_FEATURE_FLAGS.phase4, doc?.phase4),
+          phase5: merge(DEFAULT_FEATURE_FLAGS.phase5, doc?.phase5),
+        };
+        ffCache = next;
+        return next;
+      })
+      .catch(() => {
+        ffCache = DEFAULT_FEATURE_FLAGS;
+        return DEFAULT_FEATURE_FLAGS;
+      })
+      .finally(() => { ffInflight = null; });
+  }
+  return ffInflight;
+}
+
+export function invalidateFeatureFlagsCache() {
+  ffCache = null;
+}
+
 /* ── 홈 테마 설정 ── */
 
 export type HomeTemplate = "default" | "modern" | "community";

@@ -7,10 +7,11 @@ import { Menu, X, ChevronRight, Search, User, LogOut, Bell } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
-import { getFilteredCollection, COLLECTIONS } from "@/lib/firestore";
+import { getFilteredCollection, updateDocFields, COLLECTIONS } from "@/lib/firestore";
 import type { AppNotification } from "@/types/firestore";
 import { useSiteCta } from "@/hooks/useSiteCta";
-import { isExternalHref } from "@/lib/utils";
+import { isExternalHref, resolveNotificationHref } from "@/lib/utils";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -21,7 +22,12 @@ export default function Header() {
   const pathname = usePathname();
   const { user, isProfileComplete, signOut } = useAuth();
   const { buttonUrl, buttonText } = useSiteCta();
+  const featureFlags = useFeatureFlags();
+  const notificationUiEnabled =
+    featureFlags.phase4.enabled && featureFlags.phase4.notificationSystem === true;
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<(AppNotification & { id: string })[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   useEffect(() => {
     if (!user) { setUnreadCount(0); return; }
@@ -30,6 +36,22 @@ export default function Header() {
         const notifs = await getFilteredCollection<AppNotification & { id: string }>(
           COLLECTIONS.NOTIFICATIONS, "recipientUid", user.uid
         );
+        const sorted = notifs.sort((a, b) => {
+          const ta =
+            typeof a.createdAt === "string"
+              ? new Date(a.createdAt).getTime()
+              : (a.createdAt as { seconds?: number } | undefined)?.seconds
+                ? (a.createdAt as { seconds: number }).seconds * 1000
+                : 0;
+          const tb =
+            typeof b.createdAt === "string"
+              ? new Date(b.createdAt).getTime()
+              : (b.createdAt as { seconds?: number } | undefined)?.seconds
+                ? (b.createdAt as { seconds: number }).seconds * 1000
+                : 0;
+          return tb - ta;
+        });
+        setNotifications(sorted.slice(0, 10));
         setUnreadCount(notifs.filter((n) => !n.isRead).length);
       } catch { /* ignore */ }
     };
@@ -61,6 +83,8 @@ export default function Header() {
   // 경로 변경 시 모바일 메뉴 자동 닫기
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setNotifOpen(false);
+    setUserMenuOpen(false);
   }, [pathname]);
 
   return (
@@ -108,19 +132,80 @@ export default function Header() {
               className="hidden md:inline-flex items-center gap-2 px-5 py-2.5 bg-brand-blue text-white text-sm font-medium rounded-sm uppercase tracking-widest hover:bg-brand-lightBlue transition-colors"
             >
               {buttonText}
-              <Search size={16} />
             </a>
 
             {/* 알림 벨 */}
             {user && (
-              <Link href="/community?tab=notice" className="relative p-2 text-gray-600 hover:text-brand-blue transition-colors" aria-label="알림">
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </Link>
+              notificationUiEnabled ? (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setNotifOpen(!notifOpen); setUserMenuOpen(false); }}
+                    className="relative p-2 text-gray-600 hover:text-brand-blue transition-colors"
+                    aria-label="알림"
+                    aria-expanded={notifOpen}
+                  >
+                    <Bell size={20} />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  {notifOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <span className="text-sm font-bold text-gray-900">알림</span>
+                        <Link href="/community?tab=notice" className="text-xs text-brand-blue hover:underline" onClick={() => setNotifOpen(false)}>커뮤니티</Link>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <p className="py-8 text-center text-sm text-gray-400">알림이 없습니다</p>
+                        ) : (
+                          notifications.map((n) => {
+                            const href = resolveNotificationHref(n);
+                            const ext = isExternalHref(href);
+                            return (
+                              <Link
+                                key={n.id}
+                                href={href}
+                                target={ext ? "_blank" : undefined}
+                                rel={ext ? "noopener noreferrer" : undefined}
+                                onClick={() => {
+                                  setNotifOpen(false);
+                                  if (!n.isRead) {
+                                    updateDocFields(COLLECTIONS.NOTIFICATIONS, n.id, { isRead: true }).catch(() => {});
+                                    setUnreadCount((prev) => Math.max(0, prev - 1));
+                                    setNotifications((prev) =>
+                                      prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)),
+                                    );
+                                  }
+                                }}
+                                className={cn(
+                                  "block px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50",
+                                  !n.isRead && "bg-blue-50/50",
+                                )}
+                              >
+                                <p className="text-sm font-medium text-gray-900 truncate">{n.title}</p>
+                                <p className="text-xs text-gray-500 mt-0.5 truncate">{n.message}</p>
+                              </Link>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link href="/community?tab=notice" className="relative p-2 text-gray-600 hover:text-brand-blue transition-colors" aria-label="알림">
+                  <Bell size={20} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </Link>
+              )
             )}
 
             {/* 로그인 / 프로필 */}

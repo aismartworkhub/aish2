@@ -12,6 +12,16 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Target, Eye, Heart, Users, Award, TrendingUp, Star, Lightbulb, Rocket, Zap,
 };
 
+const PARTNER_CATEGORY_LABELS: Record<string, string> = {
+  GOVERNMENT: "정부/공공기관",
+  UNIVERSITY: "대학교",
+  CORPORATE: "기업",
+  STARTUP: "스타트업",
+  ASSOCIATION: "협회/단체",
+  MEDIA: "미디어",
+  RESEARCH: "연구기관",
+};
+
 export default function AboutPage() {
   const [history, setHistory] = useState(DEMO_HISTORY);
   const [partners, setPartners] = useState(DEMO_PARTNERS);
@@ -110,7 +120,7 @@ export default function AboutPage() {
                 className="text-center py-6 px-4 rounded-sm border border-brand-border bg-white"
               >
                 <p className="font-medium text-gray-800">{p.name}</p>
-                <p className="text-xs text-gray-400 mt-1">{p.category}</p>
+                <p className="text-xs text-gray-400 mt-1">{PARTNER_CATEGORY_LABELS[p.category] || p.category}</p>
               </div>
             ))}
           </div>

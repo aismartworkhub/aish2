@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowLeft, Star, ExternalLink, Youtube } from "lucide-react";
+import { ArrowLeft, Star, ExternalLink, Youtube, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { incrementContentViews } from "@/lib/content-engine";
 import type { Content, BoardConfig } from "@/types/content";
 import MediaPreview from "./MediaPreview";
 import ReactionButtons from "./ReactionButtons";
 import CommentSection from "./CommentSection";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 type Props = {
   content: Content;
@@ -25,6 +26,8 @@ function formatDate(dateVal: unknown): string {
 }
 
 export default function ContentDetail({ content, board, onBack }: Props) {
+  const ff = useFeatureFlags();
+  const showShare = ff.phase4.enabled && ff.phase4.shareButton === true;
   const viewed = useRef(false);
 
   useEffect(() => {
@@ -149,6 +152,29 @@ export default function ContentDetail({ content, board, onBack }: Props) {
           }
         </div>
 
+        {showShare && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={async () => {
+                const url = `${window.location.origin}/media?id=${content.id}`;
+                try {
+                  if (navigator.share) {
+                    await navigator.share({ title: content.title, url });
+                  } else {
+                    await navigator.clipboard.writeText(url);
+                    alert("링크가 복사되었습니다.");
+                  }
+                } catch { /* 사용자 취소 */ }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 transition-colors"
+            >
+              <Share2 size={14} />
+              공유
+            </button>
+          </div>
+        )}
+
         <div className="border-t border-gray-100 pt-4">
           <ReactionButtons
             contentId={content.id}
@@ -159,7 +185,7 @@ export default function ContentDetail({ content, board, onBack }: Props) {
 
         {showComments && (
           <div className="border-t border-gray-100 pt-4">
-            <CommentSection contentId={content.id} />
+            <CommentSection contentId={content.id} contentAuthorUid={content.authorUid} contentTitle={content.title} />
           </div>
         )}
       </article>

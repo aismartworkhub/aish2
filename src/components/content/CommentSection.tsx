@@ -5,10 +5,13 @@ import { Send, Trash2, CornerDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCommentsByContent, createComment, deleteComment } from "@/lib/content-engine";
+import { createNotification } from "@/lib/notification-service";
 import type { ContentComment } from "@/types/content";
 
 type Props = {
   contentId: string;
+  contentAuthorUid?: string;
+  contentTitle?: string;
 };
 
 function timeLabel(dateVal: unknown): string {
@@ -88,7 +91,7 @@ function CommentItem({
   );
 }
 
-export default function CommentSection({ contentId }: Props) {
+export default function CommentSection({ contentId, contentAuthorUid, contentTitle }: Props) {
   const { user, profile } = useAuth();
   const [comments, setComments] = useState<ContentComment[]>([]);
   const [text, setText] = useState("");
@@ -119,6 +122,17 @@ export default function CommentSection({ contentId }: Props) {
       setText("");
       setReplyTo(null);
       await load();
+      if (contentAuthorUid && contentAuthorUid !== user.uid) {
+        createNotification({
+          recipientUid: contentAuthorUid,
+          type: "comment",
+          title: "새 댓글",
+          message: `${profile?.displayName ?? "사용자"}님이 "${contentTitle ?? "콘텐츠"}"에 댓글을 남겼습니다.`,
+          linkUrl: `/media?id=${contentId}`,
+          senderUid: user.uid,
+          senderName: profile?.displayName ?? "",
+        }).catch(() => {});
+      }
     } finally {
       setSubmitting(false);
     }
@@ -179,17 +193,18 @@ export default function CommentSection({ contentId }: Props) {
               </button>
             </div>
           )}
-          <div className="flex gap-2">
-            <input
+          <div className="flex gap-2 items-end">
+            <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="댓글을 입력하세요..."
+              rows={2}
               className={cn(
-                "flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm",
+                "flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none",
                 "focus:outline-none focus:ring-2 focus:ring-primary-500/20",
               )}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
                   handleSubmit();
                 }

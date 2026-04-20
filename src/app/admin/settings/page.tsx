@@ -6,7 +6,7 @@ import {
   ImageIcon, Hash, MousePointerClick, Megaphone,
   Save, Plus, Trash2, GripVertical,
   Key, Mail, Cloud, Calendar, Database, Shield, Loader2,
-  Palette, Check, Bot, RefreshCw,
+  Palette, Check, Bot, RefreshCw, ToggleLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, getSingletonDoc, setSingletonDoc, upsertDoc } from "@/lib/firestore";
@@ -17,6 +17,7 @@ import {
   isValidNonEmptyImageSource,
   isValidOptionalHttpOrPath,
 } from "@/lib/admin-validation";
+import { type FeatureFlags, DEFAULT_FEATURE_FLAGS, invalidateFeatureFlagsCache } from "@/lib/site-settings-public";
 import { collectAll } from "@/lib/ai-content-collector";
 import type { CollectResult } from "@/lib/ai-content-collector";
 import { curateItems } from "@/lib/ai-content-curator";
@@ -24,7 +25,7 @@ import type { CuratedItem } from "@/lib/ai-content-curator";
 import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-content-dedup";
 import { createContentIfNew } from "@/lib/content-engine";
 
-type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai";
+type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai" | "features";
 
 type HomeTemplate = "default" | "modern" | "community";
 
@@ -58,6 +59,7 @@ const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }
   { id: "cta", label: "CTA 설정", icon: MousePointerClick },
   { id: "banner", label: "배너 관리", icon: Megaphone },
   { id: "integrations", label: "외부 연동", icon: Key },
+  { id: "features" as SettingsTab, label: "기능 관리", icon: ToggleLeft },
 ];
 
 interface AiCollectorConfig {
@@ -104,7 +106,7 @@ function AdminSettingsInner() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (tabParam && ["hero", "stats", "cta", "banner", "integrations", "theme", "ai"].includes(tabParam)) {
+    if (tabParam && ["hero", "stats", "cta", "banner", "integrations", "theme", "ai", "features"].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -128,6 +130,9 @@ function AdminSettingsInner() {
   const [aiConfig, setAiConfig] = useState<AiCollectorConfig>(DEFAULT_AI_CONFIG);
   const [collecting, setCollecting] = useState(false);
   const [collectProgress, setCollectProgress] = useState("");
+
+  // Feature Flags
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlags>(DEFAULT_FEATURE_FLAGS);
 
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
@@ -156,6 +161,9 @@ function AdminSettingsInner() {
       } else if (tab === "banner") {
         const bannerDoc = await getSingletonDoc<BannerConfig>(COLLECTIONS.SETTINGS, "banner");
         if (bannerDoc) setBanner({ enabled: bannerDoc.enabled ?? true, title: bannerDoc.title ?? "", dDayDate: bannerDoc.dDayDate ?? "", link: bannerDoc.link ?? "" });
+      } else if (tab === "features") {
+        const ffDoc = await getSingletonDoc<FeatureFlags>(COLLECTIONS.SETTINGS, "featureFlags");
+        if (ffDoc) setFeatureFlags({ ...DEFAULT_FEATURE_FLAGS, ...ffDoc });
       } else if (tab === "integrations") {
         const intDoc = await getSingletonDoc<{ googleApi: GoogleApiConfig; emailConfig: EmailConfig; driveConfig: DriveConfig; calendarConfig: CalendarConfig }>(COLLECTIONS.SETTINGS, "integrations");
         if (intDoc) {
@@ -226,6 +234,9 @@ function AdminSettingsInner() {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "cta", cta);
       } else if (activeTab === "banner") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "banner", banner);
+      } else if (activeTab === "features") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "featureFlags", featureFlags);
+        invalidateFeatureFlagsCache();
       } else if (activeTab === "integrations") {
         const safeGoogleApi = { ...googleApi };
         for (const field of SENSITIVE_FIELDS) {
@@ -863,6 +874,104 @@ function AdminSettingsInner() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 기능 관리 (Feature Flags) */}
+      {activeTab === "features" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">기능 관리 (Phase별 ON/OFF)</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            각 개선 단계를 활성화/비활성화합니다. 코드는 이미 배포되어 있으며, 여기서 활성화해야 사용자에게 보입니다.
+          </p>
+          <div className="space-y-6">
+            {([
+              { key: "phase1" as const, label: "Phase 1 — 기본 UX 개선", desc: "샘플 배지, 콘텐츠 딥링크, 로딩 스켈레톤 등", subs: [
+                { key: "demoSampleBadge", label: "데모 데이터 [샘플] 배지" },
+                { key: "contentDeepLink", label: "콘텐츠 딥링크 (공유 URL)" },
+                { key: "loadingSkeleton", label: "로딩 스켈레톤 UI" },
+              ]},
+              { key: "phase2" as const, label: "Phase 2 — Google Apps Script 백엔드", desc: "환영 이메일, 명함→Drive, 관리자 알림", subs: [
+                { key: "welcomeEmail", label: "가입 환영 이메일" },
+                { key: "businessCardDrive", label: "명함 → Google Drive 전송" },
+              ]},
+              { key: "phase3" as const, label: "Phase 3 — 프로필 강화 + 명함 AI", desc: "Gemini API 키, 프로필 확장, 명함 분석", subs: [
+                { key: "geminiKeyInput", label: "Gemini API 키 입력" },
+                { key: "businessCardScan", label: "명함 AI 자동 분석" },
+                { key: "extendedProfile", label: "프로필 필드 확장 (직책, 회사소개)" },
+              ]},
+              { key: "phase4" as const, label: "Phase 4 — 알림 + 커뮤니티 강화", desc: "알림 시스템, 공유 버튼, 인기글", subs: [
+                { key: "notificationSystem", label: "알림 시스템" },
+                { key: "shareButton", label: "콘텐츠 공유 버튼" },
+                { key: "popularPosts", label: "인기글 섹션" },
+              ]},
+              { key: "phase5" as const, label: "Phase 5 — AI 상담사", desc: "사이트 전체 데이터를 학습한 AI 챗봇", subs: [
+                { key: "aiCounselor", label: "AI 상담사 채팅" },
+              ]},
+            ]).map((phase) => (
+              <div key={phase.key} className="border border-gray-200 rounded-xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">{phase.label}</h3>
+                    <p className="text-sm text-gray-500">{phase.desc}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFeatureFlags((prev) => ({
+                      ...prev,
+                      [phase.key]: { ...prev[phase.key], enabled: !prev[phase.key].enabled },
+                    }))}
+                    className={cn(
+                      "relative w-12 h-6 rounded-full transition-colors",
+                      featureFlags[phase.key].enabled ? "bg-primary-600" : "bg-gray-300"
+                    )}
+                  >
+                    <span className={cn(
+                      "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform",
+                      featureFlags[phase.key].enabled ? "translate-x-6" : "translate-x-0.5"
+                    )} />
+                  </button>
+                </div>
+                {featureFlags[phase.key].enabled && phase.subs.length > 0 && (
+                  <div className="ml-4 mt-2 space-y-2 border-l-2 border-gray-100 pl-4">
+                    {phase.subs.map((sub) => (
+                      <label key={sub.key} className="flex items-center gap-3 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={featureFlags[phase.key][sub.key] === true}
+                          onChange={(e) => setFeatureFlags((prev) => ({
+                            ...prev,
+                            [phase.key]: { ...prev[phase.key], [sub.key]: e.target.checked },
+                          }))}
+                          className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        {sub.label}
+                      </label>
+                    ))}
+                    {phase.key === "phase2" && (
+                      <div className="mt-3">
+                        <label className="text-sm font-medium text-gray-700 mb-1 block">Apps Script 웹앱 URL</label>
+                        <input
+                          type="url"
+                          value={(featureFlags.phase2 as FeatureFlags["phase2"]).gasWebappUrl || ""}
+                          onChange={(e) => setFeatureFlags((prev) => ({
+                            ...prev,
+                            phase2: { ...prev.phase2, gasWebappUrl: e.target.value },
+                          }))}
+                          placeholder="https://script.google.com/macros/s/..."
+                          className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 mt-6">
+            <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
+            {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
           </div>
         </div>
       )}

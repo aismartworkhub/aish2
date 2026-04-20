@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getContents, getBoardsByGroup } from "@/lib/content-engine";
@@ -12,6 +12,7 @@ import type { Content, BoardConfig } from "@/types/content";
 import { ContentCard, ContentDetail } from "@/components/content";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 
 const ALL_KEY = "__all__";
 const SHORTS_KEY = "__shorts__";
@@ -37,6 +38,14 @@ function inferSource(c: Content): string {
 }
 
 export default function MediaPage() {
+  return (
+    <Suspense fallback={<div className="py-20 text-center text-gray-400">불러오는 중...</div>}>
+      <MediaPageInner />
+    </Suspense>
+  );
+}
+
+function MediaPageInner() {
   const [boards, setBoards] = useState<BoardConfig[]>([]);
   const [contents, setContents] = useState<Content[]>([]);
   const [activeTab, setActiveTab] = useState<SourceTab>(ALL_KEY);
@@ -44,7 +53,10 @@ export default function MediaPage() {
   const [selected, setSelected] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
+  const ff = useFeatureFlags();
+  const contentDeepLink = ff.phase1.enabled && ff.phase1.contentDeepLink === true;
 
   useEffect(() => {
     let cancelled = false;
@@ -96,6 +108,25 @@ export default function MediaPage() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!contentDeepLink || loading || contents.length === 0) return;
+    const idParam = searchParams.get("id");
+    if (idParam && !selected) {
+      const found = contents.find((c) => c.id === idParam);
+      if (found) setSelected(found);
+    }
+  }, [contentDeepLink, loading, contents, searchParams, selected]);
+
+  const selectContent = useCallback((c: Content) => {
+    setSelected(c);
+    if (contentDeepLink) router.replace(`/media?id=${c.id}`, { scroll: false });
+  }, [router, contentDeepLink]);
+
+  const clearSelected = useCallback(() => {
+    setSelected(null);
+    if (contentDeepLink) router.replace("/media", { scroll: false });
+  }, [router, contentDeepLink]);
+
   const boardForContent = useCallback(
     (c: Content): BoardConfig | undefined => boards.find((b) => b.key === c.boardKey),
     [boards],
@@ -143,7 +174,7 @@ export default function MediaPage() {
         <ContentDetail
           content={selected}
           board={boardForContent(selected)}
-          onBack={() => setSelected(null)}
+          onBack={clearSelected}
         />
       </div>
     );
@@ -221,7 +252,7 @@ export default function MediaPage() {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => setSelected(c)}
+                  onClick={() => selectContent(c)}
                   className={cn(
                     "group relative aspect-[9/16] overflow-hidden rounded-xl bg-gray-100",
                     "transition-shadow hover:shadow-lg",
@@ -262,7 +293,7 @@ export default function MediaPage() {
                 key={c.id}
                 content={c}
                 board={boardForContent(c)}
-                onClick={setSelected}
+                onClick={selectContent}
               />
             ))}
           </div>

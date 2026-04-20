@@ -10,6 +10,15 @@ import { isExternalHref } from "@/lib/utils";
 import { loadPageContent, DEFAULT_WORKATHON } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
 
+const WORKATHON_STATUS_LABELS: Record<string, string> = {
+  REGISTRATION_OPEN: "참가 신청 중",
+  REGISTRATION_CLOSED: "신청 마감",
+  IN_PROGRESS: "진행 중",
+  COMPLETED: "종료",
+  CANCELLED: "취소",
+  UPCOMING: "예정",
+};
+
 export default function WorkathonPage() {
   const [pc, setPc] = useState<PageContentBase>(DEFAULT_WORKATHON);
   const [w, setW] = useState(DEMO_WORKATHON);
@@ -40,7 +49,7 @@ export default function WorkathonPage() {
       >
         <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-center px-4">
           <span className="inline-block bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium mb-4">
-            {w.status === "REGISTRATION_OPEN" ? "참가 신청 중" : w.status}
+            {WORKATHON_STATUS_LABELS[w.status] || w.status}
           </span>
           <h1 className="text-4xl md:text-5xl font-bold text-white uppercase tracking-tight mb-4">
             {w.title}

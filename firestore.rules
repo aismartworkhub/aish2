@@ -21,17 +21,30 @@ service cloud.firestore {
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
 
+    // users/{uid} 상위 문서에는 geminiApiKey를 두지 않음(본인만 private 서브컬렉션에 저장).
+    // 변경이 있을 때는 필드 삭제(마이그레이션)만 허용하고, 값 설정/변경은 거부.
+    function userParentGeminiRuleOk() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['geminiApiKey'])
+        || !('geminiApiKey' in request.resource.data);
+    }
+
     // ── users 컬렉션: 역할 기반 접근 제어의 핵심 ──
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow create: if isAuthenticated() && request.auth.uid == userId
-                    && request.resource.data.role == 'user';
-      allow update: if isAuthenticated() && (
+                    && request.resource.data.role == 'user'
+                    && !('geminiApiKey' in request.resource.data);
+      allow update: if isAuthenticated() && userParentGeminiRuleOk() && (
         (request.auth.uid == userId &&
          (!('role' in request.resource.data) || request.resource.data.role == resource.data.role))
         || isSuperAdmin()
       );
       allow delete: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+
+      // 비공개 프로필(본인만 읽기/쓰기 — 관리자도 접근 불가)
+      match /private/{docId} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      }
     }
 
     // 공개 읽기, 관리자만 쓰기 가능한 컬렉션들

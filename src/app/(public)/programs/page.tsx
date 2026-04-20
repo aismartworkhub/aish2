@@ -9,17 +9,13 @@ import {
   RUNMOA_STATUS_LABELS,
   RUNMOA_STATUS_COLORS,
 } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, htmlToPlainTextSummary } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { loadPageContent, DEFAULT_PROGRAMS } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
 import type { RunmoaContent, RunmoaCategory } from "@/types/runmoa";
 
 const RUNMOA_BASE = "https://aish.runmoa.com";
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, "").trim();
-}
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat("ko-KR").format(price);
@@ -145,7 +141,9 @@ export default function ProgramsPage() {
         {/* Runmoa 콘텐츠 카드 */}
         {!loading && !useFallback && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(filtered as RunmoaContent[]).map((c) => (
+            {(filtered as RunmoaContent[]).map((c) => {
+              const descPlain = htmlToPlainTextSummary(c.description_html, 120);
+              return (
               <div key={c.content_id} className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden flex flex-col hover-lift hover:border-t-4 hover:border-t-brand-blue">
                 {c.featured_image ? (
                   <div className="aspect-[16/9] overflow-hidden relative">
@@ -175,11 +173,11 @@ export default function ProgramsPage() {
                     </span>
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{c.title}</h3>
-                  {c.description_html && (
+                  {descPlain ? (
                     <p className="text-sm text-gray-500 mb-3 flex-1 line-clamp-3">
-                      {stripHtml(c.description_html).slice(0, 120)}
+                      {descPlain}
                     </p>
-                  )}
+                  ) : null}
                   <div className="mb-4">
                     {c.is_free ? (
                       <span className="text-lg font-bold text-green-600">무료</span>
@@ -205,7 +203,8 @@ export default function ProgramsPage() {
                   </a>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

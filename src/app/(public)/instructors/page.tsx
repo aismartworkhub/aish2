@@ -13,13 +13,15 @@ import {
   getCollection, getFilteredCollection, createDoc, removeDoc,
   COLLECTIONS, invalidateCache,
 } from "@/lib/firestore";
+import { doc, setDoc, deleteDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
 import { useToast } from "@/components/ui/Toast";
-import { cn } from "@/lib/utils";
+import { cn, htmlToPlainTextSummary } from "@/lib/utils";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
-import type { InstructorComment } from "@/types/firestore";
+import type { Bookmark, InstructorComment } from "@/types/firestore";
 import { getRunmoaContents, getRunmoaContentById } from "@/lib/runmoa-api";
 import type { RunmoaContent } from "@/types/runmoa";
 import { loadPageContent, DEFAULT_INSTRUCTORS } from "@/lib/page-content-public";
@@ -301,9 +303,32 @@ function InstructorDetailView({
   instructor: InstructorItem;
   onBack: () => void;
 }) {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const { requireLogin, showLogin, loginMessage, closeLogin } = useLoginGuard();
+  const instructorTargetId = String(instructor.id);
+  const [instructorBookmarked, setInstructorBookmarked] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setInstructorBookmarked(false);
+      return;
+    }
+    let cancelled = false;
+    getCollection<Bookmark & { id: string }>(COLLECTIONS.BOOKMARKS).then((all) => {
+      if (cancelled) return;
+      const hit = all.some(
+        (b) =>
+          b.userId === user.uid &&
+          b.targetId === instructorTargetId &&
+          b.targetType === "INSTRUCTOR",
+      );
+      setInstructorBookmarked(hit);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, instructorTargetId]);
 
   const imageSrc = instructor.imageUrl || instructor.profileImageUrl;
 
@@ -337,7 +362,29 @@ function InstructorDetailView({
 
   const handleFavorite = () => {
     requireLogin(() => {
-      toast("관심강사로 등록되었습니다.", "success");
+      void (async () => {
+        if (!user) return;
+        const docId = `${user.uid}_${instructorTargetId}`;
+        const ref = doc(db, COLLECTIONS.BOOKMARKS, docId);
+        try {
+          if (instructorBookmarked) {
+            await deleteDoc(ref);
+            setInstructorBookmarked(false);
+            toast("관심강사 목록에서 제거했습니다.", "info");
+          } else {
+            await setDoc(ref, {
+              targetId: instructorTargetId,
+              targetType: "INSTRUCTOR" as const,
+              userId: user.uid,
+              createdAt: new Date().toISOString(),
+            });
+            setInstructorBookmarked(true);
+            toast("관심강사로 등록되었습니다.", "success");
+          }
+        } catch {
+          toast("저장에 실패했습니다. 잠시 후 다시 시도해주세요.", "error");
+        }
+      })();
     }, "관심강사 등록은 로그인이 필요합니다.");
   };
 
@@ -410,7 +457,12 @@ function InstructorDetailView({
               {/* Action Buttons Grid */}
               <div className="grid grid-cols-2 divide-x divide-y divide-gray-200 border-t border-gray-200 bg-white">
                 <ActionButton icon={UserPlus} label="강사 섭외하기" onClick={handleHire} />
-                <ActionButton icon={Heart} label="관심강사 등록" onClick={handleFavorite} />
+                <ActionButton
+                  icon={Heart}
+                  iconClassName={instructorBookmarked ? "fill-red-500 text-red-500" : undefined}
+                  label={instructorBookmarked ? "관심강사 해제" : "관심강사 등록"}
+                  onClick={handleFavorite}
+                />
                 <ActionButton icon={PlayCircle} label="관련영상 보기" onClick={handleVideo} />
                 <ActionButton icon={MessageSquare} label="메시지 보내기" onClick={handleContact} />
               </div>
@@ -589,21 +641,6 @@ function pickImage(cls: RunmoaContent): string {
   return cls.featured_image || cls.thumbnail_link || cls.images?.[0] || "";
 }
 
-/** 태그 제거 + 일반 HTML 엔티티 정리 (&nbsp; 등 화면에 그대로 노출 방지) */
-function summaryPlainText(html: string, maxLen: number): string {
-  if (!html) return "";
-  let t = html.replace(/<[^>]*>/g, " ");
-  t = t
-    .replace(/&nbsp;|&#160;|&#xA0;/gi, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
-    .replace(/&#39;/g, "'");
-  t = t.replace(/\s+/g, " ").trim();
-  return t.slice(0, maxLen);
-}
-
 function normalizeSidebarTitle(title: string): string {
   return title.trim().replace(/\s+/g, " ");
 }
@@ -635,7 +672,7 @@ function runmoaToCard(cls: RunmoaContent): ClassCard {
   return {
     id: String(cls.content_id),
     title: cls.title,
-    description: summaryPlainText(cls.description_html, 80),
+    description: htmlToPlainTextSummary(cls.description_html, 80),
     imageUrl: pickImage(cls),
     href: `${RUNMOA_BASE}/classes/${cls.content_id}`,
     contentType: cls.content_type,
@@ -888,17 +925,19 @@ function ActionButton({
   icon: Icon,
   label,
   onClick,
+  iconClassName,
 }: {
   icon: React.ElementType;
   label: string;
   onClick: () => void;
+  iconClassName?: string;
 }) {
   return (
     <button
       onClick={onClick}
       className="flex flex-col items-center justify-center py-4 md:py-5 px-2 gap-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors group"
     >
-      <Icon strokeWidth={1.5} className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
+      <Icon strokeWidth={1.5} className={cn("w-5 h-5 group-hover:scale-110 transition-transform duration-300", iconClassName)} />
       <span className="text-[12px] md:text-[13px] font-medium tracking-tight">{label}</span>
     </button>
   );

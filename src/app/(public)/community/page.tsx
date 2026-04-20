@@ -18,6 +18,8 @@ import type { PageContentBase } from "@/types/page-content";
 import DOMPurify from "dompurify";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import { useAuth } from "@/contexts/AuthContext";
+import { createNotification } from "@/lib/notification-service";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import LoginModal from "@/components/public/LoginModal";
 import { useToast } from "@/components/ui/Toast";
 import { doc, setDoc, deleteDoc } from "firebase/firestore";
@@ -33,7 +35,15 @@ function canonicalCommunityPostId(id: string | number): string {
   return s.startsWith(LEGACY_POST_PREFIX) ? s.slice(LEGACY_POST_PREFIX.length) : s;
 }
 
-type NoticeRow = { id: string | number; title: string; date: string; views: number; pinned: boolean; content?: string };
+type NoticeRow = {
+  id: string | number;
+  title: string;
+  date: string;
+  views: number;
+  pinned: boolean;
+  content?: string;
+  authorUid?: string;
+};
 
 function mergeNoticeRowsByCanonicalId(fromPosts: NoticeRow[], fromContents: NoticeRow[]): NoticeRow[] {
   const map = new Map<string, NoticeRow>();
@@ -41,7 +51,14 @@ function mergeNoticeRowsByCanonicalId(fromPosts: NoticeRow[], fromContents: Noti
     map.set(canonicalCommunityPostId(p.id), { ...p });
   }
   for (const m of fromContents) {
-    map.set(canonicalCommunityPostId(m.id), { ...m });
+    const key = canonicalCommunityPostId(m.id);
+    const prev = map.get(key);
+    map.set(key, {
+      ...(prev ?? { id: m.id, title: m.title, date: m.date, views: m.views, pinned: m.pinned }),
+      ...m,
+      authorUid: m.authorUid || prev?.authorUid,
+      content: m.content ?? prev?.content,
+    });
   }
   return Array.from(map.values());
 }
@@ -69,8 +86,7 @@ const FIXED_TABS: { key: TabKey; label: string; icon: React.ElementType; color: 
   { key: "review", label: "수강후기", icon: Star, color: "text-orange-600 bg-orange-50" },
   { key: "resource", label: "자료실", icon: FolderOpen, color: "text-green-600 bg-green-50" },
   { key: "faq", label: "FAQ", icon: HelpCircle, color: "text-yellow-600 bg-yellow-50" },
-  { key: "certificate", label: "수료증 조회", icon: Award, color: "text-purple-600 bg-purple-50" },
-  { key: "inquiry", label: "협력 문의", icon: Handshake, color: "text-red-600 bg-red-50" },
+  { key: "gallery", label: "갤러리", icon: Images, color: "text-pink-600 bg-pink-50" },
 ];
 
 const NOTICES: { id: string | number; title: string; date: string; views: number; pinned: boolean }[] = [
@@ -97,7 +113,17 @@ const GALLERY_IMAGES: { id: string | number; title: string; category: string; im
   { id: 6, title: "네트워킹 행사", category: "행사", imageUrl: "/images/defaults/spec-system.jpg" },
 ];
 
-function PostCommentSection({ postId, postType }: { postId: string; postType: "NOTICE" | "RESOURCE" | "FREE" }) {
+function PostCommentSection({
+  postId,
+  postType,
+  postAuthorUid,
+  postTitle,
+}: {
+  postId: string;
+  postType: "NOTICE" | "RESOURCE" | "FREE";
+  postAuthorUid?: string;
+  postTitle?: string;
+}) {
   const { user, profile, isAdmin } = useAuth();
   const [comments, setComments] = useState<(PostComment & { id: string })[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -144,6 +170,19 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
         authorPhotoURL: user.photoURL || null,
         content: newComment.trim(),
       });
+      const sender = profile?.name || user.displayName || "회원";
+      const tabSlug = postType === "NOTICE" ? "notice" : postType === "RESOURCE" ? "resource" : "free";
+      if (postAuthorUid && postAuthorUid !== user.uid) {
+        void createNotification({
+          recipientUid: postAuthorUid,
+          type: "comment",
+          title: "새 댓글",
+          message: `${sender}님이 "${postTitle || "게시글"}"에 댓글을 남겼습니다.`,
+          linkUrl: `/community?tab=${tabSlug}&postId=${encodeURIComponent(postId)}`,
+          senderUid: user.uid,
+          senderName: sender,
+        });
+      }
       setNewComment("");
       invalidateCache(COLLECTIONS.POST_COMMENTS);
       await load();
@@ -162,6 +201,19 @@ function PostCommentSection({ postId, postType }: { postId: string; postType: "N
         authorPhotoURL: user.photoURL || null,
         content: replyContent.trim(),
       });
+      const sender = profile?.name || user.displayName || "회원";
+      const tabSlug = postType === "NOTICE" ? "notice" : postType === "RESOURCE" ? "resource" : "free";
+      if (postAuthorUid && postAuthorUid !== user.uid) {
+        void createNotification({
+          recipientUid: postAuthorUid,
+          type: "reply",
+          title: "새 답글",
+          message: `${sender}님이 "${postTitle || "게시글"}"에 답글을 남겼습니다.`,
+          linkUrl: `/community?tab=${tabSlug}&postId=${encodeURIComponent(postId)}`,
+          senderUid: user.uid,
+          senderName: sender,
+        });
+      }
       setReplyContent(""); setReplyingTo(null);
       invalidateCache(COLLECTIONS.POST_COMMENTS);
       await load();
@@ -254,6 +306,9 @@ function CommunityContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as TabKey | null;
+  const postIdFromUrl = searchParams.get("postId");
+  const ff = useFeatureFlags();
+  const showPopularPosts = ff.phase4.enabled && ff.phase4.popularPosts === true;
   const [pc, setPc] = useState<PageContentBase>(DEFAULT_COMMUNITY);
   const [activeTab, setActiveTab] = useState<TabKey>(tabParam || ALL_TAB_KEY);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -352,6 +407,19 @@ function CommunityContent() {
     }
   }, [tabParam]);
 
+  useEffect(() => {
+    if (!postIdFromUrl || !tabParam) return;
+    if (tabParam === "notice") {
+      setExpandedNoticeId(postIdFromUrl);
+    } else if (tabParam === "resource") {
+      setExpandedResourceId(postIdFromUrl);
+    } else if (tabParam === "free") {
+      window.setTimeout(() => {
+        document.getElementById(`community-item-${postIdFromUrl}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  }, [postIdFromUrl, tabParam]);
+
   // 좋아요 / 북마크 로드
   useEffect(() => {
     if (!user) return;
@@ -407,6 +475,7 @@ function CommunityContent() {
                   date: toDateString(p.createdAt || p.date),
                   views: p.views || 0,
                   pinned: p.pinned || p.isPinned || false,
+                  authorUid: (p as { authorUid?: string }).authorUid,
                 }))
             : [];
 
@@ -417,6 +486,7 @@ function CommunityContent() {
           views: c.views || 0,
           pinned: c.isPinned || false,
           content: c.body,
+          authorUid: c.authorUid,
         }));
 
         const mergedNotices = mergeNoticeRowsByCanonicalId(noticesFromPosts, mappedNotices);
@@ -860,6 +930,44 @@ function CommunityContent() {
         {/* 전체보기 */}
         {activeTab === ALL_TAB_KEY && (
           <div className="space-y-8">
+            {/* 인기글 */}
+            {(() => {
+              if (!showPopularPosts) return null;
+              const popular = freePosts
+                .filter((p) => p.isApproved)
+                .filter((p) => p.views > 0 || (likeCounts.get(p.id) ?? 0) > 0)
+                .sort((a, b) => {
+                  const sa = (a.views ?? 0) + (likeCounts.get(a.id) ?? 0) * 3;
+                  const sb = (b.views ?? 0) + (likeCounts.get(b.id) ?? 0) * 3;
+                  return sb - sa;
+                })
+                .slice(0, 5);
+              if (popular.length === 0) return null;
+              return (
+                <section className="card-base overflow-hidden">
+                  <div className="p-5 border-b border-brand-border">
+                    <h3 className="text-lg font-bold text-brand-dark flex items-center gap-2">🔥 인기글</h3>
+                  </div>
+                  <div className="divide-y divide-brand-border/50">
+                    {popular.map((p, i) => (
+                      <button
+                        key={p.id || i}
+                        type="button"
+                        onClick={() => { setActiveTab("free"); setTimeout(() => document.getElementById(`community-item-${p.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 100); }}
+                        className="w-full px-5 py-3 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <span className="text-xs font-bold text-brand-blue w-5">{i + 1}</span>
+                        <span className="text-sm text-gray-800 truncate flex-1">{p.title}</span>
+                        <span className="text-xs text-gray-400 shrink-0">
+                          ♥ {likeCounts.get(p.id) ?? 0} · 👁 {p.views}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              );
+            })()}
+
             {/* 공지사항 미리보기 */}
             <section className="card-base overflow-hidden">
               <div className="p-5 border-b border-brand-border flex items-center justify-between">
@@ -969,7 +1077,7 @@ function CommunityContent() {
             </div>
             <div className="divide-y divide-brand-border/50">
               {sortedNotices.map((notice) => (
-                <div key={notice.id}>
+                <div key={notice.id} id={`community-item-${notice.id}`}>
                   <button
                     onClick={() => setExpandedNoticeId(expandedNoticeId === notice.id ? null : notice.id)}
                     className="w-full flex items-center px-6 py-4 hover:bg-gray-50 transition-colors text-left"
@@ -1006,7 +1114,12 @@ function CommunityContent() {
                           </button>
                         </div>
                       )}
-                      <PostCommentSection postId={String(notice.id)} postType="NOTICE" />
+                      <PostCommentSection
+                        postId={String(notice.id)}
+                        postType="NOTICE"
+                        postAuthorUid={notice.authorUid}
+                        postTitle={notice.title}
+                      />
                     </div>
                   )}
                 </div>
@@ -1035,7 +1148,7 @@ function CommunityContent() {
             {driveResources.length > 0 && (
               <div className="divide-y divide-gray-50">
                 {driveResources.map((res) => (
-                  <div key={res.id}>
+                  <div key={res.id} id={`community-item-${res.id}`}>
                     <button
                       onClick={() => setExpandedResourceId(expandedResourceId === res.id ? null : res.id)}
                       className="w-full flex items-center px-6 py-4 hover:bg-gray-50 transition-colors text-left"
@@ -1086,7 +1199,12 @@ function CommunityContent() {
                             </button>
                           </div>
                         )}
-                        <PostCommentSection postId={String(res.id)} postType="RESOURCE" />
+                        <PostCommentSection
+                          postId={String(res.id)}
+                          postType="RESOURCE"
+                          postAuthorUid={res.uploaderId}
+                          postTitle={res.title}
+                        />
                       </div>
                     )}
                   </div>
@@ -1097,7 +1215,7 @@ function CommunityContent() {
             {/* 기존 게시판 자료 (Firestore posts) */}
             <div className="divide-y divide-gray-50">
               {resourceList.map((res) => (
-                <div key={res.id} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors">
+                <div key={res.id} id={`community-item-${res.id}`} className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{res.title}</p>
                     <p className="text-xs text-gray-400 mt-1">{res.author} · {res.date}</p>
@@ -1168,7 +1286,7 @@ function CommunityContent() {
                       <li>이메일로 찾을 수 없는 경우 이름으로도 검색해 보세요.</li>
                       <li>수료 또는 졸업 상태인 수강생만 조회 가능합니다.</li>
                       <li>관리자가 아직 수료 정보를 등록하지 않았을 수 있습니다.</li>
-                      <li>문의사항은 <button type="button" onClick={() => setActiveTab("inquiry")} className="underline font-medium">협력 문의</button> 탭을 이용해 주세요.</li>
+                      <li>문의사항은 <Link href="/community?tab=inquiry" className="underline font-medium">협력 문의</Link>를 이용해 주세요.</li>
                     </ul>
                   </div>
                 )}
@@ -1200,6 +1318,7 @@ function CommunityContent() {
             {faqList.map((faq, index) => (
               <div
                 key={index}
+                id={`community-item-${index}`}
                 className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden"
               >
                 <button
@@ -1371,7 +1490,7 @@ function CommunityContent() {
               {freePosts.filter((p) => p.isApproved || p.authorUid === user?.uid).length === 0 ? (
                 <div className="px-6 py-12 text-center text-gray-400 text-sm">게시물이 없습니다.{user ? " 첫 글을 작성해 보세요!" : ""}</div>
               ) : freePosts.filter((p) => p.isApproved || p.authorUid === user?.uid).map((post) => (
-                <div key={post.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                <div key={post.id} id={`community-item-${post.id}`} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-medium text-gray-900">{post.title}</span>
                     {!post.isApproved && <span className="badge-base bg-yellow-100 text-yellow-700">승인 대기</span>}
@@ -1392,7 +1511,12 @@ function CommunityContent() {
                       </button>
                     </div>
                   )}
-                  <PostCommentSection postId={post.id} postType="FREE" />
+                  <PostCommentSection
+                    postId={post.id}
+                    postType="FREE"
+                    postAuthorUid={post.authorUid}
+                    postTitle={post.title}
+                  />
                 </div>
               ))}
             </div>

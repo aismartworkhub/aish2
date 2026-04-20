@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowUp } from "lucide-react";
+import { isExternalHref } from "@/lib/utils";
 import { useSiteCta } from "@/hooks/useSiteCta";
 
 export default function FloatingCta() {
  const { buttonUrl, buttonText, floatingEnabled } = useSiteCta();
+ const ctaOpensNewTab = isExternalHref(buttonUrl);
  const [isVisible, setIsVisible] = useState(false);
 
  useEffect(() => {
@@ -32,8 +34,8 @@ export default function FloatingCta() {
      {floatingEnabled && (
        <Link
          href={buttonUrl}
-         target="_blank"
-         rel="noopener noreferrer"
+         target={ctaOpensNewTab ? "_blank" : undefined}
+         rel={ctaOpensNewTab ? "noopener noreferrer" : undefined}
          className="md:hidden flex items-center gap-2 px-6 py-3.5 rounded-sm bg-brand-blue text-white text-sm font-semibold uppercase tracking-widest shadow-2xl shadow-brand-blue/30 hover:bg-brand-dark transition-all"
        >
          {buttonText}

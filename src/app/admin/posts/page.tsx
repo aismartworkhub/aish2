@@ -3,9 +3,11 @@
 import { useState } from "react";
 import {
   Plus, Search, Edit, Trash2, Pin, Eye, FileText, X, Save, Link, Paperclip, ExternalLink, Image as ImageIcon, File, PlusCircle, HardDrive,
+  CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
+import { createNotification } from "@/lib/notification-service";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import LegacyMigrationBanner from "@/components/admin/LegacyMigrationBanner";
@@ -29,11 +31,15 @@ interface Post {
   notionLink?: string;
   slackLink?: string;
   attachments?: DriveAttachment[];
+  /** 묻고답하기(FREE) 사용자 작성 글 승인 여부 */
+  isApproved?: boolean;
+  authorUid?: string;
 }
 
 const DEFAULT_BOARD_TYPES: Record<string, string> = {
   NOTICE: "공지사항",
   RESOURCE: "자료실",
+  FREE: "묻고답하기",
 };
 
 const MAX_ATTACHMENTS = 3;
@@ -51,6 +57,7 @@ const emptyPost = (): Omit<Post, "id"> => ({
   notionLink: "",
   slackLink: "",
   attachments: [],
+  isApproved: true,
 });
 
 function getAttachmentIcon(type: string) {
@@ -169,6 +176,28 @@ export default function AdminPostsPage() {
     }
   };
 
+  const approveFreePost = async (post: Post) => {
+    try {
+      await updateDocFields(COLLECTIONS.POSTS, post.id, { isApproved: true });
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, isApproved: true } : p)));
+      const uid = post.authorUid?.trim();
+      if (uid) {
+        void createNotification({
+          recipientUid: uid,
+          type: "POST_APPROVED",
+          title: "게시글이 승인되었습니다",
+          message: `「${post.title}」이(가) 커뮤니티에 공개되었습니다.`,
+          linkTab: "free",
+          linkTargetId: post.id,
+        });
+      }
+      toast("승인되었습니다.", "success");
+    } catch (e) {
+      console.error(e);
+      toast("승인에 실패했습니다.", "error");
+    }
+  };
+
 
 
   // 첨부파일은 DriveFileUploader 컴포넌트에서 처리
@@ -244,9 +273,12 @@ export default function AdminPostsPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {post.isPinned && <Pin size={12} className="text-primary-500" />}
                     <span className="text-sm font-medium text-gray-900">{post.title}</span>
+                    {post.boardType === "FREE" && post.isApproved === false && (
+                      <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">승인 대기</span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -267,6 +299,16 @@ export default function AdminPostsPage() {
                 <td className="px-4 py-3"><div className="flex items-center gap-1 text-sm text-gray-500"><Eye size={14} />{post.views}</div></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
+                    {post.boardType === "FREE" && post.isApproved === false && (
+                      <button
+                        type="button"
+                        onClick={() => approveFreePost(post)}
+                        className="p-1.5 rounded-lg hover:bg-green-50 text-green-600 transition-colors"
+                        title="묻고답하기 글 승인"
+                      >
+                        <CheckCircle size={14} />
+                      </button>
+                    )}
                     <button onClick={() => togglePin(post.id)} className={cn("p-1.5 rounded-lg transition-colors", post.isPinned ? "bg-primary-50 text-primary-600" : "text-gray-400 hover:text-primary-600 hover:bg-primary-50")}>
                       <Pin size={14} />
                     </button>
