@@ -64,7 +64,9 @@ export default function WorkathonPage() {
         <div className="max-w-4xl mx-auto px-4">
           {/* Header */}
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-4">{w.description}</h2>
+            <h2 className="text-3xl font-bold text-brand-dark tracking-tight mb-4 whitespace-pre-line">
+              {w.description}
+            </h2>
           </div>
 
         {/* Info Cards */}
