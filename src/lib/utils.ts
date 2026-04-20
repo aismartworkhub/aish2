@@ -20,14 +20,37 @@ export function truncate(str: string, length: number): string {
 
 const HTML_SCRIPT_BLOCK_RE = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
 const HTML_STYLE_BLOCK_RE = /<style\b[^>]*>[\s\S]*?<\/style>/gi;
+const HTML_NOSCRIPT_BLOCK_RE = /<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi;
 const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
 const HTML_TAG_RE = /<[^>]*>/g;
+
+function decodeHtmlEntitiesOnce(s: string): string {
+  return s
+    .replace(/&nbsp;|&#160;|&#xA0;/gi, " ")
+    .replace(/&#(\d+);/g, (_, n) => {
+      const c = Number(n);
+      if (!Number.isFinite(c) || c < 32 || c > 0x10ffff) return _;
+      return String.fromCodePoint(c);
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+      const c = parseInt(h, 16);
+      if (!Number.isFinite(c) || c < 32 || c > 0x10ffff) return _;
+      return String.fromCodePoint(c);
+    })
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+}
 
 /** 태그만 지우면 <style> 본문(CSS)이 그대로 남는 문제 방지 */
 function looksLikeCssOrScopedStyleSnippet(text: string): boolean {
   const s = text.trim();
   if (s.length < 8) return false;
   if (/\.rmclass-/i.test(s)) return true;
+  if (/--rm-[\w-]*\s*:/.test(s) && /[{}]/.test(s)) return true;
+  if (/rgba\s*\(\s*\d/.test(s) && (/[{}]/.test(s) || /--[\w-]+\s*:/.test(s))) return true;
   if (/^\/\*[\s\S]*\*\/\s*[\s\S]*\{/.test(s) && /[{}]/.test(s)) return true;
   if (
     /^(\/\*|\.[a-zA-Z0-9_-]+|#[a-zA-Z0-9_-]+|@[a-z-]+)/.test(s) &&
@@ -41,22 +64,20 @@ function looksLikeCssOrScopedStyleSnippet(text: string): boolean {
 
 /**
  * Runmoa 등에서 내려오는 HTML에서 카드용 짧은 일반 텍스트만 추출한다.
- * <script>/<style> 블록 전체를 먼저 제거한 뒤 태그를 벗긴다.
+ * 엔티티로 감싸진 <style>까지 잡기 위해 디코드 → 블록 제거 → 태그 제거를 여러 번 반복한다.
  */
 export function htmlToPlainTextSummary(html: string, maxLen?: number): string {
   if (!html) return "";
-  let t = html
-    .replace(HTML_SCRIPT_BLOCK_RE, " ")
-    .replace(HTML_STYLE_BLOCK_RE, " ")
-    .replace(HTML_COMMENT_RE, " ");
-  t = t.replace(HTML_TAG_RE, " ");
-  t = t
-    .replace(/&nbsp;|&#160;|&#xA0;/gi, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
-    .replace(/&#39;/g, "'");
+  let t = html.replace(/\uFEFF/g, "").replace(/\uFF0E/g, ".");
+  for (let round = 0; round < 4; round++) {
+    t = decodeHtmlEntitiesOnce(t);
+    t = t
+      .replace(HTML_SCRIPT_BLOCK_RE, " ")
+      .replace(HTML_STYLE_BLOCK_RE, " ")
+      .replace(HTML_NOSCRIPT_BLOCK_RE, " ")
+      .replace(HTML_COMMENT_RE, " ");
+    t = t.replace(HTML_TAG_RE, " ");
+  }
   t = t.replace(/\s+/g, " ").trim();
   if (looksLikeCssOrScopedStyleSnippet(t)) return "";
   if (maxLen !== undefined && maxLen > 0 && t.length > maxLen) {
