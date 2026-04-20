@@ -44,6 +44,51 @@ function decodeHtmlEntitiesOnce(s: string): string {
     .replace(/&amp;/g, "&");
 }
 
+/** Slash-star 블록 주석(에디터·Runmoa에 붙는 CSS 설명) 제거 */
+function stripCStyleBlockComments(text: string): string {
+  let t = text;
+  for (let i = 0; i < 24; i++) {
+    const next = t.replace(/\/\*[\s\S]*?\*\//g, " ");
+    if (next === t) break;
+    t = next;
+  }
+  return t;
+}
+
+/** 본문 앞부분은 한글 소개, 뒤에 CSS가 붙은 경우 — 첫 CSS 조각 직전까지만 사용 */
+function earliestRunmoaCssArtifactIndex(s: string): number {
+  const markers: RegExp[] = [
+    /\/\*/,
+    /\.rmclass-/i,
+    /--rm-[\w-]*\s*:/,
+    /:\s*root\b/i,
+    /:host\b/i,
+    /@media\b/i,
+    /@import\b/i,
+    /box-sizing\s*:/i,
+    /font-family\s*:\s*-apple-system/i,
+    /\*\s*,\s*\*/,
+    /\*\s*::before/i,
+    /\*\s*::after/i,
+    /\*\s*\{/,
+    /\*\{box-sizing/i,
+    /rgba\s*\(\s*\d/,
+    /\bbody\s*\{/i,
+  ];
+  let min = s.length;
+  for (const re of markers) {
+    const idx = s.search(re);
+    if (idx !== -1 && idx < min) min = idx;
+  }
+  return min;
+}
+
+function truncateBeforeRunmoaCssArtifacts(s: string): string {
+  const idx = earliestRunmoaCssArtifactIndex(s);
+  if (idx < s.length) return s.slice(0, idx).trim();
+  return s;
+}
+
 /** 태그만 지우면 <style> 본문(CSS)이 그대로 남는 문제 방지 */
 function looksLikeCssOrScopedStyleSnippet(text: string): boolean {
   const s = text.trim();
@@ -59,6 +104,9 @@ function looksLikeCssOrScopedStyleSnippet(text: string): boolean {
   ) {
     return true;
   }
+  if (/:\s*root\b/i.test(s) || /:host\b/i.test(s)) return true;
+  if (/\*\s*,\s*\*/.test(s) || /\*\s*\{/.test(s)) return true;
+  if (/box-sizing\s*:\s*border-box/i.test(s) && /[{};]/.test(s)) return true;
   return false;
 }
 
@@ -79,7 +127,12 @@ export function htmlToPlainTextSummary(html: string, maxLen?: number): string {
     t = t.replace(HTML_TAG_RE, " ");
   }
   t = t.replace(/\s+/g, " ").trim();
+  t = stripCStyleBlockComments(t);
+  t = t.replace(/\s+/g, " ").trim();
+  t = truncateBeforeRunmoaCssArtifacts(t);
+  t = t.replace(/\s+/g, " ").trim();
   if (looksLikeCssOrScopedStyleSnippet(t)) return "";
+  if (t.length < 2) return "";
   if (maxLen !== undefined && maxLen > 0 && t.length > maxLen) {
     t = t.slice(0, maxLen);
   }
