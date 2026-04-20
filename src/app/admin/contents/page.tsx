@@ -17,11 +17,14 @@ import type { BoardConfig, Content, ContentInput, MediaType } from "@/types/cont
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import MediaPreview from "@/components/content/MediaPreview";
+import { contentDisplayTitle } from "@/lib/content-display";
 
 const EMPTY_CONTENT: Omit<ContentInput, "authorUid" | "authorName"> = {
   boardKey: "",
   title: "",
+  titleKo: "",
   body: "",
+  bodyKo: "",
   mediaType: "none",
   mediaUrl: "",
   thumbnailUrl: "",
@@ -92,6 +95,9 @@ export default function AdminContentsPage() {
     return contents.filter(
       (c) =>
         c.title.toLowerCase().includes(q) ||
+        (c.titleKo?.toLowerCase().includes(q) ?? false) ||
+        (c.body?.toLowerCase().includes(q) ?? false) ||
+        (c.bodyKo?.toLowerCase().includes(q) ?? false) ||
         c.authorName.toLowerCase().includes(q) ||
         c.tags?.some((t) => t.toLowerCase().includes(q)),
     );
@@ -110,7 +116,9 @@ export default function AdminContentsPage() {
       id: c.id,
       boardKey: c.boardKey,
       title: c.title,
+      titleKo: c.titleKo ?? "",
       body: c.body ?? "",
+      bodyKo: c.bodyKo ?? "",
       mediaType: c.mediaType ?? "none",
       mediaUrl: c.mediaUrl ?? "",
       thumbnailUrl: c.thumbnailUrl ?? "",
@@ -165,8 +173,9 @@ export default function AdminContentsPage() {
 
     setSaving(true);
     try {
+      const { id: editingId, ...editingRest } = editing;
       const data: ContentInput = {
-        ...editing,
+        ...editingRest,
         boardKey: selectedBoard,
         authorUid: user.uid,
         authorName: profile?.displayName ?? user.displayName ?? "관리자",
@@ -177,8 +186,8 @@ export default function AdminContentsPage() {
       if (isCreating) {
         await createContent(data);
         toast("콘텐츠가 등록되었습니다.", "success");
-      } else if (editing.id) {
-        await updateContent(editing.id, data);
+      } else if (editingId) {
+        await updateContent(editingId, data);
         toast("콘텐츠가 수정되었습니다.", "success");
       }
       setEditing(null);
@@ -246,7 +255,7 @@ export default function AdminContentsPage() {
         <input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="제목, 작성자, 태그 검색..."
+          placeholder="제목, 한글 제목·설명, 작성자, 태그 검색..."
           className={cn(
             "w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm",
             "focus:outline-none focus:ring-2 focus:ring-primary-500/20",
@@ -288,13 +297,13 @@ export default function AdminContentsPage() {
                               mediaUrl={c.mediaUrl}
                               mediaType={c.mediaType}
                               thumbnailUrl={c.thumbnailUrl}
-                              title={c.title}
+                              title={contentDisplayTitle(c)}
                               className="h-full w-full"
                             />
                           </div>
                         )}
                         <span className="truncate font-medium text-gray-800">
-                          {isFaq ? c.question || c.title : c.title}
+                          {isFaq ? c.question || c.title : contentDisplayTitle(c)}
                         </span>
                       </div>
                     </td>
@@ -376,6 +385,7 @@ export default function AdminContentsPage() {
                   {/* 일반 콘텐츠 */}
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">제목 *</label>
+                    <p className="mb-1 text-xs text-gray-500">영문·원본 제목(메타·출처용). 유튜브 수집 시 그대로 둬도 됩니다.</p>
                     <input
                       value={editing.title}
                       onChange={(e) => setEditing({ ...editing, title: e.target.value })}
@@ -385,13 +395,39 @@ export default function AdminContentsPage() {
                       )}
                     />
                   </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">표시용 한글 제목 (선택)</label>
+                    <p className="mb-1 text-xs text-gray-500">비우면 위 제목이 그대로 노출됩니다. 방문자에게 보일 한글 제목을 넣으세요.</p>
+                    <input
+                      value={editing.titleKo || ""}
+                      onChange={(e) => setEditing({ ...editing, titleKo: e.target.value })}
+                      className={cn(
+                        "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm",
+                        "focus:outline-none focus:ring-2 focus:ring-primary-500/20",
+                      )}
+                    />
+                  </div>
 
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">본문</label>
+                    <p className="mb-1 text-xs text-gray-500">원문 설명(영문 등). 표시용 한글 설명을 쓰면 상세에서는 한글이 먼저 보입니다.</p>
                     <textarea
                       value={editing.body || ""}
                       onChange={(e) => setEditing({ ...editing, body: e.target.value })}
                       rows={5}
+                      className={cn(
+                        "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none",
+                        "focus:outline-none focus:ring-2 focus:ring-primary-500/20",
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">표시용 한글 설명 (선택)</label>
+                    <textarea
+                      value={editing.bodyKo || ""}
+                      onChange={(e) => setEditing({ ...editing, bodyKo: e.target.value })}
+                      rows={4}
+                      placeholder="요약·번역·한글 안내"
                       className={cn(
                         "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none",
                         "focus:outline-none focus:ring-2 focus:ring-primary-500/20",
@@ -443,6 +479,9 @@ export default function AdminContentsPage() {
                       )}
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">썸네일 URL (선택)</label>
+                        <p className="mb-1 text-xs text-gray-500">
+                          영어 텍스트 썸네일 대신 한글 안내 이미지(공개 URL)를 넣을 수 있습니다. 비우면 유튜브 기본 썸네일을 사용합니다.
+                        </p>
                         <input
                           value={editing.thumbnailUrl || ""}
                           onChange={(e) => setEditing({ ...editing, thumbnailUrl: e.target.value })}

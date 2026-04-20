@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { ArrowLeft, Star, ExternalLink, Youtube, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { contentDisplayBody, contentDisplayTitle } from "@/lib/content-display";
 import { incrementContentViews } from "@/lib/content-engine";
 import type { Content, BoardConfig } from "@/types/content";
 import MediaPreview from "./MediaPreview";
@@ -38,6 +39,8 @@ export default function ContentDetail({ content, board, onBack }: Props) {
 
   const showComments = board?.allowComments !== false;
   const hasMedia = content.mediaUrl && content.mediaType !== "none";
+  const displayTitle = contentDisplayTitle(content);
+  const displayBody = contentDisplayBody(content);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -55,7 +58,10 @@ export default function ContentDetail({ content, board, onBack }: Props) {
 
       <article className="space-y-6">
         <header className="space-y-2">
-          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{content.title}</h1>
+          <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">{displayTitle}</h1>
+          {content.titleKo?.trim() && content.title.trim() !== content.titleKo.trim() && (
+            <p className="text-sm text-gray-500">원제목: {content.title}</p>
+          )}
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
             <span className="font-medium text-gray-700">{content.authorName}</span>
             <span suppressHydrationWarning>{formatDate(content.createdAt)}</span>
@@ -93,7 +99,7 @@ export default function ContentDetail({ content, board, onBack }: Props) {
             mediaUrl={content.mediaUrl}
             mediaType={content.mediaType}
             thumbnailUrl={content.thumbnailUrl}
-            title={content.title}
+            title={displayTitle}
             embed
             className="rounded-lg"
           />
@@ -146,11 +152,17 @@ export default function ContentDetail({ content, board, onBack }: Props) {
         )}
 
         <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">
-          {content.body
-            ? content.body
+          {displayBody
+            ? displayBody
             : <p className="text-gray-400 italic">등록된 설명이 없습니다.</p>
           }
         </div>
+        {content.bodyKo?.trim() && (content.body ?? "").trim() !== content.bodyKo.trim() && (content.body ?? "").trim() !== "" && (
+          <details className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2 text-sm text-gray-600">
+            <summary className="cursor-pointer font-medium text-gray-700">원문 설명 보기</summary>
+            <div className="mt-2 whitespace-pre-wrap border-t border-gray-100 pt-2">{content.body}</div>
+          </details>
+        )}
 
         {showShare && (
           <div className="flex justify-end">
@@ -160,7 +172,7 @@ export default function ContentDetail({ content, board, onBack }: Props) {
                 const url = `${window.location.origin}/media?id=${content.id}`;
                 try {
                   if (navigator.share) {
-                    await navigator.share({ title: content.title, url });
+                    await navigator.share({ title: displayTitle, url });
                   } else {
                     await navigator.clipboard.writeText(url);
                     alert("링크가 복사되었습니다.");
@@ -185,7 +197,7 @@ export default function ContentDetail({ content, board, onBack }: Props) {
 
         {showComments && (
           <div className="border-t border-gray-100 pt-4">
-            <CommentSection contentId={content.id} contentAuthorUid={content.authorUid} contentTitle={content.title} />
+            <CommentSection contentId={content.id} contentAuthorUid={content.authorUid} contentTitle={displayTitle} />
           </div>
         )}
       </article>

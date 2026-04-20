@@ -2,6 +2,7 @@
 
 import { Heart, MessageCircle, Eye, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { contentDisplayTitle } from "@/lib/content-display";
 import type { Content, BoardConfig } from "@/types/content";
 import MediaPreview from "./MediaPreview";
 
@@ -44,7 +45,7 @@ function GridCard({ content, onClick }: Omit<Props, "board">) {
           mediaUrl={content.mediaUrl}
           mediaType={content.mediaType}
           thumbnailUrl={content.thumbnailUrl}
-          title={content.title}
+          title={contentDisplayTitle(content)}
           className="h-full w-full transition-transform duration-200 group-hover:scale-105"
         />
         {content.isShort && (
@@ -59,7 +60,7 @@ function GridCard({ content, onClick }: Omit<Props, "board">) {
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">
           {content.isPinned && <Pin size={12} className="mr-1 inline text-primary-500" />}
-          {content.title}
+          {contentDisplayTitle(content)}
         </h3>
         <p className="text-xs text-gray-500">{content.authorName}</p>
         <div className="mt-auto flex items-center gap-3 text-xs text-gray-400">
@@ -93,7 +94,7 @@ function ListRow({ content, onClick }: Omit<Props, "board">) {
     >
       {content.isPinned && <Pin size={14} className="shrink-0 text-primary-500" />}
       <span className="flex-1 truncate text-sm font-medium text-gray-800">
-        {content.title}
+        {contentDisplayTitle(content)}
       </span>
       {content.commentCount > 0 && (
         <span className="text-xs text-primary-500">[{content.commentCount}]</span>

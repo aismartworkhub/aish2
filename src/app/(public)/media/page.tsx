@@ -159,6 +159,9 @@ function MediaPageInner() {
       list = list.filter(
         (c) =>
           c.title.toLowerCase().includes(q) ||
+          (c.titleKo?.toLowerCase().includes(q) ?? false) ||
+          (c.body?.toLowerCase().includes(q) ?? false) ||
+          (c.bodyKo?.toLowerCase().includes(q) ?? false) ||
           c.authorName.toLowerCase().includes(q) ||
           c.tags?.some((t) => t.toLowerCase().includes(q)),
       );

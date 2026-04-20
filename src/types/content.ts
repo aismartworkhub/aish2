@@ -32,7 +32,11 @@ export interface Content {
   boardKey: string;
 
   title: string;
+  /** 비어 있으면 미사용. 있으면 공개 페이지에서 title 대신 표시(영문 원제목은 title에 유지) */
+  titleKo?: string;
   body?: string;
+  /** 비어 있으면 미사용. 있으면 공개 페이지에서 body 대신 표시 */
+  bodyKo?: string;
 
   mediaType?: MediaType;
   mediaUrl?: string;
