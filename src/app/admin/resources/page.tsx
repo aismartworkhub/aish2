@@ -180,7 +180,7 @@ export default function AdminResourcesPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">자료실 관리</h1>
+          <h1 className="text-2xl font-bold text-gray-900">교육자료 관리</h1>
           <p className="text-gray-500 mt-1">파일을 업로드하면 Google Drive에 저장됩니다.</p>
         </div>
         <button onClick={openCreateModal}

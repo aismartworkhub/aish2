@@ -84,7 +84,7 @@ const FIXED_TABS: { key: TabKey; label: string; icon: React.ElementType; color: 
   { key: "notice", label: "공지사항", icon: Bell, color: "text-blue-600 bg-blue-50" },
   { key: "free", label: "묻고 답하기", icon: MessageCircle, color: "text-indigo-600 bg-indigo-50" },
   { key: "review", label: "수강후기", icon: Star, color: "text-orange-600 bg-orange-50" },
-  { key: "resource", label: "자료실", icon: FolderOpen, color: "text-green-600 bg-green-50" },
+  { key: "resource", label: "교육자료", icon: FolderOpen, color: "text-green-600 bg-green-50" },
   { key: "faq", label: "FAQ", icon: HelpCircle, color: "text-yellow-600 bg-yellow-50" },
   { key: "gallery", label: "갤러리", icon: Images, color: "text-pink-600 bg-pink-50" },
 ];
@@ -853,7 +853,7 @@ function CommunityContent() {
               )}
               {searchResults.resources.length > 0 && (
                 <div className="p-3 border-t border-brand-border">
-                  <p className="text-xs font-semibold text-gray-400 mb-2">자료실 ({searchResults.resources.length}건)</p>
+                  <p className="text-xs font-semibold text-gray-400 mb-2">교육자료 ({searchResults.resources.length}건)</p>
                   {searchResults.resources.slice(0, 3).map((r) => (
                     <button key={r.id} onClick={() => handleSearchResultClick("resource", r.id)}
                       className="w-full text-left px-3 py-2 rounded-sm text-sm text-gray-700 hover:bg-gray-50 truncate">
@@ -1024,10 +1024,10 @@ function CommunityContent() {
               </div>
             </section>
 
-            {/* 자료실 미리보기 */}
+            {/* 교육자료 미리보기 */}
             <section className="card-base overflow-hidden">
               <div className="p-5 border-b border-brand-border flex items-center justify-between">
-                <h3 className="text-lg font-bold text-brand-dark flex items-center gap-2"><FolderOpen size={18} className="text-green-500" />자료실</h3>
+                <h3 className="text-lg font-bold text-brand-dark flex items-center gap-2"><FolderOpen size={18} className="text-green-500" />교육자료</h3>
                 <button type="button" onClick={() => setActiveTab("resource")} className="text-sm text-brand-blue hover:underline">더보기</button>
               </div>
               <div className="divide-y divide-brand-border/50">
@@ -1128,11 +1128,11 @@ function CommunityContent() {
           </div>
         )}
 
-        {/* 자료실 */}
+        {/* 교육자료 */}
         {activeTab === "resource" && (
           <div className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden">
             <div className="p-6 border-b border-brand-border">
-              <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">자료실</h2>
+              <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">교육자료</h2>
               <p className="text-sm text-gray-500 mt-1">교육 자료와 참고 문서를 다운로드하세요.</p>
             </div>
 

@@ -66,7 +66,7 @@ interface DriveFile {
  */
 export async function findOrCreateFolder(
   accessToken: string,
-  folderName = "AISH 자료실"
+  folderName = "AISH 교육자료"
 ): Promise<string> {
   // 기존 폴더 검색 — q 파라미터는 URLSearchParams로 안전하게 인코딩
   const searchUrl = new URL(`${DRIVE_API}drive/v3/files`);

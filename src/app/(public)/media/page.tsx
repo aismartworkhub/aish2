@@ -24,7 +24,7 @@ const SOURCE_TABS: { key: SourceTab; label: string }[] = [
   { key: "youtube", label: "유튜브" },
   { key: "github", label: "GitHub" },
   { key: "gallery", label: "갤러리" },
-  { key: "resource", label: "자료실" },
+  { key: "resource", label: "추천자료" },
 ];
 
 function inferSource(c: Content): string {

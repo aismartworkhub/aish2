@@ -17,7 +17,7 @@ import { STAT_ICONS } from "@/hooks/useHomeData";
 import type { HomeDataProps } from "@/hooks/useHomeData";
 
 const MEMBER_BENEFITS = [
-  { icon: FolderOpen, title: "실무 자료실", desc: "수업 자료, 양식, 템플릿을 제공합니다.", href: "/community?tab=resource" },
+  { icon: FolderOpen, title: "교육자료", desc: "수업 자료, 양식, 템플릿을 제공합니다.", href: "/community?tab=resource" },
   { icon: Award, title: "수료증 발급", desc: "과정 이수 증빙을 즉시 발급받으세요.", href: "/community?tab=certificate" },
   { icon: MessageCircle, title: "묻고답하기", desc: "학습/실무 질문에 전문가가 답변합니다.", href: "/community?tab=free" },
   { icon: Star, title: "수강 후기", desc: "실제 수강 경험을 확인하고 공유하세요.", href: "/community?tab=review" },

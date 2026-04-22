@@ -75,7 +75,7 @@ export const DEFAULT_BOARDS: BoardConfig[] = [
   },
   {
     key: "media-resource",
-    label: "자료실",
+    label: "추천자료",
     group: "media",
     layout: "list",
     writeRole: "member",

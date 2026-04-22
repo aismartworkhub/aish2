@@ -72,7 +72,7 @@ const DEFAULT_BOARD_CONFIGS: BoardCollectionConfig[] = [
   },
   {
     boardKey: "media-resource",
-    label: "자료실",
+    label: "추천자료",
     enabled: true,
     maxItems: 5,
     minQualityScore: 7,

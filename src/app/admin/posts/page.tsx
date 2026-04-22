@@ -38,7 +38,7 @@ interface Post {
 
 const DEFAULT_BOARD_TYPES: Record<string, string> = {
   NOTICE: "공지사항",
-  RESOURCE: "자료실",
+  RESOURCE: "교육자료",
   FREE: "묻고답하기",
 };
 
@@ -213,7 +213,7 @@ export default function AdminPostsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">게시판 관리</h1>
-          <p className="text-gray-500 mt-1">공지사항과 자료실 게시물을 관리합니다.</p>
+          <p className="text-gray-500 mt-1">공지사항과 교육자료 게시물을 관리합니다.</p>
         </div>
         <button onClick={startCreate} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors">
           <Plus size={18} />새 게시물 작성
@@ -384,7 +384,7 @@ export default function AdminPostsPage() {
               </div>
               {editingPost.boardType === "RESOURCE" && (
                 <div className="space-y-3 p-4 bg-green-50/50 rounded-xl border border-green-100">
-                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ExternalLink size={16} className="text-green-600" />자료실 외부 링크</h3>
+                  <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2"><ExternalLink size={16} className="text-green-600" />교육자료 외부 링크</h3>
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">Google Drive 링크</label>
                     <input type="url" value={editingPost.googleLink ?? ""} onChange={(e) => setEditingPost({ ...editingPost, googleLink: e.target.value })}

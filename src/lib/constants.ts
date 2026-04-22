@@ -45,7 +45,7 @@ export const ADMIN_NAV_ITEMS = [
    icon: "FileText",
    children: [
      { label: "공지사항", href: "/admin/posts?type=NOTICE" },
-     { label: "자료실", href: "/admin/posts?type=RESOURCE" },
+     { label: "교육자료", href: "/admin/posts?type=RESOURCE" },
    ],
  },
  { label: "통합 콘텐츠", href: "/admin/contents", icon: "Layers" },

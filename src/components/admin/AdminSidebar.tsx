@@ -54,7 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
      { label: "통합 콘텐츠", href: "/admin/contents", icon: "Layers" },
      { label: "AI 콘텐츠", href: "/admin/ai-content", icon: "Sparkles" },
      { label: "게시판 설정", href: "/admin/boards", icon: "LayoutGrid" },
-     { label: "자료실", href: "/admin/resources", icon: "FolderOpen" },
+     { label: "교육자료", href: "/admin/resources", icon: "FolderOpen" },
    ],
  },
  {

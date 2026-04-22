@@ -68,7 +68,7 @@ export const SEED_CONTENTS: ContentInput[] = [
     isApproved: true,
   },
 
-  // ── 자료실 (media-resource) — 관리자 모드 ──
+  // ── 추천자료 (media-resource) — 관리자 모드 ──
   {
     boardKey: "media-resource",
     title: "[GitHub/MIT] 생성형 AI 입문 21강 — Microsoft 공식 교육",
