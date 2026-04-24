@@ -26,7 +26,8 @@ const PAGE_TABS: { key: PageKey; label: string }[] = [
   { key: "programs", label: "교육 프로그램" },
   { key: "instructors", label: "AI실전마스터" },
   { key: "workathon", label: "스마트워크톤" },
-  { key: "videos", label: "영상·콘텐츠" },
+  { key: "media", label: "콘텐츠 허브" },
+  { key: "videos", label: "영상 (레거시)" },
   { key: "community", label: "커뮤니티" },
 ];
 
@@ -36,6 +37,7 @@ const PAGE_PUBLIC_HREF: Record<PageKey, string> = {
   programs: "/programs",
   instructors: "/instructors",
   workathon: "/workathon",
+  media: "/media",
   videos: "/videos",
   community: "/community",
 };

@@ -215,7 +215,9 @@ export default function AdminContentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">통합 콘텐츠 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">콘텐츠·커뮤니티 게시판을 통합 관리합니다.</p>
+          <p className="mt-1 text-sm text-gray-500">
+            콘텐츠·커뮤니티 게시판을 통합 관리합니다. 공지는 <code className="rounded bg-gray-100 px-1 text-xs">community-notice</code> 보드, 자유게시판은 <code className="rounded bg-gray-100 px-1 text-xs">community-free</code> 보드를 선택하세요.
+          </p>
         </div>
         <button
           onClick={startCreate}

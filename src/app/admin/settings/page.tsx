@@ -17,7 +17,14 @@ import {
   isValidNonEmptyImageSource,
   isValidOptionalHttpOrPath,
 } from "@/lib/admin-validation";
-import { type FeatureFlags, DEFAULT_FEATURE_FLAGS, invalidateFeatureFlagsCache } from "@/lib/site-settings-public";
+import {
+  type FeatureFlags,
+  DEFAULT_FEATURE_FLAGS,
+  invalidateFeatureFlagsCache,
+  type SectionToggles,
+  DEFAULT_SECTION_TOGGLES,
+  invalidateSectionTogglesCache,
+} from "@/lib/site-settings-public";
 import { collectAll } from "@/lib/ai-content-collector";
 import type { CollectResult } from "@/lib/ai-content-collector";
 import { curateItems } from "@/lib/ai-content-curator";
@@ -25,7 +32,17 @@ import type { CuratedItem } from "@/lib/ai-content-curator";
 import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-content-dedup";
 import { createContentIfNew } from "@/lib/content-engine";
 
-type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai" | "features";
+type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai" | "sections" | "phases";
+
+const VALID_SETTINGS_TABS: SettingsTab[] = ["hero", "stats", "cta", "banner", "integrations", "theme", "ai", "sections", "phases"];
+
+/** 구 쿼리스트링(features) 하위 호환: /admin/settings?tab=features → phases 로 자동 이관 */
+function normalizeTabParam(raw: string | null): SettingsTab | null {
+  if (!raw) return null;
+  if (raw === "features") return "phases";
+  if ((VALID_SETTINGS_TABS as string[]).includes(raw)) return raw as SettingsTab;
+  return null;
+}
 
 type HomeTemplate = "default" | "modern" | "community";
 
@@ -54,12 +71,13 @@ function isMasked(value: string): boolean {
 const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "theme", label: "홈 테마", icon: Palette },
   { id: "ai", label: "AI 수집", icon: Bot },
+  { id: "sections", label: "섹션 표시", icon: ToggleLeft },
   { id: "hero", label: "히어로 섹션", icon: ImageIcon },
   { id: "stats", label: "실적 수치", icon: Hash },
   { id: "cta", label: "CTA 설정", icon: MousePointerClick },
   { id: "banner", label: "배너 관리", icon: Megaphone },
   { id: "integrations", label: "외부 연동", icon: Key },
-  { id: "features" as SettingsTab, label: "기능 관리", icon: ToggleLeft },
+  { id: "phases", label: "기능 플래그 (Phase)", icon: ToggleLeft },
 ];
 
 interface AiCollectorConfig {
@@ -98,7 +116,7 @@ export default function AdminSettingsPage() {
 
 function AdminSettingsInner() {
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab") as SettingsTab | null;
+  const tabParam = normalizeTabParam(searchParams.get("tab"));
   const [activeTab, setActiveTab] = useState<SettingsTab>(tabParam || "theme");
   const [saveMessage, setSaveMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -106,7 +124,7 @@ function AdminSettingsInner() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (tabParam && ["hero", "stats", "cta", "banner", "integrations", "theme", "ai", "features"].includes(tabParam)) {
+    if (tabParam) {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -133,6 +151,9 @@ function AdminSettingsInner() {
 
   // Feature Flags
   const [featureFlags, setFeatureFlags] = useState<FeatureFlags>(DEFAULT_FEATURE_FLAGS);
+
+  // Section Toggles (홈 섹션 ON/OFF)
+  const [sectionToggles, setSectionToggles] = useState<SectionToggles>(DEFAULT_SECTION_TOGGLES);
 
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
@@ -161,9 +182,12 @@ function AdminSettingsInner() {
       } else if (tab === "banner") {
         const bannerDoc = await getSingletonDoc<BannerConfig>(COLLECTIONS.SETTINGS, "banner");
         if (bannerDoc) setBanner({ enabled: bannerDoc.enabled ?? true, title: bannerDoc.title ?? "", dDayDate: bannerDoc.dDayDate ?? "", link: bannerDoc.link ?? "" });
-      } else if (tab === "features") {
+      } else if (tab === "phases") {
         const ffDoc = await getSingletonDoc<FeatureFlags>(COLLECTIONS.SETTINGS, "featureFlags");
         if (ffDoc) setFeatureFlags({ ...DEFAULT_FEATURE_FLAGS, ...ffDoc });
+      } else if (tab === "sections") {
+        const stDoc = await getSingletonDoc<Partial<SectionToggles>>(COLLECTIONS.SETTINGS, "features");
+        setSectionToggles({ ...DEFAULT_SECTION_TOGGLES, ...(stDoc ?? {}) });
       } else if (tab === "integrations") {
         const intDoc = await getSingletonDoc<{ googleApi: GoogleApiConfig; emailConfig: EmailConfig; driveConfig: DriveConfig; calendarConfig: CalendarConfig }>(COLLECTIONS.SETTINGS, "integrations");
         if (intDoc) {
@@ -234,9 +258,12 @@ function AdminSettingsInner() {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "cta", cta);
       } else if (activeTab === "banner") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "banner", banner);
-      } else if (activeTab === "features") {
+      } else if (activeTab === "phases") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "featureFlags", featureFlags);
         invalidateFeatureFlagsCache();
+      } else if (activeTab === "sections") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "features", sectionToggles);
+        invalidateSectionTogglesCache();
       } else if (activeTab === "integrations") {
         const safeGoogleApi = { ...googleApi };
         for (const field of SENSITIVE_FIELDS) {
@@ -878,10 +905,54 @@ function AdminSettingsInner() {
         </div>
       )}
 
-      {/* 기능 관리 (Feature Flags) */}
-      {activeTab === "features" && (
+      {/* 섹션 표시 토글 */}
+      {activeTab === "sections" && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-2">기능 관리 (Phase별 ON/OFF)</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">섹션 표시</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            홈 페이지 각 섹션을 ON/OFF 합니다. OFF로 두면 해당 영역 자체가 숨겨지며, 각 섹션의 내용 편집은 개별 탭(히어로/실적/CTA/배너)에서 진행합니다.
+          </p>
+          <div className="space-y-3">
+            {[
+              { key: "hero" as const, label: "히어로 슬라이드", desc: "홈 최상단 메인 비주얼" },
+              { key: "stats" as const, label: "실적 수치", desc: "홈 통계 블록" },
+              { key: "cta" as const, label: "CTA 영역", desc: "홈 본문 및 플로팅 CTA 버튼" },
+              { key: "banner" as const, label: "D-day 배너", desc: "홈 상단 D-day 카운트다운 배너" },
+            ].map((row) => (
+              <div key={row.key} className="flex items-center justify-between border border-gray-200 rounded-xl p-4">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">{row.label}</h3>
+                  <p className="text-sm text-gray-500">{row.desc}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSectionToggles((prev) => ({ ...prev, [row.key]: !prev[row.key] }))}
+                  className={cn(
+                    "relative w-12 h-6 rounded-full transition-colors",
+                    sectionToggles[row.key] ? "bg-primary-600" : "bg-gray-300",
+                  )}
+                  aria-pressed={sectionToggles[row.key]}
+                  aria-label={`${row.label} 토글`}
+                >
+                  <span className={cn(
+                    "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform",
+                    sectionToggles[row.key] ? "translate-x-6" : "translate-x-0.5",
+                  )} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 mt-6">
+            <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
+            {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* 기능 플래그 (Phase) */}
+      {activeTab === "phases" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">기능 플래그 (Phase별 ON/OFF)</h2>
           <p className="text-sm text-gray-500 mb-6">
             각 개선 단계를 활성화/비활성화합니다. 코드는 이미 배포되어 있으며, 여기서 활성화해야 사용자에게 보입니다.
           </p>

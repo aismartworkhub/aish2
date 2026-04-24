@@ -31,7 +31,7 @@ export default function HomeCommunity(props: HomeDataProps) {
     stats, programs, runmoaPrograms, adminEvents,
     reviews, workathon, notices, featuredVideos,
     heroSlides, heroIndex, setHeroIndex,
-    siteBanner, ctaCfg, pageContent, instructors,
+    siteBanner, ctaCfg, sectionToggles, pageContent, instructors,
     dDay, addRevealRef,
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,
@@ -48,7 +48,7 @@ export default function HomeCommunity(props: HomeDataProps) {
   return (
     <>
       {/* ── 배너 ── */}
-      {siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (() => {
+      {sectionToggles.banner && siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (() => {
         const bannerHref = siteBanner.link?.trim() || "/workathon";
         const external = isExternalHref(bannerHref);
         const bannerDDay = calculateDDay(siteBanner.dDayDate);
@@ -68,6 +68,7 @@ export default function HomeCommunity(props: HomeDataProps) {
       })()}
 
       {/* ── S1: 히어로 (CTA 2개) ── */}
+      {sectionToggles.hero && (
       <section className="relative h-[85vh] min-h-[600px] overflow-hidden">
         <img
           src={currentHero?.imageUrl || "/images/defaults/hero-main.jpg"}
@@ -117,6 +118,7 @@ export default function HomeCommunity(props: HomeDataProps) {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── S2: 검색 패널 ── */}
       <section className="relative z-30 -mt-[60px]">
@@ -530,6 +532,7 @@ export default function HomeCommunity(props: HomeDataProps) {
           </div>
 
           {/* 숫자 실적 */}
+          {sectionToggles.stats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 rounded-sm overflow-hidden">
             {stats.map((stat) => {
               const Icon = STAT_ICONS[stat.icon] || Star;
@@ -545,11 +548,13 @@ export default function HomeCommunity(props: HomeDataProps) {
               );
             })}
           </div>
+          )}
         </div>
       </section>
 
       {/* ── S9: NewsRoom + 최종 CTA ── */}
       <section className="flex flex-col md:flex-row min-h-[500px] bg-brand-gray">
+        {sectionToggles.cta && (
         <div className="flex-1 bg-[#1a1a2e] p-12 md:p-16 flex flex-col justify-center text-white">
           <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-5">AI 시대,<br />지금 시작하세요</h2>
           <p className="text-white/60 text-base leading-relaxed max-w-[400px] mb-8">
@@ -566,6 +571,7 @@ export default function HomeCommunity(props: HomeDataProps) {
             </Link>
           </div>
         </div>
+        )}
         <div className="flex-1 bg-white p-12 md:p-16">
           <div className="flex items-end justify-between border-b-2 border-brand-blue pb-5 mb-8">
             <h3 className="text-[28px] font-bold text-gray-900">NewsRoom {showSampleBadge && isDemoNotices && <SampleBadge adminLink="/admin/posts?type=NOTICE" />}</h3>

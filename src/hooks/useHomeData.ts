@@ -18,13 +18,17 @@ import {
   pickActiveHeroSlides,
   resolveHeroCtaLink,
   resolveHeroCtaText,
+  loadSectionToggles,
   DEFAULT_SITE_CTA,
+  DEFAULT_SECTION_TOGGLES,
   type HeroSlidePublic,
   type SiteBannerConfig,
+  type SectionToggles,
 } from "@/lib/site-settings-public";
 import { loadPageContent, DEFAULT_HOME } from "@/lib/page-content-public";
 import type { HomePageContent } from "@/types/page-content";
 import { calculateDDay, toDateString } from "@/lib/utils";
+import { filterActiveInstructors } from "@/lib/instructor-display";
 
 export const STAT_ICONS: Record<string, React.ElementType> = {
   Users, GraduationCap, UserCheck, Building,
@@ -91,6 +95,7 @@ export function useHomeData() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [siteBanner, setSiteBanner] = useState<SiteBannerConfig | null>(null);
   const [ctaCfg, setCtaCfg] = useState(DEFAULT_SITE_CTA);
+  const [sectionToggles, setSectionToggles] = useState<SectionToggles>(DEFAULT_SECTION_TOGGLES);
   const [pageContent, setPageContent] = useState<HomePageContent>(DEFAULT_HOME);
   const [instructors, setInstructors] = useState<(typeof DEMO_INSTRUCTORS[number] & { imageUrl?: string })[]>(
     DEMO_INSTRUCTORS.filter((i) => i.isActive !== false)
@@ -126,6 +131,7 @@ export function useHomeData() {
 
   useEffect(() => {
     loadPageContent<HomePageContent>("home").then(setPageContent).catch(() => {});
+    loadSectionToggles().then(setSectionToggles).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -153,12 +159,7 @@ export function useHomeData() {
         if (bannerDoc) setSiteBanner(bannerDoc);
         if (firestorePrograms.length > 0) { setPrograms(firestorePrograms); setIsDemoPrograms(false); }
         if (firestoreInstructors.length > 0) {
-          const active = firestoreInstructors
-            .filter((ins) => {
-              const i = ins as { isActive?: boolean; status?: string };
-              return i.isActive !== false && i.status !== "pending" && i.status !== "rejected";
-            })
-            .sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 999) - ((b as { displayOrder?: number }).displayOrder ?? 999));
+          const active = filterActiveInstructors(firestoreInstructors);
           setInstructors(active);
           setIsDemoInstructors(false);
         }
@@ -253,7 +254,7 @@ export function useHomeData() {
     stats, programs, runmoaPrograms, adminEvents,
     reviews, workathon, notices, featuredVideos,
     heroSlides, heroIndex, setHeroIndex,
-    siteBanner, ctaCfg, pageContent, instructors,
+    siteBanner, ctaCfg, sectionToggles, pageContent, instructors,
     dDay, revealRefs, addRevealRef,
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,

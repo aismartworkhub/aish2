@@ -153,6 +153,47 @@ export function invalidateFeatureFlagsCache() {
   ffCache = null;
 }
 
+/* ── 섹션 표시 토글 ── */
+
+export interface SectionToggles {
+  hero: boolean;
+  stats: boolean;
+  cta: boolean;
+  banner: boolean;
+}
+
+export const DEFAULT_SECTION_TOGGLES: SectionToggles = {
+  hero: true,
+  stats: true,
+  cta: true,
+  banner: true,
+};
+
+let stCache: SectionToggles | null = null;
+let stInflight: Promise<SectionToggles> | null = null;
+
+export async function loadSectionToggles(): Promise<SectionToggles> {
+  if (stCache) return stCache;
+  if (!stInflight) {
+    stInflight = getSingletonDoc<Partial<SectionToggles>>(COLLECTIONS.SETTINGS, "features")
+      .then((doc) => {
+        const next: SectionToggles = { ...DEFAULT_SECTION_TOGGLES, ...(doc ?? {}) };
+        stCache = next;
+        return next;
+      })
+      .catch(() => {
+        stCache = DEFAULT_SECTION_TOGGLES;
+        return DEFAULT_SECTION_TOGGLES;
+      })
+      .finally(() => { stInflight = null; });
+  }
+  return stInflight;
+}
+
+export function invalidateSectionTogglesCache() {
+  stCache = null;
+}
+
 /* ── 홈 테마 설정 ── */
 
 export type HomeTemplate = "default" | "modern" | "community";

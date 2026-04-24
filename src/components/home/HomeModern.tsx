@@ -33,7 +33,7 @@ export default function HomeModern(props: HomeDataProps) {
     stats, programs, runmoaPrograms,
     reviews, workathon, notices, featuredVideos,
     heroSlides, heroIndex, setHeroIndex,
-    siteBanner, ctaCfg, instructors,
+    siteBanner, ctaCfg, sectionToggles, instructors,
     dDay, addRevealRef, currentHero,
     primaryCtaHref, primaryCtaLabel,
     latestContents,
@@ -48,7 +48,7 @@ export default function HomeModern(props: HomeDataProps) {
   return (
     <>
       {/* 배너 */}
-      {siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (() => {
+      {sectionToggles.banner && siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (() => {
         const bannerHref = siteBanner.link?.trim() || "/workathon";
         const external = isExternalHref(bannerHref);
         const bannerDDay = calculateDDay(siteBanner.dDayDate);
@@ -69,6 +69,7 @@ export default function HomeModern(props: HomeDataProps) {
       })()}
 
       {/* Hero */}
+      {sectionToggles.hero && (
       <section className="relative bg-gradient-to-br from-gray-900 via-brand-blue/90 to-brand-blue text-white overflow-hidden">
         <div className="absolute inset-0 opacity-20">
           <div className="w-full h-full" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "32px 32px" }} />
@@ -117,6 +118,7 @@ export default function HomeModern(props: HomeDataProps) {
           </div>
         </div>
       </section>
+      )}
 
       {/* 교육 프로그램 */}
       <section className="py-16 bg-white">
@@ -394,6 +396,7 @@ export default function HomeModern(props: HomeDataProps) {
       )}
 
       {/* 숫자 실적 */}
+      {sectionToggles.stats && (
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -409,8 +412,10 @@ export default function HomeModern(props: HomeDataProps) {
           </div>
         </div>
       </section>
+      )}
 
       {/* CTA 섹션 */}
+      {sectionToggles.cta && (
       <section className="py-16 bg-gray-50 border-t border-gray-200">
         <div className="max-w-3xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
@@ -435,6 +440,7 @@ export default function HomeModern(props: HomeDataProps) {
           </div>
         </div>
       </section>
+      )}
     </>
   );
 }

@@ -279,10 +279,10 @@ export default function AdminEventPage() {
   return (
     <div>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Event 관리</h1>
-          <p className="text-gray-500 mt-1">이벤트·행사를 등록하고 관리합니다. AI 자동분석을 지원합니다.</p>
+          <h1 className="text-2xl font-bold text-gray-900">일반 행사 관리</h1>
+          <p className="text-gray-500 mt-1">외부·일반 이벤트를 등록합니다. <span className="font-medium text-gray-700">홈 페이지 &quot;진행 예정 행사&quot; 섹션에 노출</span>됩니다. AI 자동분석을 지원합니다.</p>
         </div>
         <button onClick={openCreateModal}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors">

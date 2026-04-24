@@ -53,4 +53,5 @@ export type PageKey =
   | "instructors"
   | "workathon"
   | "videos"
+  | "media"
   | "community";

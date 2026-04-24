@@ -336,8 +336,8 @@ export default function AdminWorkathonPage() {
       {/* Header */}
       <div className={cn("flex items-center justify-between mb-8")}>
         <div>
-          <h1 className={cn("text-2xl font-bold text-gray-900")}>이벤트 관리</h1>
-          <p className={cn("text-gray-500 mt-1")}>이벤트 생성, 일정 편집, 참가자를 관리합니다.</p>
+          <h1 className={cn("text-2xl font-bold text-gray-900")}>스마트워크톤 관리</h1>
+          <p className={cn("text-gray-500 mt-1")}>워크톤 회차별 일정·참가자를 관리합니다. <span className="font-medium text-gray-700">/workathon 페이지에 최신 1건(eventDate 기준)이 노출</span>됩니다.</p>
         </div>
         <div className={cn("flex gap-2")}>
           <button

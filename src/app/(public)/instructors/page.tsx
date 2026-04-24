@@ -27,6 +27,7 @@ import type { RunmoaContent } from "@/types/runmoa";
 import { loadPageContent, DEFAULT_INSTRUCTORS } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
 import { InstructorApplicationForm } from "@/components/instructor/InstructorApplicationForm";
+import { filterActiveInstructors } from "@/lib/instructor-display";
 
 const RUNMOA_BASE = "https://aish.runmoa.com";
 
@@ -963,9 +964,7 @@ export default function InstructorsPage() {
     getCollection<InstructorItem>(COLLECTIONS.INSTRUCTORS)
       .then((data) => {
         if (data.length === 0) return;
-        const active = data
-          .filter((i) => i.isActive !== false && i.status !== "pending" && i.status !== "rejected")
-          .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
+        const active = filterActiveInstructors(data);
         if (active.length > 0) setInstructors(active);
       })
       .catch(() => {});

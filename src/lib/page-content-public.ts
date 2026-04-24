@@ -85,6 +85,15 @@ export const DEFAULT_VIDEOS: PageContentBase = {
   sections: {},
 };
 
+export const DEFAULT_MEDIA: PageContentBase = {
+  hero: {
+    imageUrl: "",
+    title: "콘텐츠 허브",
+    subtitle: "강의·인터뷰·홍보·추천자료·교육자료를 한곳에서 만나보세요.",
+  },
+  sections: {},
+};
+
 export const DEFAULT_COMMUNITY: PageContentBase = {
   hero: {
     imageUrl: "",
@@ -101,6 +110,7 @@ const PAGE_DEFAULTS: Record<PageKey, PageContentBase | HomePageContent | AboutPa
   instructors: DEFAULT_INSTRUCTORS,
   workathon: DEFAULT_WORKATHON,
   videos: DEFAULT_VIDEOS,
+  media: DEFAULT_MEDIA,
   community: DEFAULT_COMMUNITY,
 };
 

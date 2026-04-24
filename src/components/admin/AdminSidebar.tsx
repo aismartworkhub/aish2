@@ -7,7 +7,7 @@ import {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, ImageIcon, Handshake, Clock,
  Award, Shield, ChevronDown, ChevronRight, X,
- Megaphone, Zap, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
+ Megaphone, Calendar, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
  Archive, Sparkles,
 } from "lucide-react";
 import { useState } from "react";
@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const ICON_MAP: Record<string, React.ElementType> = {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, Image: ImageIcon, Handshake, Clock,
- Award, Shield, Megaphone, Zap, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
+ Award, Shield, Megaphone, Calendar, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
  Archive, Sparkles,
 };
 
@@ -63,10 +63,8 @@ const NAV_GROUPS: NavGroup[] = [
      { label: "프로그램 관리", href: "/admin/programs", icon: "BookOpen" },
      { label: "강사 관리", href: "/admin/instructors", icon: "Users" },
      { label: "수료증", href: "/admin/certificates", icon: "Award" },
-     {
-       label: "행사관리", href: "/admin/workathon", icon: "Trophy",
-     },
-     { label: "Event", href: "/admin/event", icon: "Zap" },
+     { label: "스마트워크톤", href: "/admin/workathon", icon: "Trophy" },
+     { label: "일반 행사", href: "/admin/event", icon: "Calendar" },
    ],
  },
  {
@@ -81,11 +79,12 @@ const NAV_GROUPS: NavGroup[] = [
      {
        label: "사이트 설정", href: "/admin/settings", icon: "Settings",
       children: [
-        { label: "기능 관리", href: "/admin/settings?tab=features" },
+        { label: "섹션 표시", href: "/admin/settings?tab=sections" },
         { label: "히어로 섹션", href: "/admin/settings?tab=hero" },
         { label: "실적 수치", href: "/admin/settings?tab=stats" },
         { label: "CTA 설정", href: "/admin/settings?tab=cta" },
         { label: "배너 관리", href: "/admin/settings?tab=banner" },
+        { label: "기능 플래그 (Phase)", href: "/admin/settings?tab=phases" },
       ],
      },
      { label: "퀵배너 관리", href: "/admin/banners", icon: "Megaphone" },

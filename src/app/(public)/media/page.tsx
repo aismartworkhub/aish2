@@ -13,6 +13,8 @@ import { ContentCard, ContentDetail } from "@/components/content";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { loadPageContent, DEFAULT_MEDIA } from "@/lib/page-content-public";
+import type { PageContentBase } from "@/types/page-content";
 
 const ALL_KEY = "__all__";
 const SHORTS_KEY = "__shorts__";
@@ -52,6 +54,11 @@ function MediaPageInner() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pageContent, setPageContent] = useState<PageContentBase>(DEFAULT_MEDIA);
+
+  useEffect(() => {
+    loadPageContent("media").then(setPageContent).catch(() => {});
+  }, []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
@@ -189,8 +196,8 @@ function MediaPageInner() {
         {/* 헤더 */}
         <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <div className="text-center sm:text-left">
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">콘텐츠</h1>
-            <p className="mt-2 text-gray-500">영상, 이미지, 자료 등 다양한 콘텐츠를 만나보세요</p>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">{pageContent.hero.title}</h1>
+            <p className="mt-2 text-gray-500">{pageContent.hero.subtitle}</p>
           </div>
           <button
             type="button"
