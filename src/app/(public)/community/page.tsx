@@ -90,8 +90,10 @@ const FIXED_TABS: { key: TabKey; label: string; icon: React.ElementType; color: 
 ];
 
 const NOTICES: { id: string | number; title: string; date: string; views: number; pinned: boolean }[] = [
+  { id: "test-push", title: "[테스트] 깃허브 푸시 기능 테스트 게시글입니다", date: "2026.04.24", views: 0, pinned: true },
   { id: 1, title: "[모집] AI 기초 정규과정 11기 수강생 모집 안내", date: "2026.03.15", views: 234, pinned: true },
   { id: 2, title: "[안내] 2026년 상반기 교육 일정 안내", date: "2026.03.10", views: 189, pinned: true },
+
   { id: 3, title: "[소식] 제3회 스마트워크톤 결과 발표", date: "2026.02.28", views: 145, pinned: false },
   { id: 4, title: "[안내] 신규 강사진 소개", date: "2026.02.20", views: 98, pinned: false },
   { id: 5, title: "[소식] 누적 수강생 1,500명 돌파", date: "2026.02.15", views: 76, pinned: false },
