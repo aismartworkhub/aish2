@@ -20,7 +20,8 @@ export default function FloatingCta() {
  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
  return (
-   <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
+   // 모바일: BottomTabNav(높이 ~60px) 위로 올림. 데스크톱(lg+): 원래 위치.
+   <div className="fixed bottom-24 right-4 z-40 flex flex-col gap-3 lg:bottom-6 lg:right-6">
      {isVisible && (
        <button
          onClick={scrollToTop}

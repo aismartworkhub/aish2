@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronRight, Search, User, LogOut, Bell } from "lucide-react";
+import { Search, User, LogOut, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,7 +16,6 @@ import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 export default function Header() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -80,9 +79,8 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // 경로 변경 시 모바일 메뉴 자동 닫기
+  // 경로 변경 시 드롭다운 자동 닫기
   useEffect(() => {
-    setIsMobileMenuOpen(false);
     setNotifOpen(false);
     setUserMenuOpen(false);
   }, [pathname]);
@@ -281,89 +279,10 @@ export default function Header() {
             <Link href="/programs" className="lg:hidden p-2 text-gray-700 hover:text-brand-blue" aria-label="검색">
               <Search size={20} />
             </Link>
-            <button
-              type="button"
-              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-              className="lg:hidden p-2 text-gray-700 relative z-[60]"
-              aria-label={isMobileMenuOpen ? "메뉴 닫기" : "메뉴 열기"}
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+            {/* 모바일 햄버거는 BottomTabNav로 대체 — Sprint 2 Batch C */}
           </div>
         </div>
       </header>
-
-      {/* 모바일 메뉴 - header 바깥에 배치하여 클릭 이벤트 보장 */}
-      {isMobileMenuOpen && (
-        <>
-          {/* 배경 오버레이 */}
-          <div
-            className="fixed inset-0 bg-black/30 z-[55] lg:hidden"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-          {/* 메뉴 패널 - bottom sheet */}
-          <div className="fixed bottom-0 left-0 right-0 z-[56] lg:hidden bg-white rounded-t-sm shadow-lg max-h-[70vh] overflow-y-auto animate-slide-up">
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-2" />
-            <nav className="w-[90%] max-w-[1440px] mx-auto py-4 space-y-1">
-              {NAV_ITEMS.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={cn(
-                    "flex items-center justify-between px-4 py-3.5 text-base font-medium transition-colors rounded-sm",
-                    pathname === item.href
-                      ? "text-brand-blue bg-brand-gray"
-                      : "text-gray-700 hover:bg-gray-50"
-                  )}
-                >
-                  {item.label}
-                  <ChevronRight size={16} className="text-gray-300" />
-                </Link>
-              ))}
-              {user && (
-                <Link
-                  href="/community?tab=notice"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={cn(
-                    "flex items-center justify-between px-4 py-3.5 text-base font-medium transition-colors rounded-lg text-gray-700 hover:bg-gray-50"
-                  )}
-                >
-                  <span className="flex items-center gap-2">
-                    <Bell size={18} />
-                    알림
-                    {unreadCount > 0 && (
-                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-xs font-bold leading-none">
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </span>
-                    )}
-                  </span>
-                  <ChevronRight size={16} className="text-gray-300" />
-                </Link>
-              )}
-              <div className="pt-4 px-4 pb-2 space-y-2">
-                {!user && (
-                  <button
-                    onClick={() => { handleGoogleLogin(); setIsMobileMenuOpen(false); }}
-                    className="block w-full py-3.5 rounded-sm border-2 border-brand-blue text-brand-blue text-center text-base font-semibold hover:bg-brand-gray transition-colors"
-                  >
-                    Google로 로그인 / 회원가입
-                  </button>
-                )}
-                <a
-                  href={buttonUrl}
-                  target={isExternalHref(buttonUrl) ? "_blank" : undefined}
-                  rel={isExternalHref(buttonUrl) ? "noopener noreferrer" : undefined}
-                  className="block w-full py-3.5 rounded-sm bg-brand-blue text-white text-center text-base font-semibold uppercase tracking-widest hover:bg-brand-lightBlue transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {buttonText}
-                </a>
-              </div>
-            </nav>
-          </div>
-        </>
-      )}
     </>
   );
 }

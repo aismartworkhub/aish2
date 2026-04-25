@@ -1,9 +1,9 @@
 import Header from "@/components/public/Header";
 import Footer from "@/components/public/Footer";
-import FloatingCta from "@/components/public/FloatingCta";
+import ActionCluster from "@/components/public/ActionCluster";
+import BottomTabNav from "@/components/public/BottomTabNav";
 import QuickBannerDisplay from "@/components/public/QuickBannerDisplay";
 import ProfileCompletionBanner from "@/components/public/ProfileCompletionBanner";
-import AiCounselor from "@/components/public/AiCounselor";
 
 export default function PublicLayout({
  children,
@@ -16,11 +16,12 @@ export default function PublicLayout({
      <div className="pt-20">
        <QuickBannerDisplay />
        <ProfileCompletionBanner />
-       <main className="min-h-screen">{children}</main>
+       {/* 모바일: BottomTabNav 높이만큼 하단 여백. lg+에서는 패딩 0. */}
+       <main className="min-h-screen pb-20 lg:pb-0">{children}</main>
      </div>
      <Footer />
-     <FloatingCta />
-     <AiCounselor />
+     <ActionCluster />
+     <BottomTabNav />
    </>
  );
 }
