@@ -55,6 +55,8 @@ export interface Content {
   authorName: string;
   authorPhotoURL?: string;
   tags?: string[];
+  /** 제목·본문·태그에서 자동 분해된 검색 토큰. createContent/updateContent에서 채워짐. */
+  searchTerms?: string[];
   isPinned?: boolean;
   isApproved?: boolean;
   views: number;

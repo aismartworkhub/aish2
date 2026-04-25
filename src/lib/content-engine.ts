@@ -15,7 +15,10 @@ import {
   where,
   serverTimestamp,
   increment,
+  startAfter,
   DocumentData,
+  type QueryDocumentSnapshot,
+  type QueryConstraint,
   limit as firestoreLimit,
 } from "firebase/firestore";
 import { db } from "./firebase";
@@ -97,6 +100,93 @@ export async function upsertBoard(
   invalidateCache(COLLECTIONS.BOARDS);
 }
 
+// ── 검색·발견 인프라 ──
+
+/**
+ * 제목·본문·태그에서 검색 토큰 추출. Firestore array-contains-any 검색 인프라.
+ * - 한글·영문·숫자만 보존, 공백·구두점으로 분리
+ * - 길이 < 2 토큰 제거
+ * - 최대 30개 (array-contains-any 제약)
+ */
+export function buildSearchTerms(input: {
+  title?: string;
+  titleKo?: string;
+  body?: string;
+  bodyKo?: string;
+  tags?: string[];
+}): string[] {
+  const text = [
+    input.title,
+    input.titleKo,
+    (input.body ?? "").slice(0, 200),
+    (input.bodyKo ?? "").slice(0, 200),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const tokens = text.split(/[^가-힣a-z0-9]+/i).filter((t) => t.length >= 2);
+  for (const tag of input.tags ?? []) {
+    const t = tag.toLowerCase().trim();
+    if (t.length >= 2) tokens.push(t);
+  }
+  return [...new Set(tokens)].slice(0, 30);
+}
+
+/**
+ * 발견 피드용 cursor 페이징.
+ * 30초 캐시 우회 — 검색·필터와 무한 스크롤이 결합되므로 별도 함수.
+ *
+ * 제약:
+ * - tags 와 searchTerms 는 둘 다 array-contains-any 라 동시 사용 불가 (Firestore 제약)
+ * - 한 쿼리에 하나만 사용 — 우선순위: tags > searchTerms
+ * - boardKey + group 동시 지정 시에는 boardKey가 더 강하므로 group은 무시됨
+ */
+export type ContentsPage = {
+  items: Content[];
+  lastDoc: QueryDocumentSnapshot | null;
+  hasMore: boolean;
+};
+
+export async function getContentsPaginated(opts: {
+  boardKey?: string;
+  group?: BoardConfig["group"];
+  tags?: string[];
+  searchTerms?: string[];
+  lastDoc?: QueryDocumentSnapshot;
+  limit?: number;
+}): Promise<ContentsPage> {
+  const constraints: QueryConstraint[] = [];
+
+  if (opts.boardKey) {
+    constraints.push(where("boardKey", "==", opts.boardKey));
+  } else if (opts.group) {
+    constraints.push(where("group", "==", opts.group));
+  }
+
+  if (opts.tags && opts.tags.length > 0) {
+    constraints.push(where("tags", "array-contains-any", opts.tags.slice(0, 30)));
+  } else if (opts.searchTerms && opts.searchTerms.length > 0) {
+    constraints.push(where("searchTerms", "array-contains-any", opts.searchTerms.slice(0, 30)));
+  }
+
+  constraints.push(orderBy("createdAt", "desc"));
+  if (opts.lastDoc) constraints.push(startAfter(opts.lastDoc));
+
+  const pageSize = opts.limit ?? 24;
+  constraints.push(firestoreLimit(pageSize + 1));
+
+  const q = query(collection(db, COLLECTIONS.CONTENTS), ...constraints);
+  const snap = await getDocs(q);
+
+  const hasMore = snap.docs.length > pageSize;
+  const pageDocs = snap.docs.slice(0, pageSize);
+  const items = pageDocs.map((d) => ({ id: d.id, ...d.data() } as Content));
+  const lastSnap = pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null;
+
+  return { items, lastDoc: lastSnap, hasMore };
+}
+
 // ── Content 관련 ──
 
 export async function getContents(
@@ -129,9 +219,17 @@ export async function getContentById(id: string): Promise<Content | null> {
 
 export async function createContent(data: ContentInput): Promise<string> {
   const board = await getBoardByKey(data.boardKey);
+  const searchTerms = buildSearchTerms({
+    title: data.title,
+    titleKo: data.titleKo,
+    body: data.body,
+    bodyKo: data.bodyKo,
+    tags: data.tags,
+  });
   const ref = await addDoc(collection(db, COLLECTIONS.CONTENTS), {
     ...data,
     ...(board?.group ? { group: board.group } : {}),
+    searchTerms,
     views: 0,
     likeCount: 0,
     commentCount: 0,
@@ -166,11 +264,28 @@ export async function updateContent(
   id: string,
   data: Partial<ContentInput>,
 ): Promise<void> {
-  // boardKey가 변경되었거나 처음 group을 채우는 경우 lookup 후 group 동기화
-  let extra: { group?: BoardConfig["group"] } = {};
+  // boardKey 변경 시 group 재동기화. 검색 필드 또는 태그 변경 시 searchTerms 재계산.
+  const extra: { group?: BoardConfig["group"]; searchTerms?: string[] } = {};
   if (data.boardKey) {
     const board = await getBoardByKey(data.boardKey);
-    if (board?.group) extra = { group: board.group };
+    if (board?.group) extra.group = board.group;
+  }
+  const searchFieldsTouched =
+    data.title !== undefined ||
+    data.titleKo !== undefined ||
+    data.body !== undefined ||
+    data.bodyKo !== undefined ||
+    data.tags !== undefined;
+  if (searchFieldsTouched) {
+    const existing = await getDoc(doc(db, COLLECTIONS.CONTENTS, id));
+    const prev = (existing.exists() ? existing.data() : {}) as Partial<Content>;
+    extra.searchTerms = buildSearchTerms({
+      title: data.title ?? prev.title,
+      titleKo: data.titleKo ?? prev.titleKo,
+      body: data.body ?? prev.body,
+      bodyKo: data.bodyKo ?? prev.bodyKo,
+      tags: data.tags ?? prev.tags,
+    });
   }
   await updateDoc(doc(db, COLLECTIONS.CONTENTS, id), {
     ...data,
