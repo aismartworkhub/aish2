@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Save, ArrowLeft, CheckCircle, AlertTriangle, GraduationCap, Camera, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import MyDashboard from "@/components/profile/MyDashboard";
 import { doc, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { COLLECTIONS, updateDocFields } from "@/lib/firestore";
@@ -46,6 +47,8 @@ export default function ProfilePage() {
   const [showInstructorApply, setShowInstructorApply] = useState(false);
   const [instructorCheck, setInstructorCheck] = useState<ApplicationCheckResult>({ status: "none" });
   const [statusLoading, setStatusLoading] = useState(true);
+  // 마이 대시보드 활성 탭. "profile"이면 기존 폼, 그 외는 MyDashboard 렌더.
+  const [activeTopTab, setActiveTopTab] = useState<"profile" | "bookmarks" | "likes" | "myposts">("profile");
 
   const [interestInput, setInterestInput] = useState("");
   const [cardAnalyzing, setCardAnalyzing] = useState(false);
@@ -190,8 +193,15 @@ export default function ProfilePage() {
     );
   }
 
+  const TOP_TABS: { key: typeof activeTopTab; label: string }[] = [
+    { key: "profile", label: "프로필" },
+    { key: "bookmarks", label: "내 컬렉션" },
+    { key: "likes", label: "좋아요" },
+    { key: "myposts", label: "내 글" },
+  ];
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
+    <div className={cn("mx-auto px-4 py-12", activeTopTab === "profile" ? "max-w-2xl" : "max-w-5xl")}>
       <button
         onClick={() => router.back()}
         className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6 transition-colors"
@@ -200,6 +210,29 @@ export default function ProfilePage() {
         뒤로가기
       </button>
 
+      {/* 마이 대시보드 상단 탭 */}
+      <div className="mb-6 flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1">
+        {TOP_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setActiveTopTab(t.key)}
+            className={cn(
+              "shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap",
+              activeTopTab === t.key
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTopTab !== "profile" ? (
+        <MyDashboard defaultTab={activeTopTab} />
+      ) : (
+      <>
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
         <div className="px-6 py-5 border-b border-gray-100">
           <h1 className="text-xl font-bold text-gray-900">프로필 설정</h1>
@@ -626,6 +659,8 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

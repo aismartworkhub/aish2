@@ -318,6 +318,60 @@ export async function getContentById(id: string): Promise<Content | null> {
   return { id: snap.id, ...snap.data() } as Content;
 }
 
+/**
+ * 콘텐츠 ID 배열을 받아 일괄 조회. Firestore "in" 쿼리는 30개까지만 가능하므로
+ * 청크 분할 후 Promise.all로 병렬 조회. 결과는 입력 순서대로 정렬.
+ */
+export async function getContentsByIds(ids: string[]): Promise<Content[]> {
+  if (ids.length === 0) return [];
+  const unique = [...new Set(ids)];
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += 30) {
+    chunks.push(unique.slice(i, i + 30));
+  }
+  const lookup = new Map<string, Content>();
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      const q = query(collection(db, COLLECTIONS.CONTENTS), where("__name__", "in", chunk));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        lookup.set(d.id, { id: d.id, ...d.data() } as Content);
+      }
+    }),
+  );
+  return ids.map((id) => lookup.get(id)).filter((c): c is Content => c !== undefined);
+}
+
+/** 사용자 본인 작성 콘텐츠 (authorUid 매칭, 최신순). 마이 대시보드 "내 글" 탭. */
+export async function getMyContents(uid: string, max = 50): Promise<Content[]> {
+  const q = query(
+    collection(db, COLLECTIONS.CONTENTS),
+    where("authorUid", "==", uid),
+    orderBy("createdAt", "desc"),
+    firestoreLimit(max),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Content));
+}
+
+/** 사용자 리액션(like/bookmark) → 해당 콘텐츠 일괄 조회. 마이 대시보드용. */
+export async function getMyReactedContents(
+  uid: string,
+  type: ReactionType,
+  max = 50,
+): Promise<Content[]> {
+  const q = query(
+    collection(db, COLLECTIONS.REACTIONS),
+    where("userId", "==", uid),
+    where("type", "==", type),
+    orderBy("createdAt", "desc"),
+    firestoreLimit(max),
+  );
+  const snap = await getDocs(q);
+  const contentIds = snap.docs.map((d) => (d.data() as Reaction).contentId).filter(Boolean);
+  return getContentsByIds(contentIds);
+}
+
 export async function createContent(data: ContentInput): Promise<string> {
   const board = await getBoardByKey(data.boardKey);
   const searchTerms = buildSearchTerms({
