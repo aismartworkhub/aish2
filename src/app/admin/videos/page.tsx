@@ -136,7 +136,7 @@ export default function AdminVideosPage() {
 
   return (
     <div>
-      <LegacyMigrationBanner legacyName="영상 관리" targetBoardKey="media-lecture" />
+      <LegacyMigrationBanner legacyName="영상 관리 (구)" legacyCollection="videos" targetBoardKey="media-lecture" publicPath="/media" />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">영상 관리</h1>

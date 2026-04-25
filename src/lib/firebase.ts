@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -11,13 +11,17 @@ const firebaseConfig = {
  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app =
-  getApps().length === 0
-    ? initializeApp(
-        firebaseConfig.apiKey ? firebaseConfig : { ...firebaseConfig, apiKey: "dummy" }
-      )
-    : getApps()[0];
+const isFirstInit = getApps().length === 0;
+const app = isFirstInit
+  ? initializeApp(
+      firebaseConfig.apiKey ? firebaseConfig : { ...firebaseConfig, apiKey: "dummy" }
+    )
+  : getApps()[0];
 
-export const db = getFirestore(app);
+// undefined 필드를 자동으로 제거하여 SDK가 throw하는 것을 방지.
+// initializeFirestore는 첫 1회만 호출 가능하므로 isFirstInit 시점에만 실행.
+export const db = isFirstInit
+  ? initializeFirestore(app, { ignoreUndefinedProperties: true })
+  : getFirestore(app);
 export const auth = getAuth(app);
 export default app;

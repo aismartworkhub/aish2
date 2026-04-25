@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
-import { DEFAULT_BOARDS } from "@/lib/board-defaults";
+import { DEFAULT_BOARDS, mergeBoardsByKey } from "@/lib/board-defaults";
 import {
   getBoards,
   getContents,
@@ -54,9 +54,7 @@ export default function AdminContentsPage() {
 
   useEffect(() => {
     getBoards()
-      .then((b) => {
-        if (b.length > 0) setBoards(b);
-      })
+      .then((b) => setBoards(mergeBoardsByKey(DEFAULT_BOARDS, b)))
       .catch(() => {});
   }, []);
 
@@ -216,7 +214,7 @@ export default function AdminContentsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">통합 콘텐츠 관리</h1>
           <p className="mt-1 text-sm text-gray-500">
-            콘텐츠·커뮤니티 게시판을 통합 관리합니다. 공지는 <code className="rounded bg-gray-100 px-1 text-xs">community-notice</code> 보드, 자유게시판은 <code className="rounded bg-gray-100 px-1 text-xs">community-free</code> 보드를 선택하세요.
+            보드의 <strong>그룹(group)</strong>으로 공개 노출 위치가 결정됩니다. <code className="rounded bg-gray-100 px-1 text-xs">media</code> → <code className="rounded bg-gray-100 px-1 text-xs">/media</code>, <code className="rounded bg-gray-100 px-1 text-xs">community</code> → <code className="rounded bg-gray-100 px-1 text-xs">/community</code>. 그룹 변경은 <a href="/admin/boards" className="text-primary-600 underline">/admin/boards</a>에서.
           </p>
         </div>
         <button
@@ -250,6 +248,32 @@ export default function AdminContentsPage() {
           </button>
         ))}
       </div>
+
+      {/* 활성 보드 공개 노출 위치 안내 */}
+      {activeBoard && (
+        <div className={cn(
+          "flex items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-sm",
+          activeBoard.group === "media"
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : activeBoard.group === "community"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : "border-amber-200 bg-amber-50 text-amber-700",
+        )}>
+          <div>
+            <span className="font-medium">{activeBoard.label}</span>
+            <span className="ml-2 text-xs opacity-70">key: <code className="rounded bg-white/60 px-1">{activeBoard.key}</code> · group: <code className="rounded bg-white/60 px-1">{activeBoard.group ?? "(미설정)"}</code></span>
+          </div>
+          <div className="text-xs">
+            {activeBoard.group === "media" ? (
+              <>공개 노출: <a href="/media" target="_blank" rel="noopener noreferrer" className="underline font-medium">/media</a></>
+            ) : activeBoard.group === "community" ? (
+              <>공개 노출: <a href="/community" target="_blank" rel="noopener noreferrer" className="underline font-medium">/community</a></>
+            ) : (
+              <>⚠ 공개 미연결 — group을 media/community로 설정해야 노출됩니다</>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 검색 */}
       <div className="relative max-w-sm">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  Plus, Search, Edit, Trash2, Pin, Eye, FileText, X, Save, Link, Paperclip, ExternalLink, Image as ImageIcon, File, PlusCircle, HardDrive,
+  Plus, Search, Edit, Trash2, Pin, Eye, FileText, X, Save, Link, Paperclip, ExternalLink, Image as ImageIcon, File, HardDrive,
   CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -78,17 +78,10 @@ export default function AdminPostsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [customBoardMode, setCustomBoardMode] = useState(false);
-  const [customBoardInput, setCustomBoardInput] = useState("");
 
-  // 기존 게시물에서 사용된 커스텀 게시판 타입 수집
-  const customBoardTypes = [...new Set(
-    posts.map((p) => p.boardType).filter((t) => !(t in DEFAULT_BOARD_TYPES))
-  )];
-  const allBoardTypes: Record<string, string> = {
-    ...DEFAULT_BOARD_TYPES,
-    ...Object.fromEntries(customBoardTypes.map((t) => [t, t])),
-  };
+  // 레거시 페이지: NOTICE/RESOURCE/FREE 외 잘못 분류된 글이 있어도 탭으로 노출하지 않음.
+  // 후기·FAQ 등은 별도 컬렉션(reviews, faq) 또는 통합 콘텐츠에서 관리.
+  const allBoardTypes: Record<string, string> = { ...DEFAULT_BOARD_TYPES };
 
   const filtered = posts
     .filter((p) => boardFilter === "ALL" || p.boardType === boardFilter)
@@ -209,7 +202,7 @@ export default function AdminPostsPage() {
 
   return (
     <div>
-      <LegacyMigrationBanner legacyName="게시판 관리" />
+      <LegacyMigrationBanner legacyName="게시판 관리 (구)" legacyCollection="posts" targetBoardKey="community-notice" publicPath="/community" />
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">게시판 관리</h1>
@@ -338,34 +331,12 @@ export default function AdminPostsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1.5 block">구분</label>
-                  {customBoardMode ? (
-                    <div className="flex gap-2">
-                      <input type="text" value={customBoardInput} onChange={(e) => setCustomBoardInput(e.target.value)}
-                        className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                        placeholder="새 게시판 이름 (예: 활동보고)" autoFocus />
-                      <button type="button" onClick={() => {
-                        if (customBoardInput.trim()) {
-                          setEditingPost({ ...editingPost, boardType: customBoardInput.trim() });
-                          setCustomBoardMode(false);
-                        }
-                      }} className="px-3 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">확인</button>
-                      <button type="button" onClick={() => { setCustomBoardMode(false); setCustomBoardInput(""); }}
-                        className="px-2 py-2 text-gray-400 hover:text-gray-600"><X size={16} /></button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <select value={editingPost.boardType} onChange={(e) => setEditingPost({ ...editingPost, boardType: e.target.value as BoardType })}
-                        className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none">
-                        {Object.entries(allBoardTypes).map(([key, label]) => (
-                          <option key={key} value={key}>{label}</option>
-                        ))}
-                      </select>
-                      <button type="button" onClick={() => setCustomBoardMode(true)}
-                        className="px-2 py-2 text-gray-400 hover:text-primary-600 transition-colors" title="새 게시판 추가">
-                        <PlusCircle size={18} />
-                      </button>
-                    </div>
-                  )}
+                  <select value={editingPost.boardType} onChange={(e) => setEditingPost({ ...editingPost, boardType: e.target.value as BoardType })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none">
+                    {Object.entries(allBoardTypes).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1.5 block">작성자</label>

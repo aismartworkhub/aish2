@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Save, Trash2, GripVertical, X, RefreshCw } from "lucide-react";
+import { Plus, Save, Trash2, GripVertical, X, RefreshCw, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
-import { DEFAULT_BOARDS } from "@/lib/board-defaults";
+import { DEFAULT_BOARDS, mergeBoardsByKey } from "@/lib/board-defaults";
 import { getBoards, upsertBoard, createContent } from "@/lib/content-engine";
-import { removeDoc, COLLECTIONS } from "@/lib/firestore";
+import { removeDoc, COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
 import { runFullMigration, type MigrationResult } from "@/lib/migration";
 import { cleanupRemovedSeeds } from "@/lib/seed-ai-contents";
 import { useAuth } from "@/contexts/AuthContext";
@@ -164,13 +164,18 @@ export default function AdminBoardsPage() {
   const [migrating, setMigrating] = useState(false);
   const [migrationLog, setMigrationLog] = useState<string[]>([]);
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null);
+  const [lastMigrationAt, setLastMigrationAt] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     getBoards()
-      .then((b) => setBoards(b.length > 0 ? b : DEFAULT_BOARDS))
+      .then((b) => setBoards(mergeBoardsByKey(DEFAULT_BOARDS, b)))
       .catch(() => setBoards(DEFAULT_BOARDS))
       .finally(() => setLoading(false));
+
+    getSingletonDoc<{ lastRunAt?: string }>(COLLECTIONS.SETTINGS, "migrationStatus")
+      .then((doc) => { if (doc?.lastRunAt) setLastMigrationAt(doc.lastRunAt); })
+      .catch(() => {});
   }, []);
 
   const handleSeedSamples = async () => {
@@ -215,6 +220,14 @@ export default function AdminBoardsPage() {
         setMigrationLog((prev) => [...prev, msg]);
       });
       setMigrationResult(result);
+      const ranAt = new Date().toISOString();
+      setLastMigrationAt(ranAt);
+      try {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "migrationStatus", {
+          lastRunAt: ranAt,
+          lastResult: { total: result.total, created: result.created, skipped: result.skipped, errors: result.errors },
+        });
+      } catch { /* 기록 실패는 무시 */ }
       toast(`마이그레이션 완료: ${result.created}건 생성, ${result.skipped}건 건너뜀`, "success");
     } catch {
       toast("마이그레이션 실패.", "error");
@@ -235,7 +248,7 @@ export default function AdminBoardsPage() {
         }
       }
       const refreshed = await getBoards();
-      setBoards(refreshed.length > 0 ? refreshed : DEFAULT_BOARDS);
+      setBoards(mergeBoardsByKey(DEFAULT_BOARDS, refreshed));
       toast("기본 게시판이 저장되었습니다.", "success");
     } catch {
       toast("저장 실패.", "error");
@@ -279,7 +292,7 @@ export default function AdminBoardsPage() {
       const { key, ...rest } = editing;
       await upsertBoard(key, rest);
       const refreshed = await getBoards();
-      setBoards(refreshed.length > 0 ? refreshed : DEFAULT_BOARDS);
+      setBoards(mergeBoardsByKey(DEFAULT_BOARDS, refreshed));
       setEditing(null);
       toast(isCreating ? "게시판이 추가되었습니다." : "게시판 설정이 저장되었습니다.", "success");
     } catch {
@@ -311,17 +324,6 @@ export default function AdminBoardsPage() {
           <p className="mt-1 text-sm text-gray-500">콘텐츠·커뮤니티 게시판의 구조를 관리합니다.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleMigration}
-            disabled={migrating || saving}
-            className={cn(
-              "flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 text-sm text-orange-700",
-              "hover:bg-orange-100 disabled:opacity-50",
-            )}
-          >
-            <RefreshCw size={14} className={cn(migrating && "animate-spin")} />
-            {migrating ? "마이그레이션 중..." : "데이터 마이그레이션"}
-          </button>
           <button
             onClick={handleSeedSamples}
             disabled={seeding || saving}
@@ -360,6 +362,37 @@ export default function AdminBoardsPage() {
             )}
           >
             <Plus size={16} /> 게시판 추가
+          </button>
+        </div>
+      </div>
+
+      {/* 데이터 마이그레이션 — 강조 섹션 */}
+      <div className="rounded-xl border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex-1">
+            <h2 className="flex items-center gap-2 text-base font-bold text-orange-900">
+              <RefreshCw size={18} /> 데이터 마이그레이션 (1회 실행)
+            </h2>
+            <p className="mt-1 text-sm text-orange-800">
+              레거시 컬렉션(<code className="rounded bg-white/60 px-1 text-xs">posts · videos · reviews · faq · gallery</code>)에 흩어진 데이터를 통합 콘텐츠(<code className="rounded bg-white/60 px-1 text-xs">contents</code>)로 일괄 이전합니다. 이미 이전된 항목은 건너뜁니다.
+            </p>
+            <p className="mt-1 text-xs text-orange-700">
+              {lastMigrationAt
+                ? <>마지막 실행: <strong>{new Date(lastMigrationAt).toLocaleString("ko-KR")}</strong></>
+                : <>아직 한 번도 실행되지 않았습니다. 운영팀이 레거시 페이지 데이터를 통합 콘텐츠에서 보려면 1회 실행 필요.</>}
+            </p>
+          </div>
+          <button
+            onClick={handleMigration}
+            disabled={migrating || saving}
+            className={cn(
+              "flex shrink-0 items-center gap-2 rounded-lg bg-orange-600 px-5 py-3 text-sm font-semibold text-white shadow-sm",
+              "hover:bg-orange-700 disabled:opacity-50",
+            )}
+          >
+            <RefreshCw size={16} className={cn(migrating && "animate-spin")} />
+            {migrating ? "마이그레이션 중..." : "마이그레이션 실행"}
+            <ArrowRight size={14} />
           </button>
         </div>
       </div>

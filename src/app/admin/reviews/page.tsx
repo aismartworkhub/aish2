@@ -202,7 +202,7 @@ export default function AdminReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <LegacyMigrationBanner legacyName="후기 관리" targetBoardKey="community-review" />
+      <LegacyMigrationBanner legacyName="후기 관리 (구)" legacyCollection="reviews" targetBoardKey="community-review" publicPath="/community" />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">후기 관리</h1>

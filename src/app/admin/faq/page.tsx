@@ -74,7 +74,7 @@ export default function AdminFAQPage() {
 
   return (
     <div className="space-y-6">
-      <LegacyMigrationBanner legacyName="FAQ 관리" targetBoardKey="community-faq" />
+      <LegacyMigrationBanner legacyName="FAQ 관리 (구)" legacyCollection="faq" targetBoardKey="community-faq" publicPath="/community" />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">FAQ 관리</h1>

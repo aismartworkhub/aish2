@@ -179,7 +179,7 @@ export default function AdminGalleryPage() {
 
   return (
     <div>
-      <LegacyMigrationBanner legacyName="갤러리" targetBoardKey="media-gallery" />
+      <LegacyMigrationBanner legacyName="갤러리 (구)" legacyCollection="gallery" targetBoardKey="media-gallery" publicPath="/media" />
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">갤러리 관리</h1>

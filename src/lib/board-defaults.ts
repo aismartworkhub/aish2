@@ -170,3 +170,21 @@ export function getBoardsByGroupDefault(
 ): BoardConfig[] {
   return DEFAULT_BOARDS.filter((b) => b.group === group && b.isActive);
 }
+
+/**
+ * Default 보드와 Firestore 보드를 key 기준으로 병합.
+ * Firestore에 같은 key가 있으면 Firestore 값이 우선(운영자 수정 보존).
+ * Firestore에만 있는 커스텀 보드도 그대로 포함.
+ * 결과는 order 오름차순 정렬.
+ */
+export function mergeBoardsByKey(
+  defaults: BoardConfig[],
+  firestore: BoardConfig[],
+): BoardConfig[] {
+  const map = new Map<string, BoardConfig>();
+  for (const b of defaults) map.set(b.key, b);
+  for (const b of firestore) map.set(b.key, b);
+  return Array.from(map.values()).sort(
+    (a, b) => (a.order ?? 999) - (b.order ?? 999),
+  );
+}
