@@ -5,6 +5,7 @@
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { COLLECTIONS } from "./firestore";
+import { BOARD_MAP } from "./board-defaults";
 import {
   loadLegacyVideosAsContent,
   loadLegacyGalleryAsContent,
@@ -36,8 +37,10 @@ async function migrateContents(items: Content[], label: string): Promise<Migrati
       }
 
       const { id, ...data } = item;
+      const boardGroup = BOARD_MAP.get(data.boardKey)?.group;
       await setDoc(docRef, {
         ...data,
+        ...(boardGroup ? { group: boardGroup } : {}),
         views: data.views || 0,
         likeCount: data.likeCount || 0,
         commentCount: data.commentCount || 0,

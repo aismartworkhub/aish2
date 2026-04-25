@@ -21,6 +21,7 @@ import {
 import { db } from "./firebase";
 import { COLLECTIONS, invalidateCache } from "./firestore";
 import { extractYouTubeVideoId } from "./youtube";
+import { DEFAULT_BOARDS } from "./board-defaults";
 import type {
   BoardConfig,
   Content,
@@ -38,6 +39,37 @@ export async function getBoards(): Promise<BoardConfig[]> {
     query(collection(db, COLLECTIONS.BOARDS), orderBy("order", "asc")),
   );
   return snap.docs.map((d) => ({ ...d.data(), key: d.id } as BoardConfig));
+}
+
+/**
+ * boardKey → BoardConfig 5분 메모리 캐시.
+ * createContent/updateContent 시 group denormalize 용도.
+ * Firestore boards가 비어있으면 DEFAULT_BOARDS 폴백.
+ */
+const BOARD_LOOKUP_TTL_MS = 5 * 60_000;
+let boardLookupCache: { map: Map<string, BoardConfig>; expiresAt: number } | null = null;
+
+async function getBoardByKey(boardKey: string): Promise<BoardConfig | null> {
+  const now = Date.now();
+  if (boardLookupCache && boardLookupCache.expiresAt > now) {
+    return boardLookupCache.map.get(boardKey) ?? null;
+  }
+  try {
+    const list = await getBoards();
+    const map = new Map<string, BoardConfig>();
+    for (const b of DEFAULT_BOARDS) map.set(b.key, b);
+    for (const b of list) map.set(b.key, b);
+    boardLookupCache = { map, expiresAt: now + BOARD_LOOKUP_TTL_MS };
+    return map.get(boardKey) ?? null;
+  } catch {
+    const fallback = new Map<string, BoardConfig>();
+    for (const b of DEFAULT_BOARDS) fallback.set(b.key, b);
+    return fallback.get(boardKey) ?? null;
+  }
+}
+
+export function invalidateBoardLookupCache(): void {
+  boardLookupCache = null;
 }
 
 export async function getBoardsByGroup(
@@ -96,8 +128,10 @@ export async function getContentById(id: string): Promise<Content | null> {
 }
 
 export async function createContent(data: ContentInput): Promise<string> {
+  const board = await getBoardByKey(data.boardKey);
   const ref = await addDoc(collection(db, COLLECTIONS.CONTENTS), {
     ...data,
+    ...(board?.group ? { group: board.group } : {}),
     views: 0,
     likeCount: 0,
     commentCount: 0,
@@ -132,8 +166,15 @@ export async function updateContent(
   id: string,
   data: Partial<ContentInput>,
 ): Promise<void> {
+  // boardKey가 변경되었거나 처음 group을 채우는 경우 lookup 후 group 동기화
+  let extra: { group?: BoardConfig["group"] } = {};
+  if (data.boardKey) {
+    const board = await getBoardByKey(data.boardKey);
+    if (board?.group) extra = { group: board.group };
+  }
   await updateDoc(doc(db, COLLECTIONS.CONTENTS, id), {
     ...data,
+    ...extra,
     updatedAt: serverTimestamp(),
   } as DocumentData);
   invalidateCache(COLLECTIONS.CONTENTS);

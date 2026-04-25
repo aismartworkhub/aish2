@@ -47,7 +47,7 @@ export default function LegacyMigrationBanner({
             )}
           </p>
           <p className="text-xs opacity-75">
-            기존 데이터는 <Link href="/admin/boards" className="underline">/admin/boards</Link>의 <strong>&quot;데이터 마이그레이션&quot;</strong> 버튼으로 일괄 이전 가능합니다.
+            기존 데이터는 <Link href="/admin/boards" className="underline">/admin/boards</Link>의 <strong>&quot;데이터 마이그레이션&quot;</strong> 버튼으로 일괄 이전 가능합니다. 이전 후 운영 검증을 거쳐 <strong>곧 이 페이지의 작성·수정 버튼이 비활성화될 예정</strong>입니다.
           </p>
         </div>
         <Link

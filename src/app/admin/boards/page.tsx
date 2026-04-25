@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Save, Trash2, GripVertical, X, RefreshCw, ArrowRight } from "lucide-react";
+import { Plus, Save, Trash2, GripVertical, X, RefreshCw, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import { DEFAULT_BOARDS, mergeBoardsByKey } from "@/lib/board-defaults";
 import { getBoards, upsertBoard, createContent } from "@/lib/content-engine";
-import { removeDoc, COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
+import { removeDoc, getCollection, getFilteredCollection, COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
 import { runFullMigration, type MigrationResult } from "@/lib/migration";
 import { cleanupRemovedSeeds } from "@/lib/seed-ai-contents";
 import { useAuth } from "@/contexts/AuthContext";
@@ -167,6 +167,14 @@ export default function AdminBoardsPage() {
   const [lastMigrationAt, setLastMigrationAt] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
 
+  // 검증 패널 상태
+  const [verifying, setVerifying] = useState(false);
+  const [verifyData, setVerifyData] = useState<{
+    legacy: Record<string, number>;
+    contentsByBoard: Record<string, number>;
+    contentsByMigratedFrom: Record<string, number>;
+  } | null>(null);
+
   useEffect(() => {
     getBoards()
       .then((b) => setBoards(mergeBoardsByKey(DEFAULT_BOARDS, b)))
@@ -207,6 +215,61 @@ export default function AdminBoardsPage() {
       toast(deleted > 0 ? `시드 콘텐츠 ${deleted}건 삭제 완료` : "삭제할 시드 콘텐츠가 없습니다.", deleted > 0 ? "success" : "info");
     } catch (e) {
       toast(`시드 정리 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    }
+  };
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    try {
+      type WithType = { type?: string; boardType?: string };
+      type WithMigrated = { _migratedFrom?: string; boardKey?: string };
+
+      const [
+        videos, gallery, posts, reviews, faq,
+        contents,
+      ] = await Promise.all([
+        getCollection<unknown>(COLLECTIONS.VIDEOS),
+        getCollection<unknown>(COLLECTIONS.GALLERY),
+        getCollection<WithType>(COLLECTIONS.POSTS),
+        getCollection<unknown>(COLLECTIONS.REVIEWS),
+        getCollection<unknown>(COLLECTIONS.FAQ),
+        getCollection<WithMigrated>(COLLECTIONS.CONTENTS),
+      ]);
+
+      const postsByType = posts.reduce((acc, p) => {
+        const t = (p.type || p.boardType || "UNKNOWN").toUpperCase();
+        acc[t] = (acc[t] ?? 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const contentsByBoard: Record<string, number> = {};
+      const contentsByMigratedFrom: Record<string, number> = {};
+      for (const c of contents) {
+        const k = c.boardKey ?? "(no boardKey)";
+        contentsByBoard[k] = (contentsByBoard[k] ?? 0) + 1;
+        if (c._migratedFrom) {
+          contentsByMigratedFrom[c._migratedFrom] =
+            (contentsByMigratedFrom[c._migratedFrom] ?? 0) + 1;
+        }
+      }
+
+      setVerifyData({
+        legacy: {
+          videos: videos.length,
+          gallery: gallery.length,
+          "posts.NOTICE": postsByType.NOTICE ?? 0,
+          "posts.FREE": postsByType.FREE ?? 0,
+          "posts.RESOURCE": postsByType.RESOURCE ?? 0,
+          reviews: reviews.length,
+          faq: faq.length,
+        },
+        contentsByBoard,
+        contentsByMigratedFrom,
+      });
+    } catch (e) {
+      toast(`검증 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -415,6 +478,113 @@ export default function AdminBoardsPage() {
           {migrationLog.map((m, i) => <p key={i}>{m}</p>)}
         </div>
       )}
+
+      {/* 마이그레이션 검증 패널 */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-bold text-blue-900">
+              <CheckCircle2 size={18} /> 마이그레이션 검증
+            </h2>
+            <p className="mt-1 text-sm text-blue-800">
+              레거시 컬렉션 문서 수와 통합 콘텐츠(<code className="rounded bg-white/60 px-1 text-xs">contents</code>) 보드별 분포를 비교하여 누락 여부를 확인합니다.
+            </p>
+          </div>
+          <button
+            onClick={handleVerify}
+            disabled={verifying}
+            className={cn(
+              "flex shrink-0 items-center gap-2 rounded-lg border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-700",
+              "hover:bg-blue-100 disabled:opacity-50",
+            )}
+          >
+            <RefreshCw size={14} className={cn(verifying && "animate-spin")} />
+            {verifying ? "확인 중..." : "검증 실행"}
+          </button>
+        </div>
+
+        {verifyData && (() => {
+          const legacyTotal = Object.values(verifyData.legacy).reduce((a, b) => a + b, 0);
+          const migratedTotal = Object.values(verifyData.contentsByMigratedFrom).reduce((a, b) => a + b, 0);
+          const allClear = legacyTotal === 0 || migratedTotal >= legacyTotal;
+          return (
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg bg-white p-3">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">레거시 컬렉션</h3>
+                <ul className="space-y-1 text-sm">
+                  {Object.entries(verifyData.legacy).map(([k, v]) => (
+                    <li key={k} className="flex justify-between">
+                      <span className="text-gray-600">{k}</span>
+                      <strong className={v > 0 ? "text-orange-600" : "text-gray-400"}>{v}</strong>
+                    </li>
+                  ))}
+                  <li className="flex justify-between border-t border-gray-100 pt-1 mt-1">
+                    <span className="font-medium">합계</span>
+                    <strong>{legacyTotal}</strong>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="rounded-lg bg-white p-3">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">통합 콘텐츠 (보드별)</h3>
+                <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
+                  {Object.entries(verifyData.contentsByBoard)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([k, v]) => (
+                      <li key={k} className="flex justify-between">
+                        <code className="text-xs text-gray-600">{k}</code>
+                        <strong className="text-emerald-600">{v}</strong>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+
+              <div className="rounded-lg bg-white p-3">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">_migratedFrom 출처별</h3>
+                <ul className="space-y-1 text-sm">
+                  {Object.entries(verifyData.contentsByMigratedFrom).length === 0 ? (
+                    <li className="text-xs text-gray-400">아직 마이그레이션이 실행되지 않았거나 표식 없음</li>
+                  ) : (
+                    Object.entries(verifyData.contentsByMigratedFrom).map(([k, v]) => (
+                      <li key={k} className="flex justify-between">
+                        <code className="text-xs text-gray-600">{k}</code>
+                        <strong className="text-blue-600">{v}</strong>
+                      </li>
+                    ))
+                  )}
+                  <li className="flex justify-between border-t border-gray-100 pt-1 mt-1">
+                    <span className="font-medium">마이그레이션 합계</span>
+                    <strong>{migratedTotal}</strong>
+                  </li>
+                </ul>
+              </div>
+
+              <div className={cn(
+                "md:col-span-3 flex items-center gap-2 rounded-lg p-3 text-sm",
+                allClear
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-amber-100 text-amber-800",
+              )}>
+                {allClear ? (
+                  <>
+                    <CheckCircle2 size={16} />
+                    <span>
+                      <strong>누락 0건</strong> — 레거시 {legacyTotal}건 ≤ 마이그레이션 {migratedTotal}건. 안전하게 다음 단계로 진행 가능.
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle size={16} />
+                    <span>
+                      <strong>주의:</strong> 레거시 {legacyTotal}건 중 {legacyTotal - migratedTotal}건이 아직 통합되지 않음. &quot;마이그레이션 실행&quot; 버튼을 눌러주세요.
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
 
       {loading ? (
         <div className="py-16 text-center text-sm text-gray-400">로딩 중...</div>

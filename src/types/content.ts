@@ -30,6 +30,8 @@ export type MediaType = "youtube" | "image" | "gif" | "pdf" | "link" | "none";
 export interface Content {
   id: string;
   boardKey: string;
+  /** boards.{boardKey}.group 의 denormalized 사본. createContent/updateContent 시 자동 채워짐. */
+  group?: BoardGroup;
 
   title: string;
   /** 비어 있으면 미사용. 있으면 공개 페이지에서 title 대신 표시(영문 원제목은 title에 유지) */
