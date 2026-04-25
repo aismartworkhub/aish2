@@ -6,7 +6,11 @@ import { cn, googleDriveUcExportViewUrl, extractGoogleDriveFileId } from "@/lib/
 import { extractYouTubeVideoId } from "@/lib/youtube";
 import type { Content } from "@/types/content";
 import { contentDisplayTitle, contentDisplayBody } from "@/lib/content-display";
-import { incrementContentViews, getRelatedContents } from "@/lib/content-engine";
+import {
+  incrementContentViews,
+  incrementContentDownloads,
+  getRelatedContents,
+} from "@/lib/content-engine";
 import MediaPreview from "@/components/content/MediaPreview";
 
 type Props = {
@@ -15,6 +19,34 @@ type Props = {
   /** 관련 콘텐츠 카드 클릭 시 핸들러 (모달 내부 전환) */
   onSelectRelated?: (c: Content) => void;
 };
+
+/** 등록 7일 이내. createdAt이 Firestore Timestamp 또는 문자열 모두 처리. */
+function isNewWithin7Days(createdAt: unknown): boolean {
+  if (!createdAt) return false;
+  let ms = 0;
+  if (typeof createdAt === "string") {
+    ms = new Date(createdAt).getTime();
+  } else if (typeof createdAt === "object" && createdAt !== null) {
+    const ts = createdAt as { toDate?: () => Date; seconds?: number };
+    if (typeof ts.toDate === "function") ms = ts.toDate().getTime();
+    else if (typeof ts.seconds === "number") ms = ts.seconds * 1000;
+  }
+  if (!ms) return false;
+  return Date.now() - ms < 7 * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * 다운로드 카운터 배지 정책:
+ * - 등록 7일 이내 → "NEW" 배지
+ * - downloadCount ≥ 10 → 숫자 노출 (군중심리)
+ * - 그 사이 → 숨김 (저카운트 노출은 역효과)
+ */
+function downloadBadge(content: Content): { label: string; tone: "new" | "count" } | null {
+  if (isNewWithin7Days(content.createdAt)) return { label: "NEW", tone: "new" };
+  const n = content.downloadCount ?? 0;
+  if (n >= 10) return { label: `${n.toLocaleString()}회 다운로드`, tone: "count" };
+  return null;
+}
 
 /**
  * 콘텐츠 상세 모달.
@@ -72,6 +104,11 @@ export default function ContentDetailModal({ content, onClose, onSelectRelated }
   const isLink = mediaType === "link";
 
   const downloadHref = driveId ? googleDriveUcExportViewUrl(driveId) : mediaUrl;
+  const dlBadge = downloadBadge(content);
+
+  const handleDownload = () => {
+    void incrementContentDownloads(content.id).catch(() => {});
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8">
@@ -88,11 +125,23 @@ export default function ContentDetailModal({ content, onClose, onSelectRelated }
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-bold text-gray-900">{title}</h2>
-            <div className="mt-0.5 flex items-center gap-3 text-xs text-gray-500">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
               <span>{content.authorName}</span>
               <span className="flex items-center gap-1"><Eye size={12} />{content.views}</span>
               <span className="flex items-center gap-1"><Heart size={12} />{content.likeCount}</span>
               <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">{content.boardKey}</span>
+              {dlBadge && (
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                    dlBadge.tone === "new"
+                      ? "bg-rose-100 text-rose-700"
+                      : "bg-amber-100 text-amber-800",
+                  )}
+                >
+                  {dlBadge.label}
+                </span>
+              )}
             </div>
           </div>
           <button
@@ -212,6 +261,7 @@ export default function ContentDetailModal({ content, onClose, onSelectRelated }
                 href={downloadHref}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={handleDownload}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
               >
                 <Download size={14} />

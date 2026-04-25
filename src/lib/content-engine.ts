@@ -426,6 +426,12 @@ export async function incrementContentViews(id: string): Promise<void> {
   });
 }
 
+export async function incrementContentDownloads(id: string): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.CONTENTS, id), {
+    downloadCount: increment(1),
+  });
+}
+
 // ── Comment 관련 ──
 
 export async function getCommentsByContent(

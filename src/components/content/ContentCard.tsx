@@ -56,6 +56,35 @@ function GridCard({ content, onClick }: Omit<Props, "board">) {
             SHORT
           </span>
         )}
+        {(() => {
+          // 7일 이내 → NEW, downloadCount ≥ 10 → 카운트, 그 사이 → 숨김
+          const ms = (() => {
+            const c = content.createdAt;
+            if (!c) return 0;
+            if (typeof c === "string") return new Date(c).getTime();
+            const ts = c as { toDate?: () => Date; seconds?: number };
+            if (typeof ts.toDate === "function") return ts.toDate().getTime();
+            if (typeof ts.seconds === "number") return ts.seconds * 1000;
+            return 0;
+          })();
+          const isNew = ms > 0 && Date.now() - ms < 7 * 24 * 60 * 60 * 1000;
+          const dl = content.downloadCount ?? 0;
+          if (isNew) {
+            return (
+              <span className="absolute top-2 left-2 rounded bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+                NEW
+              </span>
+            );
+          }
+          if (dl >= 10) {
+            return (
+              <span className="absolute top-2 left-2 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+                ↓ {dl.toLocaleString()}
+              </span>
+            );
+          }
+          return null;
+        })()}
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">

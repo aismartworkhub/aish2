@@ -268,6 +268,13 @@ function MediaPageInner() {
                 label={b.label}
               />
             ))}
+            {/* 수강후기는 group=community 이지만 발견 동선에 노출 */}
+            <span className="self-center text-gray-200">|</span>
+            <Chip
+              active={activeBoardKey === "community-review"}
+              onClick={() => setActiveBoardKey("community-review")}
+              label="⭐ 수강후기"
+            />
           </div>
         </div>
 

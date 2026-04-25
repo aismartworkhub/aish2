@@ -62,6 +62,8 @@ export interface Content {
   views: number;
   likeCount: number;
   commentCount: number;
+  /** 자료 다운로드 클릭 누적 (PDF·문서·외부 링크). incrementContentDownloads로 +1. */
+  downloadCount?: number;
   createdAt: unknown;
   updatedAt?: unknown;
 }
