@@ -2,42 +2,32 @@
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X, Plus } from "lucide-react";
+import { Search, X, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getContents, getBoardsByGroup } from "@/lib/content-engine";
-import { loadAllLegacyMediaAsContent } from "@/lib/legacy-adapter";
-import { getBoardsByGroupDefault } from "@/lib/board-defaults";
-import { normalizeUrl } from "@/lib/ai-content-dedup";
+import { getBoardsByGroup, buildSearchTerms } from "@/lib/content-engine";
+import { getBoardsByGroupDefault, mergeBoardsByKey, DEFAULT_BOARDS } from "@/lib/board-defaults";
 import type { Content, BoardConfig } from "@/types/content";
-import { ContentCard, ContentDetail } from "@/components/content";
+import { ContentCard } from "@/components/content";
+import ContentDetailModal from "@/components/content/ContentDetailModal";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { loadPageContent, DEFAULT_MEDIA } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
+import { useInfiniteContents } from "@/hooks/useInfiniteContents";
+import { getContentById } from "@/lib/content-engine";
 
 const ALL_KEY = "__all__";
-const SHORTS_KEY = "__shorts__";
 
-type SourceTab = typeof ALL_KEY | "youtube" | "github" | "gallery" | "resource" | "xcom" | typeof SHORTS_KEY;
+type MediaTypeFilter = typeof ALL_KEY | "youtube" | "image" | "pdf" | "link";
 
-const SOURCE_TABS: { key: SourceTab; label: string }[] = [
+const MEDIA_FILTERS: { key: MediaTypeFilter; label: string }[] = [
   { key: ALL_KEY, label: "전체" },
-  { key: "youtube", label: "유튜브" },
-  { key: "github", label: "GitHub" },
-  { key: "gallery", label: "갤러리" },
-  { key: "resource", label: "추천자료" },
+  { key: "youtube", label: "영상" },
+  { key: "image", label: "이미지" },
+  { key: "pdf", label: "문서" },
+  { key: "link", label: "링크" },
 ];
-
-function inferSource(c: Content): string {
-  if (c.mediaType === "youtube" || c.mediaUrl?.includes("youtube.com") || c.mediaUrl?.includes("youtu.be")) return "youtube";
-  if (c.mediaUrl?.includes("github.com")) return "github";
-  if (c.mediaUrl?.includes("x.com") || c.mediaUrl?.includes("twitter.com")) return "xcom";
-  if (c.mediaType === "image" || c.boardKey === "media-gallery") return "gallery";
-  if (c.boardKey === "media-resource") return "resource";
-  if (c.mediaType === "link") return "resource";
-  return "resource";
-}
 
 export default function MediaPage() {
   return (
@@ -48,153 +38,136 @@ export default function MediaPage() {
 }
 
 function MediaPageInner() {
-  const [boards, setBoards] = useState<BoardConfig[]>([]);
-  const [contents, setContents] = useState<Content[]>([]);
-  const [activeTab, setActiveTab] = useState<SourceTab>(ALL_KEY);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selected, setSelected] = useState<Content | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [pageContent, setPageContent] = useState<PageContentBase>(DEFAULT_MEDIA);
-
-  useEffect(() => {
-    loadPageContent("media").then(setPageContent).catch(() => {});
-  }, []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
   const ff = useFeatureFlags();
   const contentDeepLink = ff.phase1.enabled && ff.phase1.contentDeepLink === true;
 
+  const [boards, setBoards] = useState<BoardConfig[]>(() =>
+    mergeBoardsByKey(getBoardsByGroupDefault("media"), []),
+  );
+  const [activeBoardKey, setActiveBoardKey] = useState<string | null>(null);
+  const [activeMediaType, setActiveMediaType] = useState<MediaTypeFilter>(ALL_KEY);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchActive, setSearchActive] = useState<string>("");
+  const [pageContent, setPageContent] = useState<PageContentBase>(DEFAULT_MEDIA);
+  const [selected, setSelected] = useState<Content | null>(null);
+
+  // URL ?tag=AI deep-link 지원
+  const tagParam = searchParams.get("tag")?.trim() || "";
+  const tagFilter = useMemo(() => (tagParam ? [tagParam] : undefined), [tagParam]);
+
+  // 검색어 → searchTerms 토큰 (3글자 이상일 때만 서버 쿼리)
+  const searchTokens = useMemo(() => {
+    if (!searchActive.trim() || searchActive.trim().length < 2) return undefined;
+    return buildSearchTerms({ title: searchActive });
+  }, [searchActive]);
+
+  // 무한 스크롤 — boardKey가 선택되면 보드 단위, 아니면 group=media 통합 피드
+  const feed = useInfiniteContents({
+    boardKey: activeBoardKey ?? undefined,
+    group: activeBoardKey ? undefined : "media",
+    tags: tagFilter && !searchTokens ? tagFilter : undefined,
+    searchTerms: searchTokens,
+    pageSize: 24,
+  });
+
+  useEffect(() => {
+    loadPageContent("media").then(setPageContent).catch(() => {});
+  }, []);
+
+  // 보드 목록 로드
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      let mediaBoards: BoardConfig[];
-      try {
-        mediaBoards = await getBoardsByGroup("media");
-        if (mediaBoards.length === 0) mediaBoards = getBoardsByGroupDefault("media");
-      } catch {
-        mediaBoards = getBoardsByGroupDefault("media");
-      }
-      if (cancelled) return;
-      setBoards(mediaBoards);
-
-      let all: Content[] = [];
-
-      const uniqueKeys = [...new Set(mediaBoards.map((b) => b.key))];
-      try {
-        const promises = uniqueKeys.map((key) =>
-          getContents(key).catch((err) => {
-            if (process.env.NODE_ENV === "development") console.warn(`getContents(${key}) 실패:`, err);
-            return [] as Content[];
-          }),
-        );
-        const results = await Promise.all(promises);
-        all = results.flat();
-      } catch (err) {
-        if (process.env.NODE_ENV === "development") console.error("콘텐츠 로드 실패:", err);
-      }
-
-      try {
-        const legacy = await loadAllLegacyMediaAsContent();
-        const existUrls = new Set(all.map((c) => normalizeUrl(c.mediaUrl || "")));
-        const existIds = new Set(all.map((c) => c.id));
-        all = [
-          ...all,
-          ...legacy.filter(
-            (l) => !existIds.has(l.id) && !existUrls.has(normalizeUrl(l.mediaUrl || "")),
-          ),
-        ];
-      } catch { /* 레거시 로드 실패 무시 */ }
-
-      if (cancelled) return;
-      all.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
-      setContents(all);
-      setLoading(false);
-    }
-    load();
+    getBoardsByGroup("media")
+      .then((list) => {
+        if (cancelled) return;
+        setBoards(mergeBoardsByKey(getBoardsByGroupDefault("media"), list));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBoards(mergeBoardsByKey(DEFAULT_BOARDS, []).filter((b) => b.group === "media"));
+      });
     return () => { cancelled = true; };
   }, []);
 
+  // ?id deep-link 지원: URL에 id 있으면 콘텐츠 직접 fetch (피드 안에 없을 수도 있음)
   useEffect(() => {
-    if (!contentDeepLink || loading || contents.length === 0) return;
+    if (!contentDeepLink) return;
     const idParam = searchParams.get("id");
-    if (idParam && !selected) {
-      const found = contents.find((c) => c.id === idParam);
-      if (found) setSelected(found);
+    if (!idParam) {
+      if (selected) setSelected(null);
+      return;
     }
-  }, [contentDeepLink, loading, contents, searchParams, selected]);
+    if (selected?.id === idParam) return;
+    void getContentById(idParam).then((c) => {
+      if (c) setSelected(c);
+    }).catch(() => {});
+  }, [contentDeepLink, searchParams, selected]);
 
   const selectContent = useCallback((c: Content) => {
     setSelected(c);
-    if (contentDeepLink) router.replace(`/media?id=${c.id}`, { scroll: false });
-  }, [router, contentDeepLink]);
+    if (contentDeepLink) {
+      const next = new URLSearchParams(searchParams.toString());
+      next.set("id", c.id);
+      router.replace(`/media?${next.toString()}`, { scroll: false });
+    }
+  }, [router, contentDeepLink, searchParams]);
 
   const clearSelected = useCallback(() => {
     setSelected(null);
-    if (contentDeepLink) router.replace("/media", { scroll: false });
-  }, [router, contentDeepLink]);
+    if (contentDeepLink) {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("id");
+      const qs = next.toString();
+      router.replace(qs ? `/media?${qs}` : "/media", { scroll: false });
+    }
+  }, [router, contentDeepLink, searchParams]);
 
   const boardForContent = useCallback(
     (c: Content): BoardConfig | undefined => boards.find((b) => b.key === c.boardKey),
     [boards],
   );
 
-  const visibleTabs = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const c of contents) {
-      const src = inferSource(c);
-      counts[src] = (counts[src] ?? 0) + 1;
-    }
-    const hasShorts = contents.some((c) => c.isShort);
-    const hasXcom = (counts["xcom"] ?? 0) > 0;
-
-    const tabs = SOURCE_TABS.filter((t) => t.key === ALL_KEY || (counts[t.key] ?? 0) > 0);
-    if (hasXcom) tabs.push({ key: "xcom", label: "X.com" });
-    if (hasShorts) tabs.push({ key: SHORTS_KEY as SourceTab, label: "Shorts" });
-    return tabs;
-  }, [contents]);
-
+  // 클라이언트 측 미디어 타입 필터 (서버 필터와 별개 — 발견형 칩)
   const filtered = useMemo(() => {
-    let list = contents;
-    if (activeTab === SHORTS_KEY) {
-      list = list.filter((c) => c.isShort);
-    } else if (activeTab !== ALL_KEY) {
-      list = list.filter((c) => inferSource(c) === activeTab);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (c) =>
-          c.title.toLowerCase().includes(q) ||
-          (c.titleKo?.toLowerCase().includes(q) ?? false) ||
-          (c.body?.toLowerCase().includes(q) ?? false) ||
-          (c.bodyKo?.toLowerCase().includes(q) ?? false) ||
-          c.authorName.toLowerCase().includes(q) ||
-          c.tags?.some((t) => t.toLowerCase().includes(q)),
-      );
-    }
-    return list;
-  }, [contents, activeTab, searchQuery]);
+    if (activeMediaType === ALL_KEY) return feed.items;
+    return feed.items.filter((c) => {
+      if (activeMediaType === "youtube") return c.mediaType === "youtube";
+      if (activeMediaType === "image") return c.mediaType === "image" || c.mediaType === "gif";
+      if (activeMediaType === "pdf") return c.mediaType === "pdf";
+      if (activeMediaType === "link") return c.mediaType === "link";
+      return true;
+    });
+  }, [feed.items, activeMediaType]);
 
-  const shorts = useMemo(() => contents.filter((c) => c.isShort).slice(0, 8), [contents]);
+  const triggerSearch = () => setSearchActive(searchInput.trim());
+  const clearSearch = () => { setSearchInput(""); setSearchActive(""); };
 
-  if (selected) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-10">
-        <ContentDetail
-          content={selected}
-          board={boardForContent(selected)}
-          onBack={clearSelected}
-        />
-      </div>
-    );
-  }
+  const isFiltered =
+    Boolean(activeBoardKey) ||
+    activeMediaType !== ALL_KEY ||
+    Boolean(tagParam) ||
+    Boolean(searchActive);
+
+  const clearAllFilters = () => {
+    setActiveBoardKey(null);
+    setActiveMediaType(ALL_KEY);
+    clearSearch();
+    if (tagParam) {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("tag");
+      const qs = next.toString();
+      router.replace(qs ? `/media?${qs}` : "/media", { scroll: false });
+    }
+  };
 
   return (
     <div className="py-10">
       <div className="mx-auto max-w-6xl px-4">
         {/* 헤더 */}
-        <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+        <div className="mb-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <div className="text-center sm:text-left">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">{pageContent.hero.title}</h1>
             <p className="mt-2 text-gray-500">{pageContent.hero.subtitle}</p>
@@ -207,8 +180,8 @@ function MediaPageInner() {
               }, "콘텐츠를 작성하려면 로그인이 필요합니다.")
             }
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold",
-              "bg-gray-900 text-white hover:bg-gray-800 transition-colors shrink-0",
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold",
+              "bg-gray-900 text-white transition-colors hover:bg-gray-800",
             )}
           >
             <Plus size={16} />
@@ -220,124 +193,153 @@ function MediaPageInner() {
         <div className="relative mx-auto mb-6 max-w-lg">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="검색어를 입력하세요..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") triggerSearch(); }}
+            placeholder="제목·본문·태그 검색..."
             className={cn(
-              "w-full rounded-full border border-gray-200 py-2.5 pl-10 pr-10 text-sm",
+              "w-full rounded-full border border-gray-200 py-2.5 pl-10 pr-20 text-sm",
               "focus:outline-none focus:ring-2 focus:ring-primary-500/30",
             )}
           />
-          {searchQuery && (
+          {(searchInput || searchActive) && (
             <button
               type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              onClick={clearSearch}
+              className="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               aria-label="검색어 지우기"
             >
               <X size={16} />
             </button>
           )}
+          <button
+            type="button"
+            onClick={triggerSearch}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-gray-800"
+          >
+            검색
+          </button>
         </div>
 
-        {/* 소스 유형별 탭 */}
-        <div className="mb-8 flex flex-wrap justify-center gap-2">
-          {visibleTabs.map((t) => (
-            <TabButton
-              key={t.key}
-              active={activeTab === t.key}
-              onClick={() => setActiveTab(t.key)}
-              label={t.label}
-              accent={t.key === SHORTS_KEY}
-            />
-          ))}
-        </div>
-
-        {/* Shorts 섹션 (전체 탭에서만) */}
-        {activeTab === ALL_KEY && shorts.length > 0 && (
-          <section className="mb-10">
-            <h2 className="mb-4 text-lg font-bold text-gray-800">Shorts</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {shorts.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => selectContent(c)}
-                  className={cn(
-                    "group relative aspect-[9/16] overflow-hidden rounded-xl bg-gray-100",
-                    "transition-shadow hover:shadow-lg",
-                  )}
-                >
-                  {c.thumbnailUrl ? (
-                    <img
-                      src={c.thumbnailUrl}
-                      alt={c.title}
-                      className="h-full w-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-gray-200 to-gray-300">
-                      <span className="text-sm text-gray-500">Short</span>
-                    </div>
-                  )}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 p-2">
-                    <p className="line-clamp-2 text-xs font-medium text-white">{c.title}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </section>
+        {/* 활성 태그 안내 */}
+        {tagParam && (
+          <div className="mb-4 flex items-center justify-center gap-2">
+            <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700">
+              태그: #{tagParam}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams.toString());
+                next.delete("tag");
+                const qs = next.toString();
+                router.replace(qs ? `/media?${qs}` : "/media", { scroll: false });
+              }}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              해제
+            </button>
+          </div>
         )}
 
-        {/* 메인 콘텐츠 그리드 */}
-        {loading ? (
-          <div className="py-20 text-center text-sm text-gray-400">콘텐츠를 불러오는 중...</div>
-        ) : filtered.length === 0 ? (
-          <div className="py-20 text-center text-sm text-gray-400">
-            {searchQuery ? "검색 결과가 없습니다." : "등록된 콘텐츠가 없습니다."}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((c) => (
-              <ContentCard
-                key={c.id}
-                content={c}
-                board={boardForContent(c)}
-                onClick={selectContent}
+        {/* 카테고리(보드) 칩 — 가로 스크롤 */}
+        <div className="mb-3 -mx-4 overflow-x-auto px-4">
+          <div className="flex gap-2 pb-2">
+            <Chip
+              active={activeBoardKey === null}
+              onClick={() => setActiveBoardKey(null)}
+              label="전체"
+            />
+            {boards.map((b) => (
+              <Chip
+                key={b.key}
+                active={activeBoardKey === b.key}
+                onClick={() => setActiveBoardKey(b.key)}
+                label={b.label}
               />
             ))}
           </div>
+        </div>
+
+        {/* 미디어 타입 칩 */}
+        <div className="mb-6 -mx-4 overflow-x-auto px-4">
+          <div className="flex gap-2 pb-2">
+            {MEDIA_FILTERS.map((f) => (
+              <Chip
+                key={f.key}
+                variant="muted"
+                active={activeMediaType === f.key}
+                onClick={() => setActiveMediaType(f.key)}
+                label={f.label}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* 메인 그리드 — CSS columns 마소닉 */}
+        {feed.loading ? (
+          <div className="py-20 text-center text-sm text-gray-400">콘텐츠를 불러오는 중...</div>
+        ) : feed.error ? (
+          <div className="py-20 text-center text-sm text-red-500">{feed.error}</div>
+        ) : filtered.length === 0 ? (
+          <EmptyState isFiltered={isFiltered} onClear={clearAllFilters} />
+        ) : (
+          <>
+            <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4">
+              {filtered.map((c) => (
+                <div key={c.id} className="mb-4 break-inside-avoid">
+                  <ContentCard
+                    content={c}
+                    board={boardForContent(c)}
+                    onClick={selectContent}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* 무한 스크롤 sentinel */}
+            <div ref={feed.sentinelRef} className="h-12" aria-hidden />
+
+            {feed.loadingMore && (
+              <div className="py-6 text-center text-xs text-gray-400">더 불러오는 중...</div>
+            )}
+            {!feed.hasMore && feed.items.length > 12 && (
+              <div className="py-6 text-center text-xs text-gray-400">— 더 이상 콘텐츠가 없습니다 —</div>
+            )}
+          </>
         )}
       </div>
+
+      {/* 콘텐츠 상세 모달 */}
+      <ContentDetailModal content={selected} onClose={clearSelected} />
+
       <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>
   );
 }
 
-function TabButton({
+function Chip({
   active,
   onClick,
   label,
-  accent,
+  variant = "primary",
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
-  accent?: boolean;
+  variant?: "primary" | "muted";
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+        "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
         active
-          ? accent
-            ? "bg-red-600 text-white"
+          ? variant === "muted"
+            ? "bg-gray-700 text-white"
             : "bg-gray-900 text-white"
-          : accent
-            ? "bg-red-50 text-red-600 hover:bg-red-100"
-            : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+          : "bg-gray-100 text-gray-600 hover:bg-gray-200",
       )}
     >
       {label}
@@ -345,9 +347,26 @@ function TabButton({
   );
 }
 
-function toMs(dateVal: unknown): number {
-  if (!dateVal) return 0;
-  if (typeof dateVal === "string") return new Date(dateVal).getTime();
-  const d = (dateVal as { toDate?: () => Date }).toDate?.();
-  return d ? d.getTime() : 0;
+function EmptyState({ isFiltered, onClear }: { isFiltered: boolean; onClear: () => void }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 px-6 py-16 text-center">
+      <Sparkles size={28} className="mx-auto mb-3 text-gray-300" />
+      <p className="text-base font-medium text-gray-700">
+        {isFiltered ? "조건에 맞는 콘텐츠가 없습니다." : "아직 등록된 콘텐츠가 없습니다."}
+      </p>
+      <p className="mt-1 text-sm text-gray-400">
+        {isFiltered ? "필터를 지우면 다른 콘텐츠를 볼 수 있습니다." : "곧 새 콘텐츠가 업로드됩니다."}
+      </p>
+      {isFiltered && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+        >
+          <X size={14} />
+          필터 모두 지우기
+        </button>
+      )}
+    </div>
+  );
 }
