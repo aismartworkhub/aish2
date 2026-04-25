@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import { DEFAULT_BOARDS, mergeBoardsByKey } from "@/lib/board-defaults";
 import { getBoards, upsertBoard, createContent } from "@/lib/content-engine";
-import { removeDoc, getCollection, getFilteredCollection, COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
+import { removeDoc, getCollection, COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
 import { runFullMigration, type MigrationResult } from "@/lib/migration";
 import { cleanupRemovedSeeds } from "@/lib/seed-ai-contents";
 import { useAuth } from "@/contexts/AuthContext";
@@ -225,11 +225,12 @@ export default function AdminBoardsPage() {
       type WithMigrated = { _migratedFrom?: string; boardKey?: string };
 
       const [
-        videos, gallery, posts, reviews, faq,
+        videos, gallery, resources, posts, reviews, faq,
         contents,
       ] = await Promise.all([
         getCollection<unknown>(COLLECTIONS.VIDEOS),
         getCollection<unknown>(COLLECTIONS.GALLERY),
+        getCollection<unknown>(COLLECTIONS.RESOURCES),
         getCollection<WithType>(COLLECTIONS.POSTS),
         getCollection<unknown>(COLLECTIONS.REVIEWS),
         getCollection<unknown>(COLLECTIONS.FAQ),
@@ -257,6 +258,7 @@ export default function AdminBoardsPage() {
         legacy: {
           videos: videos.length,
           gallery: gallery.length,
+          resources: resources.length,
           "posts.NOTICE": postsByType.NOTICE ?? 0,
           "posts.FREE": postsByType.FREE ?? 0,
           "posts.RESOURCE": postsByType.RESOURCE ?? 0,
