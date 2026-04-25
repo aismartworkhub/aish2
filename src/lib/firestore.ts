@@ -152,6 +152,7 @@ export const COLLECTIONS = {
   CONTENTS: "contents",
   CONTENT_COMMENTS: "contentComments",
   REACTIONS: "reactions",
+  TAG_COUNTS: "tagCounts",
   COURSE_PROPOSALS: "courseProposals",
   AI_COLLECTOR_HISTORY: "aiCollectorHistory",
 } as const;

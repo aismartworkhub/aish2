@@ -100,6 +100,107 @@ export async function upsertBoard(
   invalidateCache(COLLECTIONS.BOARDS);
 }
 
+// ── 태그 카운트 ──
+
+/** 태그 → Firestore 문서 ID. 빈/위험한 값은 null. */
+function tagToDocId(tag: string): string | null {
+  const t = tag.toLowerCase().trim().replace(/\//g, "_");
+  if (!t || t === "." || t === "..") return null;
+  return t.length > 1500 ? t.slice(0, 1500) : t;
+}
+
+/**
+ * 태그 사용 횟수 increment/decrement.
+ * - delta=+1: 콘텐츠 등록·태그 추가
+ * - delta=-1: 콘텐츠 삭제·태그 제거
+ * - 실패해도 본 작업(create/update/delete)은 막지 않음 — best-effort
+ */
+async function adjustTagCounts(tags: string[], delta: 1 | -1): Promise<void> {
+  if (!tags || tags.length === 0) return;
+  const { setDoc } = await import("firebase/firestore");
+  const tasks = tags
+    .map((t) => ({ id: tagToDocId(t), original: t }))
+    .filter((x): x is { id: string; original: string } => x.id !== null);
+  await Promise.all(
+    tasks.map(async ({ id, original }) => {
+      try {
+        await setDoc(
+          doc(db, COLLECTIONS.TAG_COUNTS, id),
+          {
+            tag: original,
+            count: increment(delta),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } catch {
+        // 카운트 실패는 무시
+      }
+    }),
+  );
+}
+
+/** 콘텐츠의 태그 변경 diff를 계산하여 tagCounts에 반영. */
+async function applyTagDiff(
+  oldTags: string[] | undefined,
+  newTags: string[] | undefined,
+): Promise<void> {
+  const oldSet = new Set((oldTags ?? []).map((t) => t.toLowerCase().trim()));
+  const newSet = new Set((newTags ?? []).map((t) => t.toLowerCase().trim()));
+  const added: string[] = [];
+  const removed: string[] = [];
+  for (const t of newSet) if (!oldSet.has(t)) added.push(t);
+  for (const t of oldSet) if (!newSet.has(t)) removed.push(t);
+  await Promise.all([
+    added.length ? adjustTagCounts(added, 1) : Promise.resolve(),
+    removed.length ? adjustTagCounts(removed, -1) : Promise.resolve(),
+  ]);
+}
+
+/**
+ * 관련 콘텐츠: 같은 보드 + 태그 array-contains-any. 현재 글은 제외.
+ * 태그가 없으면 같은 보드의 최신 글을 폴백으로 반환.
+ */
+export async function getRelatedContents(opts: {
+  excludeId: string;
+  boardKey: string;
+  tags?: string[];
+  limit?: number;
+}): Promise<Content[]> {
+  const max = opts.limit ?? 4;
+  const usableTags = (opts.tags ?? []).slice(0, 10);
+  const constraints: QueryConstraint[] = [where("boardKey", "==", opts.boardKey)];
+  if (usableTags.length > 0) {
+    constraints.push(where("tags", "array-contains-any", usableTags));
+  }
+  constraints.push(orderBy("createdAt", "desc"));
+  // exclude는 클라이언트 필터 (Firestore != 쿼리 + orderBy 제약 회피)
+  constraints.push(firestoreLimit(max + 1));
+  const q = query(collection(db, COLLECTIONS.CONTENTS), ...constraints);
+  const snap = await getDocs(q);
+  return snap.docs
+    .filter((d) => d.id !== opts.excludeId)
+    .slice(0, max)
+    .map((d) => ({ id: d.id, ...d.data() } as Content));
+}
+
+/** 인기 태그 top N (count desc). 동적 칩·발견 UX용. */
+export async function getPopularTags(opts?: { limit?: number }): Promise<{ tag: string; count: number }[]> {
+  const max = opts?.limit ?? 10;
+  const q = query(
+    collection(db, COLLECTIONS.TAG_COUNTS),
+    orderBy("count", "desc"),
+    firestoreLimit(max),
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => {
+      const data = d.data() as { tag?: string; count?: number };
+      return { tag: data.tag ?? d.id, count: data.count ?? 0 };
+    })
+    .filter((x) => x.count > 0);
+}
+
 // ── 검색·발견 인프라 ──
 
 /**
@@ -237,6 +338,8 @@ export async function createContent(data: ContentInput): Promise<string> {
     updatedAt: serverTimestamp(),
   });
   invalidateCache(COLLECTIONS.CONTENTS);
+  // 태그 카운트 +1 (best-effort, 실패해도 본 작업 영향 없음)
+  void adjustTagCounts(data.tags ?? [], 1);
   return ref.id;
 }
 
@@ -276,9 +379,11 @@ export async function updateContent(
     data.body !== undefined ||
     data.bodyKo !== undefined ||
     data.tags !== undefined;
+  let prevTags: string[] | undefined;
   if (searchFieldsTouched) {
     const existing = await getDoc(doc(db, COLLECTIONS.CONTENTS, id));
     const prev = (existing.exists() ? existing.data() : {}) as Partial<Content>;
+    prevTags = prev.tags;
     extra.searchTerms = buildSearchTerms({
       title: data.title ?? prev.title,
       titleKo: data.titleKo ?? prev.titleKo,
@@ -293,10 +398,25 @@ export async function updateContent(
     updatedAt: serverTimestamp(),
   } as DocumentData);
   invalidateCache(COLLECTIONS.CONTENTS);
+  // 태그 변경 시 diff 반영 (best-effort)
+  if (data.tags !== undefined) {
+    void applyTagDiff(prevTags, data.tags);
+  }
 }
 
 export async function deleteContent(id: string): Promise<void> {
+  // 삭제 전 태그 읽어 카운트 −1 (best-effort)
+  let oldTags: string[] | undefined;
+  try {
+    const snap = await getDoc(doc(db, COLLECTIONS.CONTENTS, id));
+    oldTags = snap.exists() ? (snap.data() as Partial<Content>).tags : undefined;
+  } catch {
+    oldTags = undefined;
+  }
   await deleteDoc(doc(db, COLLECTIONS.CONTENTS, id));
+  if (oldTags && oldTags.length > 0) {
+    void adjustTagCounts(oldTags, -1);
+  }
   invalidateCache(COLLECTIONS.CONTENTS);
 }
 

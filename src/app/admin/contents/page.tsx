@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
+import { getGeminiApiKey, recommendTagsForContent } from "@/lib/gemini";
 import { DEFAULT_BOARDS, mergeBoardsByKey } from "@/lib/board-defaults";
 import {
   getBoards,
@@ -51,6 +52,7 @@ export default function AdminContentsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [tagRecLoading, setTagRecLoading] = useState(false);
 
   useEffect(() => {
     getBoards()
@@ -156,6 +158,48 @@ export default function AdminContentsPage() {
   const handleRemoveTag = (tag: string) => {
     if (!editing) return;
     setEditing({ ...editing, tags: editing.tags?.filter((t) => t !== tag) });
+  };
+
+  const handleRecommendTags = async () => {
+    if (!editing) return;
+    const titleSrc = isFaq ? editing.question : editing.title;
+    if (!titleSrc?.trim()) {
+      toast("제목 또는 질문을 먼저 입력해주세요.", "error");
+      return;
+    }
+    setTagRecLoading(true);
+    try {
+      const apiKey = await getGeminiApiKey();
+      if (!apiKey) {
+        toast("Gemini API 키가 설정되지 않았습니다. /admin/settings에서 등록하세요.", "error");
+        return;
+      }
+      const recommended = await recommendTagsForContent(apiKey, {
+        title: titleSrc,
+        body: editing.body || editing.bodyKo || editing.answer,
+      });
+      if (recommended.length === 0) {
+        toast("추천 태그를 생성하지 못했습니다.", "info");
+        return;
+      }
+      const existing = new Set((editing.tags ?? []).map((t) => t.toLowerCase()));
+      const merged = [...(editing.tags ?? [])];
+      let added = 0;
+      for (const t of recommended) {
+        const trimmed = t.trim();
+        if (!trimmed) continue;
+        if (existing.has(trimmed.toLowerCase())) continue;
+        merged.push(trimmed);
+        existing.add(trimmed.toLowerCase());
+        added++;
+      }
+      setEditing({ ...editing, tags: merged });
+      toast(added > 0 ? `${added}개의 태그를 추가했습니다.` : "이미 모든 추천 태그가 등록되어 있습니다.", added > 0 ? "success" : "info");
+    } catch (e) {
+      toast(`AI 태그 추천 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    } finally {
+      setTagRecLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -564,7 +608,23 @@ export default function AdminContentsPage() {
 
                   {/* 태그 */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">태그</label>
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="block text-sm font-medium text-gray-700">태그</label>
+                      <button
+                        type="button"
+                        onClick={handleRecommendTags}
+                        disabled={tagRecLoading}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                          "border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100",
+                          "disabled:opacity-50",
+                        )}
+                        title="제목·본문 기반으로 Gemini가 추천하는 태그를 추가합니다"
+                      >
+                        {tagRecLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                        AI 태그 추천
+                      </button>
+                    </div>
                     <div className="flex gap-2">
                       <input
                         value={tagInput}

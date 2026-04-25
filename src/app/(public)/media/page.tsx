@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getBoardsByGroup, buildSearchTerms } from "@/lib/content-engine";
+import { getBoardsByGroup, buildSearchTerms, getPopularTags } from "@/lib/content-engine";
 import { getBoardsByGroupDefault, mergeBoardsByKey, DEFAULT_BOARDS } from "@/lib/board-defaults";
 import type { Content, BoardConfig } from "@/types/content";
 import { ContentCard } from "@/components/content";
@@ -53,6 +53,7 @@ function MediaPageInner() {
   const [searchActive, setSearchActive] = useState<string>("");
   const [pageContent, setPageContent] = useState<PageContentBase>(DEFAULT_MEDIA);
   const [selected, setSelected] = useState<Content | null>(null);
+  const [popularTags, setPopularTags] = useState<{ tag: string; count: number }[]>([]);
 
   // URL ?tag=AI deep-link 지원
   const tagParam = searchParams.get("tag")?.trim() || "";
@@ -75,7 +76,16 @@ function MediaPageInner() {
 
   useEffect(() => {
     loadPageContent("media").then(setPageContent).catch(() => {});
+    getPopularTags({ limit: 10 }).then(setPopularTags).catch(() => {});
   }, []);
+
+  const setTagFilter = useCallback((tag: string | null) => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (tag) next.set("tag", tag);
+    else next.delete("tag");
+    const qs = next.toString();
+    router.replace(qs ? `/media?${qs}` : "/media", { scroll: false });
+  }, [router, searchParams]);
 
   // 보드 목록 로드
   useEffect(() => {
@@ -262,7 +272,7 @@ function MediaPageInner() {
         </div>
 
         {/* 미디어 타입 칩 */}
-        <div className="mb-6 -mx-4 overflow-x-auto px-4">
+        <div className="mb-3 -mx-4 overflow-x-auto px-4">
           <div className="flex gap-2 pb-2">
             {MEDIA_FILTERS.map((f) => (
               <Chip
@@ -275,6 +285,31 @@ function MediaPageInner() {
             ))}
           </div>
         </div>
+
+        {/* 인기 태그 칩 (동적) */}
+        {popularTags.length > 0 && (
+          <div className="mb-6 -mx-4 overflow-x-auto px-4">
+            <div className="flex gap-1.5 pb-2">
+              <span className="shrink-0 self-center text-xs font-medium text-gray-400">인기 태그</span>
+              {popularTags.map((t) => (
+                <button
+                  key={t.tag}
+                  type="button"
+                  onClick={() => setTagFilter(tagParam === t.tag ? null : t.tag)}
+                  className={cn(
+                    "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                    tagParam === t.tag
+                      ? "bg-primary-600 text-white"
+                      : "bg-primary-50 text-primary-700 hover:bg-primary-100",
+                  )}
+                >
+                  #{t.tag}
+                  <span className="ml-1 opacity-60">{t.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 메인 그리드 — CSS columns 마소닉 */}
         {feed.loading ? (
@@ -311,7 +346,11 @@ function MediaPageInner() {
       </div>
 
       {/* 콘텐츠 상세 모달 */}
-      <ContentDetailModal content={selected} onClose={clearSelected} />
+      <ContentDetailModal
+        content={selected}
+        onClose={clearSelected}
+        onSelectRelated={selectContent}
+      />
 
       <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>

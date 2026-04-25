@@ -6,11 +6,14 @@ import { cn, googleDriveUcExportViewUrl, extractGoogleDriveFileId } from "@/lib/
 import { extractYouTubeVideoId } from "@/lib/youtube";
 import type { Content } from "@/types/content";
 import { contentDisplayTitle, contentDisplayBody } from "@/lib/content-display";
-import { incrementContentViews } from "@/lib/content-engine";
+import { incrementContentViews, getRelatedContents } from "@/lib/content-engine";
+import MediaPreview from "@/components/content/MediaPreview";
 
 type Props = {
   content: Content | null;
   onClose: () => void;
+  /** 관련 콘텐츠 카드 클릭 시 핸들러 (모달 내부 전환) */
+  onSelectRelated?: (c: Content) => void;
 };
 
 /**
@@ -21,8 +24,9 @@ type Props = {
  * - 일반 링크: 외부 이동 버튼
  * - 닫기: 우상단 X · 배경 클릭 · ESC
  */
-export default function ContentDetailModal({ content, onClose }: Props) {
+export default function ContentDetailModal({ content, onClose, onSelectRelated }: Props) {
   const [viewIncremented, setViewIncremented] = useState<string | null>(null);
+  const [related, setRelated] = useState<Content[]>([]);
 
   useEffect(() => {
     if (!content) return;
@@ -30,6 +34,23 @@ export default function ContentDetailModal({ content, onClose }: Props) {
     void incrementContentViews(content.id).catch(() => {});
     setViewIncremented(content.id);
   }, [content, viewIncremented]);
+
+  useEffect(() => {
+    if (!content) {
+      setRelated([]);
+      return;
+    }
+    let cancelled = false;
+    getRelatedContents({
+      excludeId: content.id,
+      boardKey: content.boardKey,
+      tags: content.tags,
+      limit: 4,
+    })
+      .then((items) => { if (!cancelled) setRelated(items); })
+      .catch(() => { if (!cancelled) setRelated([]); });
+    return () => { cancelled = true; };
+  }, [content]);
 
   useEffect(() => {
     if (!content) return;
@@ -145,6 +166,40 @@ export default function ContentDetailModal({ content, onClose }: Props) {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 관련 콘텐츠 4개 */}
+          {related.length > 0 && (
+            <div className="border-t border-gray-100 bg-gray-50/60 px-5 py-4">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                관련 콘텐츠
+              </h3>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {related.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => onSelectRelated?.(r)}
+                    className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left transition-shadow hover:shadow-md"
+                  >
+                    <div className="aspect-video w-full overflow-hidden bg-gray-100">
+                      <MediaPreview
+                        mediaUrl={r.mediaUrl}
+                        mediaType={r.mediaType}
+                        thumbnailUrl={r.thumbnailUrl}
+                        title={contentDisplayTitle(r)}
+                        className="h-full w-full"
+                      />
+                    </div>
+                    <div className="p-2">
+                      <p className="line-clamp-2 text-xs font-medium text-gray-800 group-hover:text-primary-600">
+                        {contentDisplayTitle(r)}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

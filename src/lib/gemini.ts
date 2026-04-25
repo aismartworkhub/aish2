@@ -185,3 +185,25 @@ export async function analyzeInstructorText(
   ]);
   return parseResponse<GeminiInstructorResult>(result.response.text());
 }
+
+/* ── 콘텐츠 태그 자동 추천 (수동 트리거 전용) ── */
+
+const TAG_PROMPT = `당신은 콘텐츠 태깅 전문가입니다. 제공된 제목과 본문에서 검색·발견에 유용한 한국어 키워드를 추출하세요.
+반드시 아래 JSON 형식으로만 응답하세요:
+{ "tags": ["태그1", "태그2"] }
+규칙:
+- 5~8개의 한국어 키워드 (영문 고유명사는 그대로 OK)
+- 각 키워드는 1~3단어, 공백 가능, 너무 일반적인 단어(예: "AI", "교육") 보다는 구체적인 주제·기술·분야 우선
+- 중복 금지, 의미 비슷한 태그는 하나로 통합
+- 본문이 빈약하면 제목 위주로 추론`;
+
+export async function recommendTagsForContent(
+  apiKey: string,
+  input: { title: string; body?: string },
+): Promise<string[]> {
+  const model = getModel(apiKey);
+  const text = `제목: ${input.title}\n\n본문:\n${(input.body ?? "").slice(0, 8000)}`;
+  const result = await model.generateContent([TAG_PROMPT, text]);
+  const parsed = parseResponse<{ tags?: string[] }>(result.response.text());
+  return Array.isArray(parsed.tags) ? parsed.tags.filter((t) => typeof t === "string" && t.trim().length > 0) : [];
+}

@@ -221,6 +221,12 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
+    // 태그 카운트: 공개 읽기(인기 태그 칩용), 인증 사용자가 increment merge
+    match /tagCounts/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
     // 강의 제안: 본인만 생성, 관리자만 수정·삭제
     match /courseProposals/{docId} {
       allow read: if isAdmin()
