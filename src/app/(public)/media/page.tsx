@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X, Plus, Sparkles } from "lucide-react";
+import { Search, X, Plus, Sparkles, Play, Image as ImageIcon, FileText, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBoardsByGroup, buildSearchTerms, getPopularTags } from "@/lib/content-engine";
 import { getBoardsByGroupDefault, mergeBoardsByKey, DEFAULT_BOARDS } from "@/lib/board-defaults";
@@ -16,6 +16,10 @@ import { loadPageContent, DEFAULT_MEDIA } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
 import { useInfiniteContents } from "@/hooks/useInfiniteContents";
 import { getContentById } from "@/lib/content-engine";
+import { useUiMode } from "@/hooks/useUiMode";
+import { useScrollRestoration } from "@/hooks/useScrollRestoration";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { Loader2 } from "lucide-react";
 
 const ALL_KEY = "__all__";
 
@@ -27,6 +31,30 @@ const MEDIA_FILTERS: { key: MediaTypeFilter; label: string }[] = [
   { key: "image", label: "이미지" },
   { key: "pdf", label: "문서" },
   { key: "link", label: "링크" },
+];
+
+/**
+ * 1차 카테고리 — 사용자 의도(무엇을 보고 싶나)부터 고름.
+ * 각 카테고리는 0~N개의 보드 후보를 가짐. 0개=전체 미디어, 1개=단일 보드, 2개+=2차 칩 노출.
+ */
+type PrimaryCategory = {
+  key: string;
+  label: string;
+  icon: typeof Sparkles;
+  /** 활성 시 칩 색상 클래스 */
+  activeClass: string;
+  /** 비활성 시 칩 색상 클래스 (시각 구분) */
+  inactiveClass: string;
+  /** 0=전체, 1=단일 보드, N=2차 칩 노출 */
+  boards: string[];
+};
+
+const PRIMARY_CATEGORIES: PrimaryCategory[] = [
+  { key: "all", label: "전체", icon: Sparkles, activeClass: "bg-gray-900 text-white", inactiveClass: "bg-gray-100 text-gray-700", boards: [] },
+  { key: "videos", label: "영상", icon: Play, activeClass: "bg-red-500 text-white", inactiveClass: "bg-red-50 text-red-700", boards: ["media-lecture", "media-workathon", "media-interview", "media-promo"] },
+  { key: "images", label: "이미지", icon: ImageIcon, activeClass: "bg-purple-500 text-white", inactiveClass: "bg-purple-50 text-purple-700", boards: ["media-gallery"] },
+  { key: "docs", label: "자료", icon: FileText, activeClass: "bg-blue-500 text-white", inactiveClass: "bg-blue-50 text-blue-700", boards: ["media-resource"] },
+  { key: "reviews", label: "후기", icon: Star, activeClass: "bg-amber-500 text-white", inactiveClass: "bg-amber-50 text-amber-700", boards: ["community-review"] },
 ];
 
 export default function MediaPage() {
@@ -43,6 +71,9 @@ function MediaPageInner() {
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
   const ff = useFeatureFlags();
   const contentDeepLink = ff.phase1.enabled && ff.phase1.contentDeepLink === true;
+  const { mode: uiMode, setMode: setUiMode, hydrated: uiHydrated } = useUiMode();
+  // hydration 전에는 새 디자인을 기본 가정(SSR 깜빡임 회피).
+  const isLegacy = uiHydrated && uiMode === "legacy";
 
   const [boards, setBoards] = useState<BoardConfig[]>(() =>
     mergeBoardsByKey(getBoardsByGroupDefault("media"), []),
@@ -72,6 +103,17 @@ function MediaPageInner() {
     tags: tagFilter && !searchTokens ? tagFilter : undefined,
     searchTerms: searchTokens,
     pageSize: 24,
+  });
+
+  // 스크롤 위치 복원 — 모달 닫고 돌아올 때 같은 위치
+  useScrollRestoration({
+    key: `media-${activeBoardKey ?? "all"}-${activeMediaType}-${tagParam}-${searchActive}`,
+    ready: !feed.loading,
+  });
+
+  // Pull-to-refresh — 모바일 상단에서 당기면 첫 페이지 재로드
+  const ptr = usePullToRefresh({
+    onRefresh: () => { feed.refresh(); },
   });
 
   useEffect(() => {
@@ -140,6 +182,30 @@ function MediaPageInner() {
     [boards],
   );
 
+  // 새 디자인용 1차 카테고리 — activeBoardKey로부터 역산
+  const activeCategory: string = useMemo(() => {
+    if (!activeBoardKey) return "all";
+    const cat = PRIMARY_CATEGORIES.find((c) => c.boards.includes(activeBoardKey));
+    return cat?.key ?? "all";
+  }, [activeBoardKey]);
+
+  // 2차 칩 — 활성 카테고리의 보드 ≥2개일 때만 노출
+  const secondaryBoards = useMemo(() => {
+    const cat = PRIMARY_CATEGORIES.find((c) => c.key === activeCategory);
+    if (!cat || cat.boards.length <= 1) return [];
+    return boards.filter((b) => cat.boards.includes(b.key));
+  }, [activeCategory, boards]);
+
+  const handleCategoryClick = useCallback((cat: PrimaryCategory) => {
+    if (cat.boards.length === 0) {
+      setActiveBoardKey(null);
+    } else {
+      // 다중 보드 카테고리 → 첫 보드부터. 2차 칩으로 추가 정밀화 가능.
+      setActiveBoardKey(cat.boards[0]);
+    }
+    setActiveMediaType(ALL_KEY);
+  }, []);
+
   // 클라이언트 측 미디어 타입 필터 (서버 필터와 별개 — 발견형 칩)
   const filtered = useMemo(() => {
     if (activeMediaType === ALL_KEY) return feed.items;
@@ -175,6 +241,23 @@ function MediaPageInner() {
 
   return (
     <div className="py-10">
+      {/* Pull-to-refresh 인디케이터 (모바일) */}
+      {(ptr.pullDistance > 0 || ptr.refreshing) && (
+        <div
+          className="pointer-events-none fixed left-1/2 top-16 z-30 -translate-x-1/2 rounded-full bg-white/95 p-2 shadow-lg backdrop-blur lg:hidden"
+          style={{ transform: `translate(-50%, ${Math.max(0, ptr.pullDistance - 30)}px)` }}
+          aria-hidden
+        >
+          <Loader2
+            size={18}
+            className={cn(
+              "text-gray-600 transition-transform",
+              ptr.refreshing && "animate-spin",
+            )}
+            style={{ transform: ptr.refreshing ? undefined : `rotate(${ptr.pullDistance * 4}deg)` }}
+          />
+        </div>
+      )}
       <div className="mx-auto max-w-6xl px-4">
         {/* 헤더 */}
         <div className="mb-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
@@ -252,46 +335,83 @@ function MediaPageInner() {
           </div>
         )}
 
-        {/* 카테고리(보드) 칩 — 가로 스크롤 */}
-        <div className="mb-3 -mx-4 overflow-x-auto px-4">
-          <div className="flex gap-2 pb-2">
-            <Chip
-              active={activeBoardKey === null}
-              onClick={() => setActiveBoardKey(null)}
-              label="전체"
-            />
-            {boards.map((b) => (
-              <Chip
-                key={b.key}
-                active={activeBoardKey === b.key}
-                onClick={() => setActiveBoardKey(b.key)}
-                label={b.label}
-              />
-            ))}
-            {/* 수강후기는 group=community 이지만 발견 동선에 노출 */}
-            <span className="self-center text-gray-200">|</span>
-            <Chip
-              active={activeBoardKey === "community-review"}
-              onClick={() => setActiveBoardKey("community-review")}
-              label="⭐ 수강후기"
-            />
-          </div>
-        </div>
+        {!isLegacy ? (
+          <>
+            {/* 1차 카테고리 — 사용자 의도(무엇을 보고 싶나) 우선 */}
+            <div className="mb-3 -mx-4 overflow-x-auto px-4">
+              <div className="flex gap-2 pb-2">
+                {PRIMARY_CATEGORIES.map((cat) => {
+                  const Icon = cat.icon;
+                  const active = activeCategory === cat.key;
+                  return (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      onClick={() => handleCategoryClick(cat)}
+                      className={cn(
+                        "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors whitespace-nowrap",
+                        active ? cat.activeClass : cat.inactiveClass,
+                      )}
+                      aria-pressed={active}
+                    >
+                      <Icon size={14} />
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        {/* 미디어 타입 칩 */}
-        <div className="mb-3 -mx-4 overflow-x-auto px-4">
-          <div className="flex gap-2 pb-2">
-            {MEDIA_FILTERS.map((f) => (
-              <Chip
-                key={f.key}
-                variant="muted"
-                active={activeMediaType === f.key}
-                onClick={() => setActiveMediaType(f.key)}
-                label={f.label}
-              />
-            ))}
-          </div>
-        </div>
+            {/* 2차 칩 — 활성 카테고리에 보드 ≥2개일 때만 동적 노출 */}
+            {secondaryBoards.length > 1 && (
+              <div className="mb-3 -mx-4 overflow-x-auto px-4">
+                <div className="flex gap-1.5 pb-2">
+                  <span className="shrink-0 self-center text-xs font-medium text-gray-400">세부 분류</span>
+                  {secondaryBoards.map((b) => (
+                    <button
+                      key={b.key}
+                      type="button"
+                      onClick={() => setActiveBoardKey(b.key)}
+                      className={cn(
+                        "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                        activeBoardKey === b.key
+                          ? "bg-gray-700 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                      )}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          // 레거시: 기존 2줄 칩 그대로 유지
+          <>
+            <div className="mb-3 -mx-4 overflow-x-auto px-4">
+              <div className="flex gap-2 pb-2">
+                <Chip active={activeBoardKey === null} onClick={() => setActiveBoardKey(null)} label="전체" />
+                {boards.map((b) => (
+                  <Chip key={b.key} active={activeBoardKey === b.key} onClick={() => setActiveBoardKey(b.key)} label={b.label} />
+                ))}
+                <span className="self-center text-gray-200">|</span>
+                <Chip
+                  active={activeBoardKey === "community-review"}
+                  onClick={() => setActiveBoardKey("community-review")}
+                  label="⭐ 수강후기"
+                />
+              </div>
+            </div>
+            <div className="mb-3 -mx-4 overflow-x-auto px-4">
+              <div className="flex gap-2 pb-2">
+                {MEDIA_FILTERS.map((f) => (
+                  <Chip key={f.key} variant="muted" active={activeMediaType === f.key} onClick={() => setActiveMediaType(f.key)} label={f.label} />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* 인기 태그 칩 (동적) */}
         {popularTags.length > 0 && (
@@ -327,17 +447,33 @@ function MediaPageInner() {
           <EmptyState isFiltered={isFiltered} onClear={clearAllFilters} />
         ) : (
           <>
-            <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4">
-              {filtered.map((c) => (
-                <div key={c.id} className="mb-4 break-inside-avoid">
+            {!isLegacy ? (
+              // 새 디자인: 인스타 Explore 그리드 — 모바일 2열, 태블릿 3열, 데스크톱 4열, 타이트한 갭
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2 lg:grid-cols-4">
+                {filtered.map((c) => (
                   <ContentCard
+                    key={c.id}
                     content={c}
                     board={boardForContent(c)}
                     onClick={selectContent}
+                    variant="instagram"
                   />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              // 레거시: 기존 마소닉 그리드 + grid 카드
+              <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4">
+                {filtered.map((c) => (
+                  <div key={c.id} className="mb-4 break-inside-avoid">
+                    <ContentCard
+                      content={c}
+                      board={boardForContent(c)}
+                      onClick={selectContent}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* 무한 스크롤 sentinel */}
             <div ref={feed.sentinelRef} className="h-12" aria-hidden />
@@ -350,13 +486,28 @@ function MediaPageInner() {
             )}
           </>
         )}
+
+        {/* 이전 모드 / 새 디자인 토글 — 큰 UX 변경의 안전망 */}
+        {uiHydrated && (
+          <div className="mt-12 mb-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setUiMode(isLegacy ? "new" : "legacy")}
+              className="text-xs text-gray-400 underline hover:text-gray-600"
+            >
+              {isLegacy ? "새 디자인 보기" : "이전 디자인 보기"}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* 콘텐츠 상세 모달 */}
+      {/* 콘텐츠 상세 모달 — 갤러리 모드: 현재 필터된 피드를 좌/우 스와이프 */}
       <ContentDetailModal
         content={selected}
         onClose={clearSelected}
         onSelectRelated={selectContent}
+        galleryItems={filtered}
+        onNavigate={selectContent}
       />
 
       <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />

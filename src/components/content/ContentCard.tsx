@@ -6,10 +6,14 @@ import { contentDisplayTitle } from "@/lib/content-display";
 import type { Content, BoardConfig } from "@/types/content";
 import MediaPreview from "./MediaPreview";
 
+export type ContentCardVariant = "grid" | "list" | "faq" | "instagram";
+
 type Props = {
   content: Content;
   board?: BoardConfig;
   onClick?: (content: Content) => void;
+  /** 시각 변형 — 기본은 board.layout. 명시 시 오버라이드 (예: /media에서 "instagram"). */
+  variant?: ContentCardVariant;
 };
 
 function timeAgo(dateVal: unknown): string {
@@ -140,6 +144,98 @@ function ListRow({ content, onClick }: Omit<Props, "board">) {
   );
 }
 
+/**
+ * 등록 일시(string|Timestamp) → epoch ms. NEW 배지·다운로드 카운트 분기용.
+ */
+function createdAtMs(createdAt: unknown): number {
+  if (!createdAt) return 0;
+  if (typeof createdAt === "string") return new Date(createdAt).getTime();
+  const ts = createdAt as { toDate?: () => Date; seconds?: number };
+  if (typeof ts.toDate === "function") return ts.toDate().getTime();
+  if (typeof ts.seconds === "number") return ts.seconds * 1000;
+  return 0;
+}
+
+/** 좌상단 NEW/다운로드 배지 — 7일 이내 NEW, ≥10회 카운트, 그 사이 숨김 */
+function CornerBadge({ content }: { content: Content }) {
+  const ms = createdAtMs(content.createdAt);
+  const isNew = ms > 0 && Date.now() - ms < 7 * 24 * 60 * 60 * 1000;
+  const dl = content.downloadCount ?? 0;
+  if (isNew) {
+    return (
+      <span className="absolute top-2 left-2 rounded bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+        NEW
+      </span>
+    );
+  }
+  if (dl >= 10) {
+    return (
+      <span className="absolute top-2 left-2 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+        ↓ {dl.toLocaleString()}
+      </span>
+    );
+  }
+  return null;
+}
+
+/**
+ * Instagram Explore 스타일 카드.
+ * - 보더·패딩 없음, rounded-md만
+ * - 미디어 자연 비율 (aspect-video 강제 X)
+ * - hover/포커스 시 어두운 그라데이션 + 제목·뷰·좋아요 오버레이
+ * - 좌상단 NEW/다운로드 배지
+ */
+function InstagramCard({ content, onClick }: Omit<Props, "board" | "variant">) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick?.(content)}
+      className={cn(
+        "group relative block w-full overflow-hidden rounded-md bg-gray-100 text-left",
+        "transition-shadow hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
+      )}
+    >
+      <div className="relative w-full">
+        <MediaPreview
+          mediaUrl={content.mediaUrl}
+          mediaType={content.mediaType}
+          thumbnailUrl={content.thumbnailUrl}
+          title={contentDisplayTitle(content)}
+          className="block w-full transition-transform duration-300 group-hover:scale-[1.03]"
+        />
+        {content.isShort && (
+          <span className="absolute bottom-2 right-2 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+            SHORT
+          </span>
+        )}
+        <CornerBadge content={content} />
+
+        {/* hover/탭 오버레이 — 제목 + 메타 */}
+        <div className={cn(
+          "pointer-events-none absolute inset-0 flex flex-col justify-end",
+          "bg-gradient-to-t from-black/75 via-black/30 to-transparent",
+          "opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100",
+          "max-md:opacity-100", // 모바일은 항상 노출 (hover 불가)
+        )}>
+          <div className="p-3 text-white">
+            <h3 className="line-clamp-1 text-sm font-semibold">
+              {content.isPinned && <Pin size={12} className="mr-1 inline" />}
+              {contentDisplayTitle(content)}
+            </h3>
+            <div className="mt-1 flex items-center gap-3 text-[11px] text-white/85">
+              <span className="flex items-center gap-0.5"><Eye size={11} /> {content.views}</span>
+              <span className="flex items-center gap-0.5"><Heart size={11} /> {content.likeCount}</span>
+              {content.commentCount > 0 && (
+                <span className="flex items-center gap-0.5"><MessageCircle size={11} /> {content.commentCount}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 /** FAQ 아코디언 행 — 별도 상세 페이지 없이 인라인 토글 */
 function FaqRow({ content }: Omit<Props, "board" | "onClick">) {
   return (
@@ -158,9 +254,11 @@ function FaqRow({ content }: Omit<Props, "board" | "onClick">) {
   );
 }
 
-export default function ContentCard({ content, board, onClick }: Props) {
-  const layout = board?.layout ?? "grid";
+export default function ContentCard({ content, board, onClick, variant }: Props) {
+  // variant 명시 시 보드 layout 무시 (예: /media에서 instagram 강제)
+  const layout: ContentCardVariant = variant ?? board?.layout ?? "grid";
 
+  if (layout === "instagram") return <InstagramCard content={content} onClick={onClick} />;
   if (layout === "faq") return <FaqRow content={content} />;
   if (layout === "list") return <ListRow content={content} onClick={onClick} />;
   return <GridCard content={content} onClick={onClick} />;

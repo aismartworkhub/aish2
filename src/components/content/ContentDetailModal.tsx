@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X, Eye, Heart, Bookmark, Download, ExternalLink } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { X, Eye, Heart, Bookmark, Download, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn, googleDriveUcExportViewUrl, extractGoogleDriveFileId } from "@/lib/utils";
 import { extractYouTubeVideoId } from "@/lib/youtube";
 import type { Content } from "@/types/content";
@@ -18,6 +18,13 @@ type Props = {
   onClose: () => void;
   /** 관련 콘텐츠 카드 클릭 시 핸들러 (모달 내부 전환) */
   onSelectRelated?: (c: Content) => void;
+  /**
+   * 풀스크린 스와이프 갤러리.
+   * 호출자가 현재 피드 items 배열을 전달하면 좌/우 키보드 + 모바일 터치 스와이프로
+   * 다음/이전 콘텐츠로 이동. 미전달 시 단일 콘텐츠 모달로 동작.
+   */
+  galleryItems?: Content[];
+  onNavigate?: (next: Content) => void;
 };
 
 /** 등록 7일 이내. createdAt이 Firestore Timestamp 또는 문자열 모두 처리. */
@@ -56,9 +63,34 @@ function downloadBadge(content: Content): { label: string; tone: "new" | "count"
  * - 일반 링크: 외부 이동 버튼
  * - 닫기: 우상단 X · 배경 클릭 · ESC
  */
-export default function ContentDetailModal({ content, onClose, onSelectRelated }: Props) {
+export default function ContentDetailModal({
+  content,
+  onClose,
+  onSelectRelated,
+  galleryItems,
+  onNavigate,
+}: Props) {
   const [viewIncremented, setViewIncremented] = useState<string | null>(null);
   const [related, setRelated] = useState<Content[]>([]);
+  const touchStartX = useRef<number | null>(null);
+
+  // 갤러리 모드 — 현재 인덱스 + 이동 핸들러
+  const galleryIndex = useMemo(() => {
+    if (!content || !galleryItems || galleryItems.length === 0) return -1;
+    return galleryItems.findIndex((c) => c.id === content.id);
+  }, [content, galleryItems]);
+  const hasGallery = galleryIndex >= 0 && galleryItems !== undefined;
+  const canPrev = hasGallery && galleryIndex > 0;
+  const canNext = hasGallery && galleryItems !== undefined && galleryIndex < galleryItems.length - 1;
+
+  const goPrev = () => {
+    if (!canPrev || !galleryItems || !onNavigate) return;
+    onNavigate(galleryItems[galleryIndex - 1]);
+  };
+  const goNext = () => {
+    if (!canNext || !galleryItems || !onNavigate) return;
+    onNavigate(galleryItems[galleryIndex + 1]);
+  };
 
   useEffect(() => {
     if (!content) return;
@@ -86,10 +118,30 @@ export default function ContentDetailModal({ content, onClose, onSelectRelated }
 
   useEffect(() => {
     if (!content) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft" && canPrev) goPrev();
+      else if (e.key === "ArrowRight" && canNext) goNext();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [content, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, onClose, canPrev, canNext]);
+
+  // 모바일 터치 스와이프 — 가로 60px 이상 이동 시 prev/next
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0]?.clientX ?? null;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const startX = touchStartX.current;
+    touchStartX.current = null;
+    if (startX === null) return;
+    const endX = e.changedTouches[0]?.clientX ?? startX;
+    const delta = endX - startX;
+    if (Math.abs(delta) < 60) return;
+    if (delta > 0 && canPrev) goPrev();
+    else if (delta < 0 && canNext) goNext();
+  };
 
   if (!content) return null;
 
@@ -113,10 +165,34 @@ export default function ContentDetailModal({ content, onClose, onSelectRelated }
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden />
+      {/* 갤러리 좌우 화살표 (데스크톱) — 모달 외부에 위치하여 콘텐츠 가리지 않음 */}
+      {canPrev && (
+        <button
+          type="button"
+          onClick={goPrev}
+          aria-label="이전 콘텐츠"
+          className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-white/90 p-2 text-gray-700 shadow-lg hover:bg-white sm:block"
+        >
+          <ChevronLeft size={20} />
+        </button>
+      )}
+      {canNext && (
+        <button
+          type="button"
+          onClick={goNext}
+          aria-label="다음 콘텐츠"
+          className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full bg-white/90 p-2 text-gray-700 shadow-lg hover:bg-white sm:block"
+        >
+          <ChevronRight size={20} />
+        </button>
+      )}
+
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        onTouchStart={hasGallery ? onTouchStart : undefined}
+        onTouchEnd={hasGallery ? onTouchEnd : undefined}
         className={cn(
           "relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl",
         )}
