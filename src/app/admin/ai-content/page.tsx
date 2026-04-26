@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Sparkles, RefreshCw, Save, Play, Settings2,
   History, CheckCircle, XCircle, Eye, Trash2, Clock,
-  BarChart3, Edit3,
+  BarChart3, Edit3, Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -22,6 +22,7 @@ import type { CuratedItem } from "@/lib/ai-content-curator";
 import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-content-dedup";
 import { createContentIfNew, deleteContent, getContents } from "@/lib/content-engine";
 import type { Content } from "@/types/content";
+import YoutubeAdvancedSearch from "@/components/admin/YoutubeAdvancedSearch";
 
 // ── 타입 ──
 
@@ -97,13 +98,14 @@ const ALL_SOURCES: { value: ContentSource; label: string }[] = [
   { value: "instagram", label: "Instagram" },
 ];
 
-type TabKey = "dashboard" | "boards" | "history" | "review" | "stats";
+type TabKey = "dashboard" | "boards" | "history" | "review" | "stats" | "search";
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "dashboard", label: "대시보드", icon: Sparkles },
   { key: "boards", label: "보드별 설정", icon: Settings2 },
   { key: "history", label: "수집 이력", icon: History },
   { key: "review", label: "검토 대기", icon: Eye },
   { key: "stats", label: "통계", icon: BarChart3 },
+  { key: "search", label: "고급 검색", icon: Search },
 ];
 
 // ── 유틸 ──
@@ -471,6 +473,7 @@ export default function AdminAiContentPage() {
         <ReviewTab items={pendingItems} loading={pendingLoading} onApprove={handleApprove} onReject={handleReject} />
       )}
       {tab === "stats" && <StatsTab runs={runs} runsLoaded={!runsLoading} onLoadRuns={loadHistory} />}
+      {tab === "search" && <YoutubeAdvancedSearch youtubeApiKey={config.youtubeApiKey} />}
     </div>
   );
 }
