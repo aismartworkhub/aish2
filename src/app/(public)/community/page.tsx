@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import RatingSummary from "@/components/community/RatingSummary";
 import CommunityFreeTimeline from "@/components/community/CommunityFreeTimeline";
 import { useUiMode } from "@/hooks/useUiMode";
+import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 import { createNotification } from "@/lib/notification-service";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import LoginModal from "@/components/public/LoginModal";
@@ -319,6 +320,8 @@ function CommunityContent() {
   const { mode: uiMode, setMode: setUiMode, hydrated: uiHydrated } = useUiMode();
   // hydration 전엔 새 디자인 가정. 자유 탭만 X 스타일로 전환 (공지·FAQ·후기·자료 등은 그대로).
   const isLegacyCommunity = uiHydrated && uiMode === "legacy";
+  // 탭별 스크롤 위치 복원 — 탭 전환 후 복귀 시 같은 스크롤 위치
+  useScrollRestoration({ key: `community-${activeTab}` });
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [inquiryForm, setInquiryForm] = useState({ name: "", email: "", phone: "", company: "", subject: "", message: "" });
   const [inquirySubmitted, setInquirySubmitted] = useState(false);

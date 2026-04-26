@@ -1,10 +1,16 @@
 "use client";
 
-import { Heart, MessageCircle, Eye, Pin } from "lucide-react";
+import { useState } from "react";
+import { Heart, MessageCircle, Eye, Pin, Bookmark, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { contentDisplayTitle } from "@/lib/content-display";
 import type { Content, BoardConfig } from "@/types/content";
 import MediaPreview from "./MediaPreview";
+import { toggleReaction } from "@/lib/content-engine";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLoginGuard } from "@/hooks/useLoginGuard";
+import LoginModal from "@/components/public/LoginModal";
+import { useToast } from "@/components/ui/Toast";
 
 export type ContentCardVariant = "grid" | "list" | "faq" | "instagram" | "timeline";
 
@@ -247,6 +253,78 @@ function InstagramCard({ content, onClick }: Omit<Props, "board" | "variant">) {
  */
 function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
   const ms = createdAtMs(content.createdAt);
+  const { user } = useAuth();
+  const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
+  const { toast } = useToast();
+  // 낙관적 토글 — 첫 마운트 시점의 reactions은 모르므로, 사용자 클릭한 횟수만 추적.
+  // Firestore와 정확히 동기화되지 않더라도 즉각 피드백 + 카운트는 서버 truth로 갱신.
+  const [likedDelta, setLikedDelta] = useState(0); // -1, 0, 1
+  const [bookmarked, setBookmarked] = useState(false);
+  const [busyLike, setBusyLike] = useState(false);
+  const [busyBookmark, setBusyBookmark] = useState(false);
+
+  const displayLikeCount = Math.max(0, content.likeCount + likedDelta);
+  const isLiked = likedDelta > 0;
+
+  const handleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      requireLogin(() => undefined, "좋아요는 로그인 후 가능합니다.");
+      return;
+    }
+    if (busyLike) return;
+    setBusyLike(true);
+    try {
+      const isNow = await toggleReaction(content.id, user.uid, "like");
+      setLikedDelta(isNow ? 1 : -1);
+    } catch {
+      // 실패 시 원복
+    } finally {
+      setBusyLike(false);
+    }
+  };
+
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      requireLogin(() => undefined, "북마크는 로그인 후 가능합니다.");
+      return;
+    }
+    if (busyBookmark) return;
+    setBusyBookmark(true);
+    try {
+      const isNow = await toggleReaction(content.id, user.uid, "bookmark");
+      setBookmarked(isNow);
+    } catch {
+      // 실패 무시
+    } finally {
+      setBusyBookmark(false);
+    }
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = typeof window !== "undefined"
+      ? `${window.location.origin}/media?id=${content.id}`
+      : `/media?id=${content.id}`;
+    const data = {
+      title: contentDisplayTitle(content),
+      text: content.body?.slice(0, 100) ?? "",
+      url,
+    };
+    try {
+      const nav = typeof navigator !== "undefined" ? navigator : null;
+      if (nav && "share" in nav && typeof nav.share === "function") {
+        await nav.share(data);
+      } else if (nav?.clipboard?.writeText) {
+        await nav.clipboard.writeText(url);
+        toast("링크가 복사되었습니다.", "success");
+      }
+    } catch {
+      // 사용자 취소 등 무시
+    }
+  };
+
   return (
     <article
       className={cn(
@@ -328,7 +406,7 @@ function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
             </div>
           )}
 
-          {/* 하단 액션 바 */}
+          {/* 하단 액션 바 — 인라인 좋아요·북마크·공유 (모달 진입 없이) */}
           <div className="mt-3 flex items-center gap-6 text-xs text-gray-500">
             <button
               type="button"
@@ -341,20 +419,48 @@ function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
             </button>
             <button
               type="button"
-              onClick={() => onClick?.(content)}
-              className="flex items-center gap-1 transition-colors hover:text-rose-500"
+              onClick={handleLike}
+              disabled={busyLike}
+              className={cn(
+                "flex items-center gap-1 transition-colors hover:text-rose-500 disabled:opacity-50",
+                isLiked && "text-rose-500",
+              )}
               aria-label="좋아요"
+              aria-pressed={isLiked}
             >
-              <Heart size={14} />
-              <span>{content.likeCount}</span>
+              <Heart size={14} className={isLiked ? "fill-current" : ""} />
+              <span>{displayLikeCount}</span>
             </button>
-            <span className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleBookmark}
+              disabled={busyBookmark}
+              className={cn(
+                "flex items-center gap-1 transition-colors hover:text-primary-600 disabled:opacity-50",
+                bookmarked && "text-primary-600",
+              )}
+              aria-label="북마크"
+              aria-pressed={bookmarked}
+            >
+              <Bookmark size={14} className={bookmarked ? "fill-current" : ""} />
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex items-center gap-1 transition-colors hover:text-primary-600"
+              aria-label="공유"
+            >
+              <Share2 size={14} />
+            </button>
+            <span className="ml-auto flex items-center gap-1">
               <Eye size={14} />
               <span>{content.views}</span>
             </span>
           </div>
         </div>
       </div>
+
+      <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </article>
   );
 }
