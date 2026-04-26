@@ -19,6 +19,8 @@ import DOMPurify from "dompurify";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import { useAuth } from "@/contexts/AuthContext";
 import RatingSummary from "@/components/community/RatingSummary";
+import CommunityFreeTimeline from "@/components/community/CommunityFreeTimeline";
+import { useUiMode } from "@/hooks/useUiMode";
 import { createNotification } from "@/lib/notification-service";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import LoginModal from "@/components/public/LoginModal";
@@ -314,6 +316,9 @@ function CommunityContent() {
   const showPopularPosts = ff.phase4.enabled && ff.phase4.popularPosts === true;
   const [pc, setPc] = useState<PageContentBase>(DEFAULT_COMMUNITY);
   const [activeTab, setActiveTab] = useState<TabKey>(tabParam || ALL_TAB_KEY);
+  const { mode: uiMode, setMode: setUiMode, hydrated: uiHydrated } = useUiMode();
+  // hydration 전엔 새 디자인 가정. 자유 탭만 X 스타일로 전환 (공지·FAQ·후기·자료 등은 그대로).
+  const isLegacyCommunity = uiHydrated && uiMode === "legacy";
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [inquiryForm, setInquiryForm] = useState({ name: "", email: "", phone: "", company: "", subject: "", message: "" });
   const [inquirySubmitted, setInquirySubmitted] = useState(false);
@@ -1463,7 +1468,10 @@ function CommunityContent() {
           </div>
         )}
         {/* 묻고답하기 */}
-        {activeTab === "free" && (
+        {activeTab === "free" && !isLegacyCommunity && (
+          <CommunityFreeTimeline />
+        )}
+        {activeTab === "free" && isLegacyCommunity && (
           <div className="card-base overflow-hidden">
             <div className="p-6 border-b border-brand-border flex items-center justify-between">
               <div>
@@ -1694,6 +1702,19 @@ function CommunityContent() {
           </div>
         </div>
       )}
+      {/* 자유 탭 X 스타일 ↔ 이전 모드 토글 (자유 탭 활성 시에만 노출) */}
+      {uiHydrated && activeTab === "free" && (
+        <div className="mt-8 mb-4 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setUiMode(isLegacyCommunity ? "new" : "legacy")}
+            className="text-xs text-gray-400 underline hover:text-gray-600"
+          >
+            {isLegacyCommunity ? "새 디자인 보기" : "이전 디자인 보기"}
+          </button>
+        </div>
+      )}
+
       <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>
   );

@@ -6,7 +6,7 @@ import { contentDisplayTitle } from "@/lib/content-display";
 import type { Content, BoardConfig } from "@/types/content";
 import MediaPreview from "./MediaPreview";
 
-export type ContentCardVariant = "grid" | "list" | "faq" | "instagram";
+export type ContentCardVariant = "grid" | "list" | "faq" | "instagram" | "timeline";
 
 type Props = {
   content: Content;
@@ -236,6 +236,129 @@ function InstagramCard({ content, onClick }: Omit<Props, "board" | "variant">) {
   );
 }
 
+/**
+ * X(트위터) 스타일 타임라인 카드.
+ * - 작성자 아바타 + 이름 + 시간 (상단 1줄)
+ * - 본문 (line-clamp 6줄, "더 보기" 펼침)
+ * - 미디어 임베드 인라인 (썸네일/이미지/PDF/링크)
+ * - 하단 액션 바: 💬 댓글 / ❤ 좋아요 / 🔖 북마크 / 🔗 공유
+ *   (이번 단계는 카운트만 표시·클릭은 카드 onClick으로 모달 진입.
+ *   Sprint D Batch 2에서 인라인 토글로 교체.)
+ */
+function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
+  const ms = createdAtMs(content.createdAt);
+  return (
+    <article
+      className={cn(
+        "group border-b border-gray-100 bg-white px-4 py-4 transition-colors hover:bg-gray-50/50",
+        content.isPinned && "bg-primary-50/40",
+      )}
+    >
+      <div className="flex gap-3">
+        {/* 아바타 */}
+        {content.authorPhotoURL ? (
+          <img
+            src={content.authorPhotoURL}
+            alt=""
+            className="h-10 w-10 shrink-0 rounded-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-sm font-bold text-white">
+            {content.authorName?.charAt(0) ?? "A"}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          {/* 작성자·시간 1줄 */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-semibold text-gray-900 truncate">{content.authorName}</span>
+            {content.isPinned && <Pin size={12} className="shrink-0 text-primary-500" />}
+            <span className="text-gray-400" aria-hidden>·</span>
+            <span className="text-gray-500 text-xs" suppressHydrationWarning>
+              {ms > 0 ? timeAgo(content.createdAt) : ""}
+            </span>
+          </div>
+
+          {/* 제목 */}
+          {content.title && (
+            <button
+              type="button"
+              onClick={() => onClick?.(content)}
+              className="mt-1 block text-left text-sm font-bold text-gray-900 hover:text-primary-600"
+            >
+              {contentDisplayTitle(content)}
+            </button>
+          )}
+
+          {/* 본문 — line-clamp 6줄 */}
+          {content.body && (
+            <p className="mt-1.5 line-clamp-6 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+              {content.body}
+            </p>
+          )}
+
+          {/* 미디어 임베드 — 영상/이미지/PDF/링크. 상세는 모달에서. */}
+          {content.mediaUrl && content.mediaType && content.mediaType !== "none" && (
+            <button
+              type="button"
+              onClick={() => onClick?.(content)}
+              className="mt-3 block w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 text-left"
+              aria-label="미디어 열기"
+            >
+              <div className="aspect-video w-full">
+                <MediaPreview
+                  mediaUrl={content.mediaUrl}
+                  mediaType={content.mediaType}
+                  thumbnailUrl={content.thumbnailUrl}
+                  title={contentDisplayTitle(content)}
+                  className="h-full w-full"
+                />
+              </div>
+            </button>
+          )}
+
+          {/* 태그 */}
+          {content.tags && content.tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {content.tags.slice(0, 5).map((tag) => (
+                <span key={tag} className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* 하단 액션 바 */}
+          <div className="mt-3 flex items-center gap-6 text-xs text-gray-500">
+            <button
+              type="button"
+              onClick={() => onClick?.(content)}
+              className="flex items-center gap-1 transition-colors hover:text-primary-600"
+              aria-label="댓글"
+            >
+              <MessageCircle size={14} />
+              <span>{content.commentCount}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onClick?.(content)}
+              className="flex items-center gap-1 transition-colors hover:text-rose-500"
+              aria-label="좋아요"
+            >
+              <Heart size={14} />
+              <span>{content.likeCount}</span>
+            </button>
+            <span className="flex items-center gap-1">
+              <Eye size={14} />
+              <span>{content.views}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 /** FAQ 아코디언 행 — 별도 상세 페이지 없이 인라인 토글 */
 function FaqRow({ content }: Omit<Props, "board" | "onClick">) {
   return (
@@ -259,6 +382,7 @@ export default function ContentCard({ content, board, onClick, variant }: Props)
   const layout: ContentCardVariant = variant ?? board?.layout ?? "grid";
 
   if (layout === "instagram") return <InstagramCard content={content} onClick={onClick} />;
+  if (layout === "timeline") return <TimelineCard content={content} onClick={onClick} />;
   if (layout === "faq") return <FaqRow content={content} />;
   if (layout === "list") return <ListRow content={content} onClick={onClick} />;
   return <GridCard content={content} onClick={onClick} />;
