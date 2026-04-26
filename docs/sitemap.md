@@ -129,3 +129,8 @@
 **관계 콘텐츠**: `partners`, `partnerApplications`, `history`
 **커뮤니티/소통**: `inquiries`, `likes`, `bookmarks`, `reactions`, `notifications`
 **사용자**: `users`, `admins`
+
+**기업마당 M89uUd**
+   
+
+

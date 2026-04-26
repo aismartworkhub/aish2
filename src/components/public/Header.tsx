@@ -7,6 +7,7 @@ import { Search, User, LogOut, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import { useAuth } from "@/contexts/AuthContext";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { getFilteredCollection, updateDocFields, COLLECTIONS } from "@/lib/firestore";
 import type { AppNotification } from "@/types/firestore";
 import { useSiteCta } from "@/hooks/useSiteCta";
@@ -17,6 +18,9 @@ import { auth } from "@/lib/firebase";
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const { direction } = useScrollDirection({ threshold: 8, topZone: 16 });
+  // 모바일에서 스크롤 다운 시 헤더를 위로 슬라이드. 데스크톱(lg+)은 항상 표시.
+  const hideOnMobile = direction === "down";
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
   const { user, isProfileComplete, signOut } = useAuth();
@@ -90,7 +94,9 @@ export default function Header() {
       <header
         className={cn(
           "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-brand-border transition-all duration-300 flex items-center",
-          isScrolled ? "h-14 md:h-[70px] shadow-[0_10px_20px_rgba(0,0,0,0.05)]" : "h-16 md:h-20"
+          isScrolled ? "h-14 md:h-[70px] shadow-[0_10px_20px_rgba(0,0,0,0.05)]" : "h-16 md:h-20",
+          // 모바일 자동 숨김: 다운 → 위로 슬라이드. 데스크톱(lg+)은 항상 표시
+          hideOnMobile ? "-translate-y-full lg:translate-y-0" : "translate-y-0"
         )}
       >
         <div className="w-[90%] max-w-[1440px] mx-auto flex items-center justify-between">

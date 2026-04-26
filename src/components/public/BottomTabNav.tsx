@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 
 type Tab = {
   href: string;
@@ -35,6 +36,9 @@ export default function BottomTabNav() {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const isAdmin = profile?.role === "admin" || profile?.role === "superadmin";
+  const { direction } = useScrollDirection({ threshold: 8, topZone: 16 });
+  // 글쓰기 시트 열린 동안에는 숨김 비활성 (시트 외부 영역 헷갈림 방지)
+  const hideBar = direction === "down" && !sheetOpen;
 
   const isActive = (tab: Tab) => {
     if (tab.matchPrefix) return pathname.startsWith(tab.matchPrefix);
@@ -56,7 +60,9 @@ export default function BottomTabNav() {
       <nav
         className={cn(
           "fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur",
-          "lg:hidden",
+          "lg:hidden transition-transform duration-200",
+          // 모바일 자동 숨김: 다운 → 아래로 슬라이드
+          hideBar ? "translate-y-full" : "translate-y-0",
         )}
         aria-label="모바일 하단 네비게이션"
       >

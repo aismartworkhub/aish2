@@ -77,7 +77,7 @@ export default function AiCounselor() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-end p-4 sm:items-center sm:justify-end sm:p-6">
+        <div className="fixed inset-0 z-[65] flex items-end justify-end p-4 sm:items-center sm:justify-end sm:p-6">
           <button
             type="button"
             className="absolute inset-0 bg-black/40"
