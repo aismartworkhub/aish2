@@ -13,6 +13,8 @@ import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import SampleBadge from "@/components/ui/SampleBadge";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import RatingSummary from "@/components/community/RatingSummary";
+import RecentActivityFeed from "@/components/home/RecentActivityFeed";
 import { STAT_ICONS, COMMUNITY_SHORTCUTS } from "@/hooks/useHomeData";
 import type { HomeDataProps } from "@/hooks/useHomeData";
 
@@ -26,7 +28,7 @@ export default function HomeDefault(props: HomeDataProps) {
     dDay, addRevealRef,
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,
-    latestContents,
+    latestContents, recentActivity,
     isDemoStats, isDemoPrograms, isDemoReviews,
     isDemoWorkathon, isDemoNotices, isDemoInstructors,
     isHomeDataLoading,
@@ -516,13 +518,14 @@ export default function HomeDefault(props: HomeDataProps) {
                 전체 보기 <ChevronRight size={16} />
               </Link>
             </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* 가로 스크롤 캐러셀 (인스타 Stories 패턴). snap-x로 스와이프 부드러움. */}
+            <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 snap-x snap-mandatory scrollbar-hide">
               {latestContents.length > 0
                 ? latestContents.map((content) => {
                     const isYoutube = content.mediaType === "youtube" && content.mediaUrl;
                     return (
                       <Link key={content.id} href={p1 && ff.phase1.contentDeepLink ? `/media?id=${content.id}` : "/media"} ref={addRevealRef}
-                        className="group bg-white rounded overflow-hidden border border-brand-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                        className="group flex-shrink-0 w-64 md:w-72 snap-start bg-white rounded overflow-hidden border border-brand-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                         <div className="aspect-video bg-gray-100 relative overflow-hidden">
                           {isYoutube ? (
                             <>
@@ -557,7 +560,7 @@ export default function HomeDefault(props: HomeDataProps) {
                   })
                 : featuredVideos.map((video) => (
                     <a key={video.id} href={video.youtubeUrl} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
-                      className="group bg-white rounded overflow-hidden border border-brand-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                      className="group flex-shrink-0 w-64 md:w-72 snap-start bg-white rounded overflow-hidden border border-brand-border hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                       <div className="aspect-video bg-gray-100 relative overflow-hidden">
                         <YouTubeThumbnailImage videoUrl={video.youtubeUrl} alt={video.title} preferredThumbnailUrl={video.thumbnailUrl} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex items-center justify-center">
@@ -581,13 +584,18 @@ export default function HomeDefault(props: HomeDataProps) {
         </section>
       )}
 
-      {/* S8: 수강생 후기 */}
+      {/* S8: 수강생 후기 — 평점 요약 + 카드 */}
       <section className="py-24 md:py-28">
         <div className="container-custom">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Review</h2>
             <p className="mt-3 text-gray-500 text-lg">수강생들의 생생한 후기</p>
           </div>
+          {reviews.length > 0 && (
+            <div className="mx-auto mb-10 max-w-2xl">
+              <RatingSummary items={reviews} />
+            </div>
+          )}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             {reviews.map((review, index) => (
               <div key={index} ref={addRevealRef} className="bg-white rounded-sm p-6 border border-brand-border hover:shadow-md transition-shadow">
@@ -611,6 +619,9 @@ export default function HomeDefault(props: HomeDataProps) {
           </div>
         </div>
       </section>
+
+      {/* S8.5: 최근 커뮤니티 활동 (X 풍 1줄 피드) */}
+      <RecentActivityFeed items={recentActivity} />
 
       {/* S9: 커뮤니티 아이콘 바 */}
       <section className="py-16 md:py-20 bg-white border-t border-brand-border">

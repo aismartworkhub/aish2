@@ -101,6 +101,7 @@ export function useHomeData() {
     DEMO_INSTRUCTORS.filter((i) => i.isActive !== false)
   );
   const [latestContents, setLatestContents] = useState<Content[]>([]);
+  const [recentActivity, setRecentActivity] = useState<Content[]>([]);
   const [isHomeDataLoading, setIsHomeDataLoading] = useState(true);
 
   const dDay = calculateDDay(workathon.eventDate);
@@ -164,11 +165,13 @@ export function useHomeData() {
           setIsDemoInstructors(false);
         }
         try {
-          const [runmoaRes, eventsData, lectureContents, resourceContents] = await Promise.all([
+          const [runmoaRes, eventsData, lectureContents, resourceContents, freeContents, qnaContents] = await Promise.all([
             getRunmoaContents({ status: "publish", limit: 8 }),
             getCollection<AdminEvent & { id: string }>(COLLECTIONS.ADMIN_EVENTS),
             getContents("media-lecture", { maxItems: 4 }),
             getContents("media-resource", { maxItems: 4 }),
+            getContents("community-free", { maxItems: 5 }).catch(() => [] as Content[]),
+            getContents("community-qna", { maxItems: 5 }).catch(() => [] as Content[]),
           ]);
           if (runmoaRes.data.length > 0) setRunmoaPrograms(runmoaRes.data);
           if (eventsData.length > 0) setAdminEvents(eventsData.filter((e) => e.status !== "COMPLETED" && e.status !== "CANCELLED"));
@@ -181,6 +184,16 @@ export function useHomeData() {
             })
             .slice(0, 4);
           if (merged.length > 0) setLatestContents(merged);
+          // 최근 커뮤니티 활동 (자유 + Q&A) — 시간순 머지, 5건
+          const activity = [...freeContents, ...qnaContents]
+            .filter((c) => c.isApproved !== false)
+            .sort((a, b) => {
+              const ta = typeof a.createdAt === "string" ? new Date(a.createdAt).getTime() : 0;
+              const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() : 0;
+              return tb - ta;
+            })
+            .slice(0, 5);
+          if (activity.length > 0) setRecentActivity(activity);
         } catch { /* Runmoa/Event/Contents 실패 시 무시 */ }
         if (firestoreReviews.length > 0) { setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false)); setIsDemoReviews(false); }
         if (firestoreEvents.length > 0) {
@@ -259,6 +272,7 @@ export function useHomeData() {
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,
     latestContents,
+    recentActivity,
     isDemoStats, isDemoPrograms, isDemoReviews,
     isDemoWorkathon, isDemoNotices, isDemoInstructors,
     isHomeDataLoading,

@@ -18,6 +18,7 @@ import type { PageContentBase } from "@/types/page-content";
 import DOMPurify from "dompurify";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import { useAuth } from "@/contexts/AuthContext";
+import RatingSummary from "@/components/community/RatingSummary";
 import { createNotification } from "@/lib/notification-service";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import LoginModal from "@/components/public/LoginModal";
@@ -1528,14 +1529,6 @@ function CommunityContent() {
         {/* 수강 후기 */}
         {activeTab === "review" && (() => {
           const visibleReviews = reviews.filter((r) => r.isApproved !== false || r.authorUid === user?.uid);
-          const ratingCount = visibleReviews.length;
-          const ratingSum = visibleReviews.reduce((s, r) => s + (r.rating || 0), 0);
-          const ratingAvg = ratingCount > 0 ? ratingSum / ratingCount : 0;
-          const ratingDist = [5, 4, 3, 2, 1].map((star) => ({
-            star,
-            count: visibleReviews.filter((r) => r.rating === star).length,
-          }));
-          const maxDist = Math.max(1, ...ratingDist.map((d) => d.count));
           return (
           <div className="card-base overflow-hidden">
             <div className="p-6 border-b border-brand-border flex items-center justify-between">
@@ -1546,35 +1539,10 @@ function CommunityContent() {
               {user && <button onClick={() => setShowReviewForm(!showReviewForm)} className="btn-primary btn-sm"><Plus size={14} />후기 작성</button>}
             </div>
 
-            {/* 평점 평균 + 분포 요약 */}
-            {ratingCount > 0 && (
-              <div className="flex flex-col gap-4 border-b border-brand-border bg-gray-50/60 px-6 py-5 sm:flex-row sm:items-center">
-                <div className="text-center sm:border-r sm:border-gray-200 sm:pr-6">
-                  <div className="text-3xl font-bold text-amber-500">
-                    {ratingAvg.toFixed(1)}
-                    <span className="ml-1 text-sm text-gray-400">/ 5.0</span>
-                  </div>
-                  <div className="mt-1 flex justify-center gap-0.5">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <span key={s} className={cn("text-sm", s <= Math.round(ratingAvg) ? "text-amber-400" : "text-gray-300")}>★</span>
-                    ))}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">총 {ratingCount}건</p>
-                </div>
-                <div className="flex-1 space-y-1">
-                  {ratingDist.map((d) => (
-                    <div key={d.star} className="flex items-center gap-2 text-xs">
-                      <span className="w-5 text-gray-500">{d.star}★</span>
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
-                        <div
-                          className="h-full bg-amber-400 transition-all"
-                          style={{ width: `${(d.count / maxDist) * 100}%` }}
-                        />
-                      </div>
-                      <span className="w-8 text-right text-gray-500">{d.count}</span>
-                    </div>
-                  ))}
-                </div>
+            {/* 평점 평균 + 분포 요약 (공통 컴포넌트) */}
+            {visibleReviews.length > 0 && (
+              <div className="border-b border-brand-border px-6 py-5">
+                <RatingSummary items={visibleReviews} />
               </div>
             )}
             {showReviewForm && user && (
