@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Loader2, ExternalLink, Plus, Eye, ThumbsUp, MessageCircle, Sparkles, Link2, Bookmark, X, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { mergeBoardsByKey, getBoardsByGroupDefault } from "@/lib/board-defaults";
+import type { BoardConfig } from "@/types/content";
 import {
   searchYouTubeVideos,
   searchInFavoriteChannels,
@@ -18,7 +21,7 @@ import {
   type YoutubeAiSummary,
 } from "@/lib/youtube-search";
 import { getGeminiApiKey } from "@/lib/gemini";
-import { getContentsPaginated, findContentsByMediaUrls } from "@/lib/content-engine";
+import { getContentsPaginated, findContentsByMediaUrls, createContent, getBoards } from "@/lib/content-engine";
 import type { Content } from "@/types/content";
 import YoutubePublishModal from "@/components/admin/YoutubePublishModal";
 import {
@@ -85,6 +88,7 @@ const DURATION_CHOICES: { value: "short" | "medium" | "long"; label: string }[] 
 
 export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [categories, setCategories] = useState<YoutubeCategory[]>([]);
   const [categoryId, setCategoryId] = useState<string>("");
   const [keywords, setKeywords] = useState<string>("");
@@ -119,6 +123,14 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   const [useFavoritesOnly, setUseFavoritesOnly] = useState(false);
   const [channelInput, setChannelInput] = useState("");
 
+  const [autoPublishEnabled, setAutoPublishEnabled] = useState(false);
+  const [autoPublishBoardKey, setAutoPublishBoardKey] = useState<string>("media-resource");
+  const [autoPublishPolicy, setAutoPublishPolicy] = useState<"review" | "publish">("review");
+  const [autoPublishProgress, setAutoPublishProgress] = useState<{ total: number; done: number; success: number; skipped: number; failed: number } | null>(null);
+  const [publishBoards, setPublishBoards] = useState<BoardConfig[]>(() =>
+    mergeBoardsByKey(getBoardsByGroupDefault("media"), []),
+  );
+
   // 카테고리 로드 (API 키가 있을 때 한 번)
   useEffect(() => {
     if (!youtubeApiKey) return;
@@ -134,11 +146,17 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
     getGeminiApiKey().then((k) => { if (k) setGeminiKey(k); }).catch(() => {});
   }, []);
 
-  // 오늘의 쿼터 사용량 + 즐겨찾는 검색 조건 + 선호 채널 로드
+  // 오늘의 쿼터 사용량 + 즐겨찾는 검색 조건 + 선호 채널 + 보드 목록 로드
   useEffect(() => {
     getYoutubeQuotaToday().then((q) => setQuotaUsedToday(q.used)).catch(() => {});
     getPresets().then(setPresets).catch(() => {});
     getFavoriteChannels().then(setFavoriteChannels).catch(() => {});
+    getBoards()
+      .then((list) => setPublishBoards(mergeBoardsByKey([
+        ...getBoardsByGroupDefault("media"),
+        ...getBoardsByGroupDefault("community"),
+      ], list)))
+      .catch(() => {});
   }, []);
 
   const favoriteChannelIds = useMemo(
@@ -260,19 +278,72 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
     }
   };
 
-  const matchExistsInAish = (items: YoutubeVideoDetail[]) => {
-    findContentsByMediaUrls(items.map((v) => v.url))
-      .then((matched) => {
-        const set = new Set<string>();
-        const ytPrefix = "https://www.youtube.com/watch?v=";
-        for (const c of matched) {
-          if (c.mediaUrl?.startsWith(ytPrefix)) {
-            set.add(c.mediaUrl.slice(ytPrefix.length));
-          }
+  const handleAutoPublish = async (items: YoutubeVideoDetail[], existsSet: Set<string>) => {
+    if (!user) {
+      toast("로그인이 필요합니다 (자동 발행 스킵).", "error");
+      return;
+    }
+    const total = items.length;
+    let done = 0, success = 0, skipped = 0, failed = 0;
+    setAutoPublishProgress({ total, done, success, skipped, failed });
+
+    for (const v of items) {
+      // 이미 등록된 영상 스킵
+      if (existsSet.has(v.videoId) || publishedIds.has(v.videoId)) {
+        skipped++;
+        done++;
+        setAutoPublishProgress({ total, done, success, skipped, failed });
+        continue;
+      }
+      try {
+        await createContent({
+          boardKey: autoPublishBoardKey,
+          title: v.title,
+          body: v.description.slice(0, 500),
+          mediaType: "youtube",
+          mediaUrl: v.url,
+          thumbnailUrl: v.thumbnailUrl,
+          tags: (v.tags ?? []).slice(0, 10),
+          isPinned: false,
+          isApproved: autoPublishPolicy === "publish",
+          authorUid: user.uid,
+          authorName: profile?.displayName ?? user.displayName ?? "관리자",
+          authorPhotoURL: user.photoURL ?? undefined,
+        });
+        success++;
+        setPublishedIds((prev) => new Set(prev).add(v.videoId));
+      } catch {
+        failed++;
+      }
+      done++;
+      setAutoPublishProgress({ total, done, success, skipped, failed });
+      // rate limit: 100ms 간격
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    toast(
+      `자동 발행 완료: 성공 ${success}건 / 스킵 ${skipped}건${failed > 0 ? ` / 실패 ${failed}건` : ""}`,
+      failed > 0 ? "error" : "success",
+    );
+    // 5초 후 progress 숨김
+    setTimeout(() => setAutoPublishProgress(null), 5000);
+  };
+
+  const matchExistsInAish = async (items: YoutubeVideoDetail[]): Promise<Set<string>> => {
+    try {
+      const matched = await findContentsByMediaUrls(items.map((v) => v.url));
+      const set = new Set<string>();
+      const ytPrefix = "https://www.youtube.com/watch?v=";
+      for (const c of matched) {
+        if (c.mediaUrl?.startsWith(ytPrefix)) {
+          set.add(c.mediaUrl.slice(ytPrefix.length));
         }
-        setExistsInAishIds(set);
-      })
-      .catch(() => {});
+      }
+      setExistsInAishIds(set);
+      return set;
+    } catch {
+      return new Set<string>();
+    }
   };
 
   const handleSearch = async () => {
@@ -318,16 +389,19 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
         return items.filter((v) => durations.has(durationCategory(v.durationSeconds)));
       };
 
-      // 선호 채널만 검색 모드는 캐시 키가 충돌 가능 → 캐시 패스 스킵 (별도 분기 없음)
-      // 일반 검색만 캐시 적용
+      // 선호 채널 모드는 캐시 미적용 (채널 변동 반영 위함)
       if (!usingFavoritesOnly && !forceRefresh) {
         const cached = readSearchCache(opts);
         if (cached) {
           const filtered = filterByDurations(cached);
           setResults(filtered);
           setFromCache(true);
-          if (filtered.length > 0) matchExistsInAish(filtered);
-          else toast("캐시: 결과 없음", "info");
+          if (filtered.length > 0) {
+            const exists = await matchExistsInAish(filtered);
+            if (autoPublishEnabled) await handleAutoPublish(filtered, exists);
+          } else {
+            toast("캐시: 결과 없음", "info");
+          }
           setLoading(false);
           return;
         }
@@ -345,12 +419,13 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
           .catch(() => {});
       }
       if (!usingFavoritesOnly) {
-        writeSearchCache(opts, items); // 일반 검색만 캐시 (선호 채널은 채널 변동 가능)
+        writeSearchCache(opts, items); // 일반 검색만 캐시
       }
       if (filteredItems.length === 0) {
         toast("검색 결과가 없습니다. 조건을 완화해보세요.", "info");
       } else {
-        matchExistsInAish(filteredItems);
+        const exists = await matchExistsInAish(filteredItems);
+        if (autoPublishEnabled) await handleAutoPublish(filteredItems, exists);
       }
     } catch (e) {
       toast(`검색 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
@@ -723,6 +798,57 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
           </div>
         </div>
 
+        {/* 검색 후 자동 발행 (해석 A) */}
+        <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 space-y-2">
+          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={autoPublishEnabled}
+              onChange={(e) => setAutoPublishEnabled(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-primary-600"
+            />
+            검색 후 자동 발행 — 결과 전체를 보드에 일괄 등록
+          </label>
+          {autoPublishEnabled && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-1 pl-6">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">발행 보드</label>
+                <select
+                  value={autoPublishBoardKey}
+                  onChange={(e) => setAutoPublishBoardKey(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs"
+                >
+                  {publishBoards.map((b) => (
+                    <option key={b.key} value={b.key}>{b.label} ({b.group})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">정책</label>
+                <div className="flex gap-1.5">
+                  <label className={cn(
+                    "flex flex-1 cursor-pointer items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs",
+                    autoPublishPolicy === "review" ? "border-amber-300 bg-amber-50 text-amber-700" : "border-gray-200 text-gray-600",
+                  )}>
+                    <input type="radio" checked={autoPublishPolicy === "review"} onChange={() => setAutoPublishPolicy("review")} className="sr-only" />
+                    검토 대기
+                  </label>
+                  <label className={cn(
+                    "flex flex-1 cursor-pointer items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs",
+                    autoPublishPolicy === "publish" ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600",
+                  )}>
+                    <input type="radio" checked={autoPublishPolicy === "publish"} onChange={() => setAutoPublishPolicy("publish")} className="sr-only" />
+                    즉시 공개
+                  </label>
+                </div>
+              </div>
+              <div className="sm:col-span-2 text-[11px] text-amber-700">
+                ⚠ 즉시 공개는 선호 채널 기반 검색에만 권장 — 일반 검색에서는 검토 대기를 추천합니다.
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
           <label className="flex items-center gap-1.5 text-xs text-gray-500">
             <input
@@ -772,6 +898,25 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
           </div>
         )}
       </div>
+
+      {/* 자동 발행 진행 상황 */}
+      {autoPublishProgress && (
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3">
+          <div className="flex items-center justify-between text-xs text-emerald-700">
+            <span>자동 발행 진행: {autoPublishProgress.done} / {autoPublishProgress.total}</span>
+            <span className="text-[10px] text-gray-500">
+              성공 {autoPublishProgress.success} · 스킵 {autoPublishProgress.skipped}
+              {autoPublishProgress.failed > 0 && ` · 실패 ${autoPublishProgress.failed}`}
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-emerald-100">
+            <div
+              className="h-full bg-emerald-500 transition-all"
+              style={{ width: `${autoPublishProgress.total > 0 ? (autoPublishProgress.done / autoPublishProgress.total) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 결과 그리드 */}
       {searched && !loading && results.length === 0 && (
