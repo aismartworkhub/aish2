@@ -5,6 +5,9 @@
  * - 동일 검색은 dedup하여 최근으로 갱신
  */
 
+import type { YoutubeSearchOpts, YoutubeVideoDetail } from "./youtube-search";
+import { durationCategory } from "./youtube-search";
+
 const KEY = "yt-search-history-v1";
 const MAX = 500;
 const TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -121,4 +124,38 @@ export function describeHistoryOpts(opts: SearchOptsSnapshot): string {
   if (kw) return kw;
   if (opts.useFavoritesOnly) return "선호 채널 전체";
   return "(빈 검색)";
+}
+
+/* ── 변환·필터 헬퍼 (캐시 키 매칭 위해 검색 실행과 동일 로직) ────── */
+
+export function buildSearchQuery(keywords: string, mode: "or" | "and"): string {
+  const tokens = keywords.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+  if (tokens.length === 0) return "";
+  return mode === "or" ? tokens.join(" OR ") : tokens.join(" ");
+}
+
+export function snapshotToYoutubeSearchOpts(s: SearchOptsSnapshot): YoutubeSearchOpts {
+  const publishedAfter = s.periodDays > 0
+    ? new Date(Date.now() - s.periodDays * 24 * 60 * 60 * 1000).toISOString()
+    : undefined;
+  const apiVideoDuration = s.durations.length === 1 ? s.durations[0] : undefined;
+  return {
+    q: buildSearchQuery(s.keywords, s.keywordMode),
+    categoryId: s.categoryId || undefined,
+    minViews: s.minViews,
+    minSubscribers: s.minSubs,
+    publishedAfter,
+    order: s.order,
+    videoDuration: apiVideoDuration,
+    maxResults: s.maxResults,
+  };
+}
+
+export function filterItemsByDurations(
+  items: YoutubeVideoDetail[],
+  durations: ("short" | "medium" | "long")[],
+): YoutubeVideoDetail[] {
+  if (durations.length === 0 || durations.length === 3) return items;
+  const set = new Set(durations);
+  return items.filter((v) => set.has(durationCategory(v.durationSeconds)));
 }

@@ -23,6 +23,8 @@ import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-c
 import { createContentIfNew, deleteContent, getContents } from "@/lib/content-engine";
 import type { Content } from "@/types/content";
 import YoutubeAdvancedSearch from "@/components/admin/YoutubeAdvancedSearch";
+import YoutubeSearchHistoryChips from "@/components/admin/YoutubeSearchHistoryChips";
+import type { SearchOptsSnapshot } from "@/lib/youtube-search-history";
 
 // ── 타입 ──
 
@@ -124,6 +126,7 @@ export default function AdminAiContentPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [tab, setTab] = useState<TabKey>("dashboard");
+  const [pendingSearchApply, setPendingSearchApply] = useState<SearchOptsSnapshot | null>(null);
   const [config, setConfig] = useState<AiCollectorConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -468,12 +471,26 @@ export default function AdminAiContentPage() {
           onToggleDefaultReview={(v) => setConfig((prev) => ({ ...prev, defaultRequireReview: v }))}
         />
       )}
-      {tab === "history" && <HistoryTab runs={runs} loading={runsLoading} />}
+      {tab === "history" && (
+        <HistoryTab
+          runs={runs}
+          loading={runsLoading}
+          onApplySearchHistory={(opts) => {
+            setPendingSearchApply(opts);
+            setTab("search");
+          }}
+        />
+      )}
       {tab === "review" && (
         <ReviewTab items={pendingItems} loading={pendingLoading} onApprove={handleApprove} onReject={handleReject} />
       )}
       {tab === "stats" && <StatsTab runs={runs} runsLoaded={!runsLoading} onLoadRuns={loadHistory} />}
-      {tab === "search" && <YoutubeAdvancedSearch youtubeApiKey={config.youtubeApiKey} />}
+      {tab === "search" && (
+        <YoutubeAdvancedSearch
+          youtubeApiKey={config.youtubeApiKey}
+          initialApply={pendingSearchApply}
+        />
+      )}
     </div>
   );
 }
@@ -713,10 +730,45 @@ function BoardsTab({
 
 // ── 수집 이력 탭 ──
 
-function HistoryTab({ runs, loading }: { runs: CollectionRun[]; loading: boolean }) {
-  if (loading) return <div className="flex justify-center py-12"><RefreshCw size={24} className="animate-spin text-gray-400" /></div>;
-  if (runs.length === 0) return <div className="text-center py-12 text-sm text-gray-400">수집 이력이 없습니다</div>;
+function HistoryTab({
+  runs,
+  loading,
+  onApplySearchHistory,
+}: {
+  runs: CollectionRun[];
+  loading: boolean;
+  onApplySearchHistory: (opts: SearchOptsSnapshot) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* YouTube 검색 히스토리 — 클릭 시 고급 검색 탭으로 전환·복원 */}
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+          <Search size={14} className="text-gray-400" />
+          YouTube 검색 히스토리
+        </h2>
+        <YoutubeSearchHistoryChips onApply={onApplySearchHistory} variant="full" />
+      </section>
 
+      {/* 자동/수동 수집 실행 이력 */}
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+          <Clock size={14} className="text-gray-400" />
+          자동·수동 수집 실행
+        </h2>
+        {loading ? (
+          <div className="flex justify-center py-12"><RefreshCw size={24} className="animate-spin text-gray-400" /></div>
+        ) : runs.length === 0 ? (
+          <div className="text-center py-12 text-sm text-gray-400">수집 이력이 없습니다</div>
+        ) : (
+          <RunsList runs={runs} />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function RunsList({ runs }: { runs: CollectionRun[] }) {
   return (
     <div className="space-y-3">
       {runs.map((run) => (
