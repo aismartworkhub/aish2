@@ -155,6 +155,8 @@ export const COLLECTIONS = {
   TAG_COUNTS: "tagCounts",
   COURSE_PROPOSALS: "courseProposals",
   AI_COLLECTOR_HISTORY: "aiCollectorHistory",
+  GOOGLE_TRENDS: "googleTrends",
+  GOOGLE_TRENDS_TOP: "googleTrendsTop",
 } as const;
 
 export const PAGE_DOC_ID = (key: string) => `page_${key}`;
