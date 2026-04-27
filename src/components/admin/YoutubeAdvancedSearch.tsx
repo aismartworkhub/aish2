@@ -37,7 +37,8 @@ import {
   getFavoriteChannels,
   addFavoriteChannel,
   removeFavoriteChannel,
-  extractChannelId,
+  parseChannelInput,
+  resolveChannelFromInput,
   MAX_FAVORITE_CHANNELS,
   type FavoriteChannel,
 } from "@/lib/youtube-favorite-channels";
@@ -241,31 +242,35 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   };
 
   const handleAddChannelByInput = async () => {
-    const id = extractChannelId(channelInput);
-    if (!id) {
-      toast("UC로 시작하는 채널 ID 또는 youtube.com/channel/UC... URL을 입력하세요. (@handle 미지원)", "error");
+    const parsed = parseChannelInput(channelInput);
+    if (parsed.kind === "empty") return;
+    if (parsed.kind === "unsupported") {
+      toast(parsed.reason, "error");
       return;
     }
-    if (favoriteChannelIds.has(id)) {
-      toast("이미 등록된 채널입니다.", "info");
-      return;
-    }
-    // 채널명 조회 (channels.list — 1단위)
     try {
-      const sp = new URLSearchParams({ part: "snippet", id, key: youtubeApiKey });
-      const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?${sp.toString()}`);
-      if (!res.ok) throw new Error("채널 정보 조회 실패");
-      incrementYoutubeQuota(1).then(() => setQuotaUsedToday((u) => u + 1)).catch(() => {});
-      const data = (await res.json()) as { items?: Array<{ snippet?: { title?: string } }> };
-      const title = data.items?.[0]?.snippet?.title;
-      if (!title) {
-        toast("존재하지 않는 채널 ID입니다.", "error");
+      const resolved = await resolveChannelFromInput(youtubeApiKey, parsed);
+      if (resolved.quotaUsed > 0) {
+        incrementYoutubeQuota(resolved.quotaUsed)
+          .then(() => setQuotaUsedToday((u) => u + resolved.quotaUsed))
+          .catch(() => {});
+        setQuotaUsedSession((q) => q + resolved.quotaUsed);
+      }
+      if (favoriteChannelIds.has(resolved.channelId)) {
+        toast(`이미 등록된 채널입니다: ${resolved.channelTitle}`, "info");
         return;
       }
-      await handleAddFavoriteChannel(id, title);
+      await handleAddFavoriteChannel(resolved.channelId, resolved.channelTitle);
       setChannelInput("");
+      if (resolved.source === "videoId") {
+        toast(`영상에서 채널을 찾았습니다: ${resolved.channelTitle}`, "success");
+      } else if (resolved.source === "handle") {
+        toast(`핸들에서 채널을 찾았습니다: ${resolved.channelTitle}`, "success");
+      } else if (resolved.source === "username") {
+        toast(`사용자명에서 채널을 찾았습니다: ${resolved.channelTitle}`, "success");
+      }
     } catch (e) {
-      toast(`채널 조회 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+      toast(e instanceof Error ? e.message : "채널 조회 실패", "error");
     }
   };
 
@@ -715,7 +720,7 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
             value={channelInput}
             onChange={(e) => setChannelInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleAddChannelByInput(); }}
-            placeholder="UC... 채널 ID 또는 youtube.com/channel/UC... URL"
+            placeholder="채널 URL · 영상 URL · @핸들 · UC... 무엇이든 붙여넣기"
             className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20"
             disabled={!youtubeApiKey}
           />
@@ -747,7 +752,9 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
           </div>
         ) : (
           <p className="text-xs text-gray-400">
-            아직 등록된 채널이 없습니다. 검색 결과 카드의 ★ 또는 위 입력창으로 추가하세요.
+            아직 등록된 채널이 없습니다. 검색 결과 카드의 ★ 또는 위 입력창에
+            <strong className="mx-1 text-gray-500">채널 URL · 영상 URL · @핸들</strong>
+            중 무엇이든 붙여넣어 등록하세요.
           </p>
         )}
       </div>
