@@ -31,7 +31,7 @@ import {
   YOUTUBE_WARN_THRESHOLD,
   YOUTUBE_BLOCK_THRESHOLD,
 } from "@/lib/youtube-quota";
-import { readSearchCache, writeSearchCache } from "@/lib/youtube-search-cache";
+import { readSearchCache, writeSearchCache, hasSearchCache } from "@/lib/youtube-search-cache";
 import { getPresets, savePresets, MAX_PRESETS, type YoutubeSearchPreset } from "@/lib/youtube-search-presets";
 import {
   getFavoriteChannels,
@@ -97,6 +97,42 @@ const DURATION_CHOICES: { value: "short" | "medium" | "long"; label: string }[] 
   { value: "medium", label: "중간 (4~20분)" },
   { value: "long", label: "긴 (>20분)" },
 ];
+
+/* ── 헬퍼: 검색 옵션 변환·필터 ─────────────────────────────────
+ * 히스토리 클릭 시 동일한 캐시 키로 결과를 조회하기 위해
+ * handleSearch가 만드는 YoutubeSearchOpts와 1:1로 동일한 객체를 만들어야 한다. */
+
+function buildSearchQuery(keywords: string, mode: "or" | "and"): string {
+  const tokens = keywords.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+  if (tokens.length === 0) return "";
+  return mode === "or" ? tokens.join(" OR ") : tokens.join(" ");
+}
+
+function snapshotToYoutubeSearchOpts(s: SearchOptsSnapshot): YoutubeSearchOpts {
+  const publishedAfter = s.periodDays > 0
+    ? new Date(Date.now() - s.periodDays * 24 * 60 * 60 * 1000).toISOString()
+    : undefined;
+  const apiVideoDuration = s.durations.length === 1 ? s.durations[0] : undefined;
+  return {
+    q: buildSearchQuery(s.keywords, s.keywordMode),
+    categoryId: s.categoryId || undefined,
+    minViews: s.minViews,
+    minSubscribers: s.minSubs,
+    publishedAfter,
+    order: s.order,
+    videoDuration: apiVideoDuration,
+    maxResults: s.maxResults,
+  };
+}
+
+function filterItemsByDurations(
+  items: YoutubeVideoDetail[],
+  durations: ("short" | "medium" | "long")[],
+): YoutubeVideoDetail[] {
+  if (durations.length === 0 || durations.length === 3) return items;
+  const set = new Set(durations);
+  return items.filter((v) => set.has(durationCategory(v.durationSeconds)));
+}
 
 export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   const { toast } = useToast();
@@ -176,6 +212,7 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   }, []);
 
   const applyHistory = (opts: SearchOptsSnapshot) => {
+    // 폼 상태 복원
     setCategoryId(opts.categoryId);
     setKeywords(opts.keywords);
     setKeywordMode(opts.keywordMode);
@@ -186,6 +223,27 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
     setDurations(new Set(opts.durations));
     setMaxResults(opts.maxResults);
     setUseFavoritesOnly(opts.useFavoritesOnly);
+
+    // 결과 캐시 복원 (선호 채널 모드는 캐시 미적용)
+    if (opts.useFavoritesOnly) {
+      toast("폼 조건이 복원되었습니다. '검색' 버튼을 눌러 조회하세요.", "info");
+      return;
+    }
+    const searchOpts = snapshotToYoutubeSearchOpts(opts);
+    const cached = readSearchCache(searchOpts);
+    if (!cached) {
+      toast("결과 캐시가 만료되었습니다. '검색' 버튼을 눌러 새로 조회하세요.", "info");
+      return;
+    }
+    const filtered = filterItemsByDurations(cached, opts.durations);
+    setResults(filtered);
+    setSearched(true);
+    setFromCache(true);
+    setExistsInAishIds(new Set());
+    if (filtered.length > 0) {
+      void matchExistsInAish(filtered);
+    }
+    toast(`캐시에서 ${filtered.length}건 복원 (API 호출 0)`, "success");
   };
 
   const handleRemoveHistory = (ts: number) => {
@@ -626,18 +684,27 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
 
           {/* inline 5개 */}
           <div className="flex flex-wrap gap-1">
-            {history.slice(0, 5).map((entry) => (
-              <button
-                key={entry.ts}
-                type="button"
-                onClick={() => applyHistory(entry.opts)}
-                className="inline-flex max-w-[200px] items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-xs text-gray-700 hover:border-primary-300 hover:bg-primary-50"
-                title="이 조건으로 폼 복원 (검색은 별도 클릭)"
-              >
-                <span className="truncate">{describeHistoryOpts(entry.opts)}</span>
-                <span className="shrink-0 text-[10px] text-gray-400">· {formatRelativeTime(entry.ts)}</span>
-              </button>
-            ))}
+            {history.slice(0, 5).map((entry) => {
+              const cached = !entry.opts.useFavoritesOnly && hasSearchCache(snapshotToYoutubeSearchOpts(entry.opts));
+              return (
+                <button
+                  key={entry.ts}
+                  type="button"
+                  onClick={() => applyHistory(entry.opts)}
+                  className={cn(
+                    "inline-flex max-w-[200px] items-center gap-1 rounded-full border bg-white px-2.5 py-0.5 text-xs text-gray-700",
+                    cached
+                      ? "border-emerald-300 hover:border-emerald-400 hover:bg-emerald-50"
+                      : "border-gray-200 hover:border-primary-300 hover:bg-primary-50",
+                  )}
+                  title={cached ? "결과 캐시 보유 — 클릭하면 결과까지 즉시 복원" : "이 조건으로 폼 복원 (검색은 별도 클릭)"}
+                >
+                  {cached && <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />}
+                  <span className="truncate">{describeHistoryOpts(entry.opts)}</span>
+                  <span className="shrink-0 text-[10px] text-gray-400">· {formatRelativeTime(entry.ts)}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* 펼침 패널 */}
@@ -647,32 +714,39 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
               <div className="space-y-0.5">
                 <h4 className="text-[10px] font-semibold uppercase text-gray-400">{label} ({entries.length})</h4>
                 <ul className="space-y-0.5">
-                  {entries.map((entry) => (
-                    <li key={entry.ts} className="flex items-center gap-2 rounded-md px-1.5 py-1 text-xs hover:bg-white">
-                      <button
-                        type="button"
-                        onClick={() => applyHistory(entry.opts)}
-                        className="min-w-0 flex-1 text-left"
-                        title="이 조건으로 폼 복원"
-                      >
-                        <span className="block truncate text-gray-700">{describeHistoryOpts(entry.opts)}</span>
-                        <span className="block text-[10px] text-gray-400">
-                          {formatRelativeTime(entry.ts)}
-                          {entry.opts.useFavoritesOnly && " · 선호 채널만"}
-                          {entry.opts.durations.length > 0 && ` · 길이 ${entry.opts.durations.length}개`}
-                          {entry.opts.minViews > 0 && ` · 조회수 ${entry.opts.minViews.toLocaleString()}+`}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveHistory(entry.ts)}
-                        aria-label="히스토리 항목 삭제"
-                        className="shrink-0 rounded-full p-0.5 text-gray-300 hover:bg-gray-100 hover:text-red-500"
-                      >
-                        <X size={10} />
-                      </button>
-                    </li>
-                  ))}
+                  {entries.map((entry) => {
+                    const cached = !entry.opts.useFavoritesOnly && hasSearchCache(snapshotToYoutubeSearchOpts(entry.opts));
+                    return (
+                      <li key={entry.ts} className="flex items-center gap-2 rounded-md px-1.5 py-1 text-xs hover:bg-white">
+                        <button
+                          type="button"
+                          onClick={() => applyHistory(entry.opts)}
+                          className="min-w-0 flex-1 text-left"
+                          title={cached ? "결과 캐시 보유 — 클릭하면 결과까지 즉시 복원" : "이 조건으로 폼 복원"}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            {cached && <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />}
+                            <span className="block truncate text-gray-700">{describeHistoryOpts(entry.opts)}</span>
+                          </span>
+                          <span className="block text-[10px] text-gray-400">
+                            {formatRelativeTime(entry.ts)}
+                            {cached && " · 캐시"}
+                            {entry.opts.useFavoritesOnly && " · 선호 채널만"}
+                            {entry.opts.durations.length > 0 && ` · 길이 ${entry.opts.durations.length}개`}
+                            {entry.opts.minViews > 0 && ` · 조회수 ${entry.opts.minViews.toLocaleString()}+`}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveHistory(entry.ts)}
+                          aria-label="히스토리 항목 삭제"
+                          className="shrink-0 rounded-full p-0.5 text-gray-300 hover:bg-gray-100 hover:text-red-500"
+                        >
+                          <X size={10} />
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             );
