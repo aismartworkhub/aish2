@@ -641,7 +641,6 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
       <YoutubePublishModal
         video={publishModalVideo}
         initialSummary={publishModalVideo ? summaries.get(publishModalVideo.videoId)?.summary ?? "" : ""}
-        initialTags={publishModalVideo ? summaries.get(publishModalVideo.videoId)?.recommendedTags ?? [] : []}
         onClose={() => setPublishModalVideo(null)}
         onPublished={(id) => {
           setPublishedIds((prev) => new Set(prev).add(id));

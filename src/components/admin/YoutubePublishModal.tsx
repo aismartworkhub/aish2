@@ -12,9 +12,8 @@ import type { YoutubeVideoDetail } from "@/lib/youtube-search";
 
 type Props = {
   video: YoutubeVideoDetail | null;
-  /** AI 요약·추천 태그 (Phase 2에서 자동 채움) */
+  /** AI 요약 (Phase 2에서 자동 채움). 태그는 영상 본래 tags를 그대로 사용. */
   initialSummary?: string;
-  initialTags?: string[];
   onClose: () => void;
   /** 발행 성공 시 호출 — 카드에 "발행됨" 배지 표시용 */
   onPublished?: (videoId: string) => void;
@@ -22,15 +21,14 @@ type Props = {
 
 /**
  * YouTube 영상을 contents 컬렉션에 발행하는 모달.
- * - 보드 선택 (group=media 우선, community 보드도 노출)
+ * - 보드 선택 (group=media 우선, community 보드도 노출). 기본 추천자료.
  * - 검토 정책 라디오 (검토 대기 / 즉시 공개)
  * - 제목·요약 편집 가능
- * - 태그 편집 (쉼표 구분)
+ * - 태그는 영상 본래 tags 그대로 (편집 가능, 쉼표 구분)
  */
 export default function YoutubePublishModal({
   video,
   initialSummary = "",
-  initialTags = [],
   onClose,
   onPublished,
 }: Props) {
@@ -39,7 +37,7 @@ export default function YoutubePublishModal({
   const [boards, setBoards] = useState<BoardConfig[]>(() =>
     mergeBoardsByKey(getBoardsByGroupDefault("media"), []),
   );
-  const [boardKey, setBoardKey] = useState<string>("media-lecture");
+  const [boardKey, setBoardKey] = useState<string>("media-resource");
   const [policy, setPolicy] = useState<"review" | "publish">("review");
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
@@ -51,10 +49,10 @@ export default function YoutubePublishModal({
     if (!video) return;
     setTitle(video.title);
     setSummary(initialSummary || video.description.slice(0, 500));
-    const baseTags = initialTags.length > 0 ? initialTags : (video.tags ?? []).slice(0, 5);
+    const baseTags = (video.tags ?? []).slice(0, 10);
     setTagsInput(baseTags.join(", "));
     setPolicy("review");
-  }, [video, initialSummary, initialTags]);
+  }, [video, initialSummary]);
 
   // 보드 목록 로드 (media + community 그룹 모두)
   useEffect(() => {
