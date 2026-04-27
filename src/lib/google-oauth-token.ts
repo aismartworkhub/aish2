@@ -129,31 +129,61 @@ export async function requestGoogleAccessToken(
       reject(new Error("Google Identity Services가 로드되지 않았습니다."));
       return;
     }
+    let settled = false;
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+
+    // 60초 타임아웃 — 팝업 차단/창 미응답 등으로 callback이 영영 안 오는 경우 대비
+    const timeoutId = window.setTimeout(() => {
+      settle(() => reject(new Error(
+        "Google 인증 응답 대기 시간 초과 (60초).\n" +
+          "팝업이 차단되었거나 창에서 동의가 완료되지 않았습니다.\n" +
+          "주소창의 팝업 차단 아이콘을 확인하고, aish-web-v2.web.app 에 팝업을 허용한 뒤 다시 시도해 주세요.",
+      )));
+    }, 60_000);
+
     const client = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope,
       callback: (response) => {
-        if (response.error) {
-          reject(
-            new Error(
-              `Google OAuth 오류: ${response.error}${response.error_description ? ` — ${response.error_description}` : ""}`,
-            ),
-          );
-          return;
-        }
-        if (!response.access_token) {
-          reject(new Error("액세스 토큰을 받지 못했습니다."));
-          return;
-        }
-        const expiresInMs = (response.expires_in ?? 3600) * 1000;
-        tokenCache.set(scope, {
-          token: response.access_token,
-          expiresAt: Date.now() + expiresInMs,
+        window.clearTimeout(timeoutId);
+        settle(() => {
+          if (response.error) {
+            reject(
+              new Error(
+                `Google OAuth 오류: ${response.error}${response.error_description ? ` — ${response.error_description}` : ""}`,
+              ),
+            );
+            return;
+          }
+          if (!response.access_token) {
+            reject(new Error("액세스 토큰을 받지 못했습니다."));
+            return;
+          }
+          const expiresInMs = (response.expires_in ?? 3600) * 1000;
+          tokenCache.set(scope, {
+            token: response.access_token,
+            expiresAt: Date.now() + expiresInMs,
+          });
+          resolve(response.access_token);
         });
-        resolve(response.access_token);
       },
       error_callback: (err) => {
-        reject(new Error(err?.message || err?.type || "Google OAuth 인증이 취소되었습니다."));
+        window.clearTimeout(timeoutId);
+        settle(() => {
+          const type = err?.type || "";
+          if (type === "popup_failed_to_open" || type === "popup_closed") {
+            reject(new Error(
+              "Google 인증 팝업을 열 수 없거나 닫혔습니다.\n" +
+                "브라우저 주소창의 팝업 차단을 해제하고 다시 시도해 주세요.",
+            ));
+          } else {
+            reject(new Error(err?.message || type || "Google OAuth 인증이 취소되었습니다."));
+          }
+        });
       },
     });
     client.requestAccessToken({ prompt: options.forceConsent ? "consent" : "" });
