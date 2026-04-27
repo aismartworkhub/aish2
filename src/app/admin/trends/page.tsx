@@ -17,6 +17,7 @@ import {
   getBigQueryAccessToken,
   fetchInternationalTopTerms,
   fetchUsTopTerms,
+  isBigQueryConfigured,
   BIGQUERY_SUPPORTED_COUNTRIES,
   type BigQueryTopTerm,
 } from "@/lib/bigQueryTrends";
@@ -467,11 +468,28 @@ function BigQueryTab() {
                 </a>
                 {" "}(Firebase 프로젝트와 동일한 GCP 프로젝트 선택)
               </li>
+              <li>
+                <a
+                  href="https://console.cloud.google.com/apis/credentials"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline inline-flex items-center gap-0.5"
+                >
+                  OAuth 2.0 클라이언트 ID 생성 <ExternalLink size={11} />
+                </a>
+                {" "}(웹 앱, 승인된 출처: <code className="bg-white/60 px-1 rounded text-[11px]">https://aish-web-v2.web.app</code>)
+                → 발급된 Client ID를 GitHub Secret <code className="bg-white/60 px-1 rounded text-[11px]">NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID</code> 에 등록 후 재배포
+              </li>
               <li>아래 &ldquo;조회&rdquo; 버튼 클릭 → 팝업에서 BigQuery 권한 동의</li>
             </ol>
             <p className="text-xs text-amber-700/90 pt-1">
               BigQuery sandbox는 결제수단 없이 1TB/월 쿼리 무료. 본 쿼리는 수MB 수준입니다.
             </p>
+            {!isBigQueryConfigured() && (
+              <p className="text-xs text-red-700 pt-2 font-semibold">
+                ⚠ 현재 OAuth 클라이언트 ID가 설정되지 않았습니다 — 위 2번 단계 완료 후 재배포해 주세요.
+              </p>
+            )}
           </div>
         </div>
       </div>

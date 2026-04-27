@@ -14,51 +14,21 @@
  * 작아서 한 번 조회 시 수MB 내외 → 사실상 무료.
  */
 
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { requestGoogleAccessToken, hasGoogleOAuthClientId } from "./google-oauth-token";
 
 const BIGQUERY_SCOPE = "https://www.googleapis.com/auth/bigquery.readonly";
 
-let cachedToken: string | null = null;
-
+/**
+ * BigQuery REST API 호출용 액세스 토큰을 취득.
+ * 내부적으로 Google Identity Services Token Client 사용 (COOP 친화적).
+ */
 export async function getBigQueryAccessToken(): Promise<string> {
-  if (cachedToken) {
-    try {
-      const test = await fetch(
-        "https://bigquery.googleapis.com/bigquery/v2/projects?maxResults=1",
-        { headers: { Authorization: `Bearer ${cachedToken}` } }
-      );
-      if (test.ok) return cachedToken;
-    } catch {
-      /* 만료 — 재취득 */
-    }
-    cachedToken = null;
-  }
+  return requestGoogleAccessToken(BIGQUERY_SCOPE);
+}
 
-  const provider = new GoogleAuthProvider();
-  provider.addScope(BIGQUERY_SCOPE);
-  provider.setCustomParameters({ prompt: "consent" });
-
-  try {
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error(
-        "BigQuery 액세스 토큰을 가져올 수 없습니다.\nGoogle 로그인 팝업에서 권한을 허용해 주세요."
-      );
-    }
-    cachedToken = credential.accessToken;
-    return cachedToken;
-  } catch (err: unknown) {
-    const code = (err as { code?: string }).code ?? "";
-    if (code === "auth/popup-blocked") {
-      throw new Error("팝업이 차단되었습니다. 브라우저 팝업 차단을 해제한 후 다시 시도해 주세요.");
-    }
-    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-      throw new Error("Google 로그인이 취소되었습니다. 다시 시도해 주세요.");
-    }
-    throw err;
-  }
+/** UI 사전 안내용 — OAuth Client ID가 설정되어 있는지 확인 */
+export function isBigQueryConfigured(): boolean {
+  return hasGoogleOAuthClientId();
 }
 
 export interface BigQueryTopTerm {
