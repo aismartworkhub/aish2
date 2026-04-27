@@ -256,6 +256,21 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
+    // Google 트렌드 — CSV 업로드 결과 (관리자만)
+    match /googleTrends/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Google 트렌드 — BigQuery 인기 검색어 캐시 (관리자만)
+    match /googleTrendsTop/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // AI 콘텐츠 자동수집 실행 이력 (관리자만)
+    match /aiCollectorHistory/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // 기본 거부: 위에 명시되지 않은 모든 경로
     match /{document=**} {
       allow read, write: if false;
