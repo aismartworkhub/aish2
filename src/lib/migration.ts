@@ -5,8 +5,8 @@
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { COLLECTIONS } from "./firestore";
-import { BOARD_MAP } from "./board-defaults";
-import { buildSearchTerms } from "./content-engine";
+import { BOARD_MAP, DEFAULT_BOARDS } from "./board-defaults";
+import { buildSearchTerms, getBoards } from "./content-engine";
 import {
   loadLegacyVideosAsContent,
   loadLegacyGalleryAsContent,
@@ -15,7 +15,7 @@ import {
   loadLegacyReviewsAsContent,
   loadLegacyFaqAsContent,
 } from "./legacy-adapter";
-import type { Content } from "@/types/content";
+import type { BoardConfig, Content } from "@/types/content";
 
 export interface MigrationResult {
   total: number;
@@ -25,7 +25,11 @@ export interface MigrationResult {
   details: string[];
 }
 
-async function migrateContents(items: Content[], label: string): Promise<MigrationResult> {
+async function migrateContents(
+  items: Content[],
+  label: string,
+  boardMap: Map<string, BoardConfig>,
+): Promise<MigrationResult> {
   const result: MigrationResult = { total: items.length, created: 0, skipped: 0, errors: 0, details: [] };
 
   for (const item of items) {
@@ -38,7 +42,7 @@ async function migrateContents(items: Content[], label: string): Promise<Migrati
       }
 
       const { id, ...data } = item;
-      const boardGroup = BOARD_MAP.get(data.boardKey)?.group;
+      const boardGroup = boardMap.get(data.boardKey)?.group;
       const searchTerms = buildSearchTerms({
         title: data.title,
         titleKo: data.titleKo,
@@ -76,6 +80,17 @@ export async function runFullMigration(
   }
   await auth.currentUser.getIdToken(true);
 
+  // Firestore boards 우선, DEFAULT_BOARDS 폴백 — DEFAULT_BOARDS에 없는 boardKey도 group 부여 가능
+  const boardMap = new Map<string, BoardConfig>();
+  for (const b of DEFAULT_BOARDS) boardMap.set(b.key, b);
+  try {
+    const list = await getBoards();
+    for (const b of list) boardMap.set(b.key, b);
+  } catch {
+    /* boards 조회 실패 시 정적 BOARD_MAP만 사용 */
+    for (const [k, v] of BOARD_MAP) boardMap.set(k, v);
+  }
+
   const total: MigrationResult = { total: 0, created: 0, skipped: 0, errors: 0, details: [] };
 
   const merge = (r: MigrationResult) => {
@@ -101,7 +116,7 @@ export async function runFullMigration(
     onProgress?.(`${step.label} 처리 중...`);
     try {
       const items = await step.load();
-      const result = await migrateContents(items, step.label);
+      const result = await migrateContents(items, step.label, boardMap);
       merge(result);
     } catch (e) {
       total.errors++;

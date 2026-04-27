@@ -8,6 +8,12 @@ import { DEFAULT_BOARDS, mergeBoardsByKey } from "@/lib/board-defaults";
 import { getBoards, upsertBoard, createContent } from "@/lib/content-engine";
 import { removeDoc, getCollection, COLLECTIONS, getSingletonDoc, setSingletonDoc } from "@/lib/firestore";
 import { runFullMigration, type MigrationResult } from "@/lib/migration";
+import {
+  diagnoseGroupBackfill,
+  runGroupBackfill,
+  type BackfillDiagnosis,
+  type BackfillRunResult,
+} from "@/lib/group-backfill";
 import { cleanupRemovedSeeds } from "@/lib/seed-ai-contents";
 import { useAuth } from "@/contexts/AuthContext";
 import type { BoardConfig, BoardGroup, BoardLayout, BoardWriteRole, ContentInput } from "@/types/content";
@@ -175,6 +181,13 @@ export default function AdminBoardsPage() {
     contentsByMigratedFrom: Record<string, number>;
   } | null>(null);
 
+  // group 필드 백필 패널 상태
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagnosis, setDiagnosis] = useState<BackfillDiagnosis | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillLog, setBackfillLog] = useState<string[]>([]);
+  const [backfillResult, setBackfillResult] = useState<BackfillRunResult | null>(null);
+
   useEffect(() => {
     getBoards()
       .then((b) => setBoards(mergeBoardsByKey(DEFAULT_BOARDS, b)))
@@ -215,6 +228,47 @@ export default function AdminBoardsPage() {
       toast(deleted > 0 ? `시드 콘텐츠 ${deleted}건 삭제 완료` : "삭제할 시드 콘텐츠가 없습니다.", deleted > 0 ? "success" : "info");
     } catch (e) {
       toast(`시드 정리 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    }
+  };
+
+  const handleDiagnoseBackfill = async () => {
+    setDiagnosing(true);
+    setBackfillResult(null);
+    try {
+      const d = await diagnoseGroupBackfill();
+      setDiagnosis(d);
+    } catch (e) {
+      toast(`진단 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
+  const handleRunBackfill = async () => {
+    if (!confirm(
+      "contents 컬렉션을 스캔하여 group 필드를 일괄 보정합니다.\n" +
+      "이미 정확한 doc은 건너뛰고, 누락·불일치 항목만 업데이트합니다.\n" +
+      "진행하시겠습니까?",
+    )) return;
+    setBackfilling(true);
+    setBackfillLog([]);
+    setBackfillResult(null);
+    try {
+      const result = await runGroupBackfill((msg) => {
+        setBackfillLog((prev) => [...prev, msg]);
+      });
+      setBackfillResult(result);
+      toast(
+        `백필 완료: 업데이트 ${result.updated}건 / 스킵 ${result.skipped}건${result.errors > 0 ? ` / 오류 ${result.errors}건` : ""}`,
+        result.errors > 0 ? "error" : "success",
+      );
+      // 백필 후 진단 재실행
+      const d = await diagnoseGroupBackfill();
+      setDiagnosis(d);
+    } catch (e) {
+      toast(`백필 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    } finally {
+      setBackfilling(false);
     }
   };
 
@@ -586,6 +640,141 @@ export default function AdminBoardsPage() {
             </div>
           );
         })()}
+      </div>
+
+      {/* group 필드 백필 패널 */}
+      <div className="rounded-xl border border-violet-200 bg-violet-50 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-bold text-violet-900">
+              <CheckCircle2 size={18} /> group 필드 백필
+            </h2>
+            <p className="mt-1 text-sm text-violet-800">
+              <code className="rounded bg-white/60 px-1 text-xs">/media</code> &middot;{" "}
+              <code className="rounded bg-white/60 px-1 text-xs">/community</code> 페이지 &quot;전체&quot; 탭은{" "}
+              <code className="rounded bg-white/60 px-1 text-xs">group</code> 필드로 조회합니다.
+              마이그레이션 시점에 누락된 group 필드를 일괄 보정하여 누락 콘텐츠를 복구합니다.
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              onClick={handleDiagnoseBackfill}
+              disabled={diagnosing || backfilling}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border border-violet-300 bg-white px-4 py-2 text-sm font-medium text-violet-700",
+                "hover:bg-violet-100 disabled:opacity-50",
+              )}
+            >
+              <RefreshCw size={14} className={cn(diagnosing && "animate-spin")} />
+              {diagnosing ? "진단 중..." : "진단 실행"}
+            </button>
+            {diagnosis && diagnosis.missing + diagnosis.mismatched > 0 && (
+              <button
+                onClick={handleRunBackfill}
+                disabled={backfilling || diagnosing}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white",
+                  "hover:bg-violet-700 disabled:opacity-50",
+                )}
+              >
+                <ArrowRight size={14} />
+                {backfilling ? "백필 중..." : `${diagnosis.missing + diagnosis.mismatched}건 백필 실행`}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {diagnosis && (
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="rounded-lg bg-white p-3">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">진단 요약</h3>
+              <ul className="space-y-1 text-sm">
+                <li className="flex justify-between">
+                  <span className="text-gray-600">전체 doc</span>
+                  <strong>{diagnosis.total}</strong>
+                </li>
+                <li className="flex justify-between">
+                  <span className="text-gray-600">정상 (group 일치)</span>
+                  <strong className="text-emerald-600">{diagnosis.ok}</strong>
+                </li>
+                <li className="flex justify-between">
+                  <span className="text-gray-600">group 필드 누락</span>
+                  <strong className={diagnosis.missing > 0 ? "text-orange-600" : "text-gray-400"}>{diagnosis.missing}</strong>
+                </li>
+                <li className="flex justify-between">
+                  <span className="text-gray-600">group 값 불일치</span>
+                  <strong className={diagnosis.mismatched > 0 ? "text-orange-600" : "text-gray-400"}>{diagnosis.mismatched}</strong>
+                </li>
+                <li className="flex justify-between">
+                  <span className="text-gray-600">알 수 없는 보드</span>
+                  <strong className={diagnosis.unknownBoard > 0 ? "text-red-600" : "text-gray-400"}>{diagnosis.unknownBoard}</strong>
+                </li>
+              </ul>
+              {diagnosis.missing + diagnosis.mismatched === 0 && diagnosis.unknownBoard === 0 && (
+                <div className="mt-3 flex items-center gap-2 rounded bg-emerald-50 px-2 py-1.5 text-xs text-emerald-700">
+                  <CheckCircle2 size={14} />
+                  <span>모든 doc의 group 필드가 정확합니다.</span>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg bg-white p-3">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">문제가 있는 보드</h3>
+              {Object.keys(diagnosis.problemsByBoardKey).length === 0 ? (
+                <p className="text-xs text-gray-400">없음</p>
+              ) : (
+                <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
+                  {Object.entries(diagnosis.problemsByBoardKey)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([k, v]) => (
+                      <li key={k} className="flex justify-between">
+                        <code className="text-xs text-gray-600">{k}</code>
+                        <strong className="text-orange-600">{v}</strong>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+
+        {backfilling && backfillLog.length > 0 && (
+          <div className="mt-3 rounded-lg border border-violet-200 bg-white p-3 text-xs text-violet-700">
+            {backfillLog.map((m, i) => <p key={i}>{m}</p>)}
+          </div>
+        )}
+
+        {backfillResult && (
+          <div className="mt-3 rounded-lg bg-white p-3 text-sm">
+            <div className="flex items-center gap-2 text-violet-900">
+              <CheckCircle2 size={16} />
+              <strong>백필 결과</strong>
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
+              <div className="rounded bg-gray-50 p-2 text-center">
+                <div className="text-gray-500">스캔</div>
+                <strong>{backfillResult.scanned}</strong>
+              </div>
+              <div className="rounded bg-emerald-50 p-2 text-center">
+                <div className="text-emerald-700">업데이트</div>
+                <strong className="text-emerald-700">{backfillResult.updated}</strong>
+              </div>
+              <div className="rounded bg-gray-50 p-2 text-center">
+                <div className="text-gray-500">스킵</div>
+                <strong>{backfillResult.skipped}</strong>
+              </div>
+              <div className={cn("rounded p-2 text-center", backfillResult.errors > 0 ? "bg-red-50" : "bg-gray-50")}>
+                <div className={backfillResult.errors > 0 ? "text-red-700" : "text-gray-500"}>오류</div>
+                <strong className={backfillResult.errors > 0 ? "text-red-700" : ""}>{backfillResult.errors}</strong>
+              </div>
+            </div>
+            {backfillResult.details.length > 0 && (
+              <ul className="mt-2 space-y-0.5 text-xs text-red-600">
+                {backfillResult.details.map((d, i) => <li key={i}>{d}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
       {loading ? (
