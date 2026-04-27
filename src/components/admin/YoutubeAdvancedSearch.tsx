@@ -663,7 +663,17 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
       {history.length > 0 && (
         <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold text-gray-700">최근 검색 ({history.length})</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-semibold text-gray-700">최근 검색 ({history.length})</h3>
+              <span className="text-[10px] text-gray-400 hidden sm:inline-flex items-center gap-2">
+                <span className="inline-flex items-center gap-0.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> 캐시 보유
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Star size={9} className="text-amber-500 fill-amber-500" /> 선호 채널 (캐시 미적용)
+                </span>
+              </span>
+            </div>
             <div className="flex items-center gap-2 text-[10px]">
               <button
                 type="button"
@@ -685,21 +695,33 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
           {/* inline 5개 */}
           <div className="flex flex-wrap gap-1">
             {history.slice(0, 5).map((entry) => {
-              const cached = !entry.opts.useFavoritesOnly && hasSearchCache(snapshotToYoutubeSearchOpts(entry.opts));
+              const isFav = entry.opts.useFavoritesOnly;
+              const cached = !isFav && hasSearchCache(snapshotToYoutubeSearchOpts(entry.opts));
+              const title = cached
+                ? "결과 캐시 보유 — 클릭 시 결과까지 즉시 복원"
+                : isFav
+                  ? "선호 채널 검색은 캐시되지 않습니다 (실시간 조회)"
+                  : "캐시 만료 — 폼만 복원됩니다";
               return (
                 <button
                   key={entry.ts}
                   type="button"
                   onClick={() => applyHistory(entry.opts)}
                   className={cn(
-                    "inline-flex max-w-[200px] items-center gap-1 rounded-full border bg-white px-2.5 py-0.5 text-xs text-gray-700",
+                    "inline-flex max-w-[220px] items-center gap-1 rounded-full border bg-white px-2.5 py-0.5 text-xs text-gray-700",
                     cached
                       ? "border-emerald-300 hover:border-emerald-400 hover:bg-emerald-50"
-                      : "border-gray-200 hover:border-primary-300 hover:bg-primary-50",
+                      : isFav
+                        ? "border-amber-200 hover:border-amber-300 hover:bg-amber-50"
+                        : "border-gray-200 hover:border-primary-300 hover:bg-primary-50",
                   )}
-                  title={cached ? "결과 캐시 보유 — 클릭하면 결과까지 즉시 복원" : "이 조건으로 폼 복원 (검색은 별도 클릭)"}
+                  title={title}
                 >
-                  {cached && <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />}
+                  {cached ? (
+                    <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+                  ) : isFav ? (
+                    <Star size={10} className="shrink-0 text-amber-500 fill-amber-500" aria-hidden />
+                  ) : null}
                   <span className="truncate">{describeHistoryOpts(entry.opts)}</span>
                   <span className="shrink-0 text-[10px] text-gray-400">· {formatRelativeTime(entry.ts)}</span>
                 </button>
@@ -715,23 +737,33 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
                 <h4 className="text-[10px] font-semibold uppercase text-gray-400">{label} ({entries.length})</h4>
                 <ul className="space-y-0.5">
                   {entries.map((entry) => {
-                    const cached = !entry.opts.useFavoritesOnly && hasSearchCache(snapshotToYoutubeSearchOpts(entry.opts));
+                    const isFav = entry.opts.useFavoritesOnly;
+                    const cached = !isFav && hasSearchCache(snapshotToYoutubeSearchOpts(entry.opts));
+                    const title = cached
+                      ? "결과 캐시 보유 — 클릭 시 결과까지 즉시 복원"
+                      : isFav
+                        ? "선호 채널 검색은 캐시되지 않습니다 (실시간 조회)"
+                        : "캐시 만료 — 폼만 복원됩니다";
                     return (
                       <li key={entry.ts} className="flex items-center gap-2 rounded-md px-1.5 py-1 text-xs hover:bg-white">
                         <button
                           type="button"
                           onClick={() => applyHistory(entry.opts)}
                           className="min-w-0 flex-1 text-left"
-                          title={cached ? "결과 캐시 보유 — 클릭하면 결과까지 즉시 복원" : "이 조건으로 폼 복원"}
+                          title={title}
                         >
                           <span className="flex items-center gap-1.5">
-                            {cached && <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />}
+                            {cached ? (
+                              <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+                            ) : isFav ? (
+                              <Star size={10} className="shrink-0 text-amber-500 fill-amber-500" aria-hidden />
+                            ) : null}
                             <span className="block truncate text-gray-700">{describeHistoryOpts(entry.opts)}</span>
                           </span>
                           <span className="block text-[10px] text-gray-400">
                             {formatRelativeTime(entry.ts)}
-                            {cached && " · 캐시"}
-                            {entry.opts.useFavoritesOnly && " · 선호 채널만"}
+                            {cached && " · 캐시 보유"}
+                            {isFav && " · 선호 채널 (캐시 미적용)"}
                             {entry.opts.durations.length > 0 && ` · 길이 ${entry.opts.durations.length}개`}
                             {entry.opts.minViews > 0 && ` · 조회수 ${entry.opts.minViews.toLocaleString()}+`}
                           </span>
