@@ -1,18 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Loader2, ExternalLink, Plus, Eye, ThumbsUp, MessageCircle } from "lucide-react";
+import { Search, Loader2, ExternalLink, Plus, Eye, ThumbsUp, MessageCircle, Sparkles, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import {
   searchYouTubeVideos,
   listVideoCategories,
+  listChannelVideos,
+  summarizeYouTubeVideo,
   formatDurationLabel,
   type YoutubeVideoDetail,
   type YoutubeCategory,
   type YoutubeSearchOpts,
+  type YoutubeAiSummary,
 } from "@/lib/youtube-search";
+import { getGeminiApiKey } from "@/lib/gemini";
+import { getContentsPaginated } from "@/lib/content-engine";
+import type { Content } from "@/types/content";
 import YoutubePublishModal from "@/components/admin/YoutubePublishModal";
+
+type RelatedData = {
+  channelVideos: YoutubeVideoDetail[];
+  internalContents: Content[];
+};
 
 type Props = {
   /** 기존 /admin/ai-content가 가진 YouTube API 키 */
@@ -74,6 +85,12 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   const [publishModalVideo, setPublishModalVideo] = useState<YoutubeVideoDetail | null>(null);
   const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
 
+  const [geminiKey, setGeminiKey] = useState<string>("");
+  const [summaries, setSummaries] = useState<Map<string, YoutubeAiSummary>>(new Map());
+  const [summarizingId, setSummarizingId] = useState<string | null>(null);
+  const [relatedData, setRelatedData] = useState<Map<string, RelatedData>>(new Map());
+  const [loadingRelatedId, setLoadingRelatedId] = useState<string | null>(null);
+
   // 카테고리 로드 (API 키가 있을 때 한 번)
   useEffect(() => {
     if (!youtubeApiKey) return;
@@ -84,12 +101,67 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
       });
   }, [youtubeApiKey]);
 
+  // Gemini 키 로드 (AI 요약용, 선택사항)
+  useEffect(() => {
+    getGeminiApiKey().then((k) => { if (k) setGeminiKey(k); }).catch(() => {});
+  }, []);
+
   const buildQ = useMemo(() => {
     const tokens = keywords.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
     if (tokens.length === 0) return "";
     if (keywordMode === "or") return tokens.join(" OR ");
     return tokens.join(" "); // search.list 기본은 AND
   }, [keywords, keywordMode]);
+
+  const handleSummarize = async (video: YoutubeVideoDetail) => {
+    if (summaries.has(video.videoId)) return; // 캐시 hit
+    if (!geminiKey) {
+      toast("Gemini API 키가 설정되지 않았습니다. 설정 페이지에서 등록하세요.", "error");
+      return;
+    }
+    setSummarizingId(video.videoId);
+    try {
+      const result = await summarizeYouTubeVideo(geminiKey, {
+        title: video.title,
+        description: video.description,
+      });
+      if (!result.summary) {
+        toast("AI 요약 결과가 비어있습니다.", "error");
+      } else {
+        setSummaries((prev) => new Map(prev).set(video.videoId, result));
+      }
+    } catch (e) {
+      toast(`AI 요약 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    } finally {
+      setSummarizingId(null);
+    }
+  };
+
+  const handleRelated = async (video: YoutubeVideoDetail) => {
+    if (relatedData.has(video.videoId)) return; // 캐시 hit
+    setLoadingRelatedId(video.videoId);
+    try {
+      const tagsForLookup = (summaries.get(video.videoId)?.recommendedTags ?? video.tags ?? []).slice(0, 10);
+      const [channelRes, internalPage] = await Promise.all([
+        listChannelVideos(youtubeApiKey, video.channelId, { maxResults: 5, order: "viewCount" })
+          .catch(() => ({ items: [] as YoutubeVideoDetail[], quotaUsed: 0 })),
+        tagsForLookup.length > 0
+          ? getContentsPaginated({ tags: tagsForLookup, limit: 4 }).catch(() => ({ items: [] as Content[], lastDoc: null, hasMore: false }))
+          : Promise.resolve({ items: [] as Content[], lastDoc: null, hasMore: false }),
+      ]);
+      // 같은 영상 자체는 제외
+      const channelVideos = channelRes.items.filter((v) => v.videoId !== video.videoId).slice(0, 5);
+      setQuotaUsedSession((q) => q + channelRes.quotaUsed);
+      setRelatedData((prev) => new Map(prev).set(video.videoId, {
+        channelVideos,
+        internalContents: internalPage.items,
+      }));
+    } catch (e) {
+      toast(`유사 자료 로드 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    } finally {
+      setLoadingRelatedId(null);
+    }
+  };
 
   const handleSearch = async () => {
     if (!youtubeApiKey) {
@@ -353,7 +425,14 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
                 key={v.videoId}
                 video={v}
                 published={publishedIds.has(v.videoId)}
+                aiSummary={summaries.get(v.videoId)}
+                related={relatedData.get(v.videoId)}
+                summarizing={summarizingId === v.videoId}
+                loadingRelated={loadingRelatedId === v.videoId}
+                geminiAvailable={Boolean(geminiKey)}
                 onPublish={() => setPublishModalVideo(v)}
+                onSummarize={() => handleSummarize(v)}
+                onRelated={() => handleRelated(v)}
               />
             ))}
           </div>
@@ -363,6 +442,8 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
       {/* 발행 모달 */}
       <YoutubePublishModal
         video={publishModalVideo}
+        initialSummary={publishModalVideo ? summaries.get(publishModalVideo.videoId)?.summary ?? "" : ""}
+        initialTags={publishModalVideo ? summaries.get(publishModalVideo.videoId)?.recommendedTags ?? [] : []}
         onClose={() => setPublishModalVideo(null)}
         onPublished={(id) => {
           setPublishedIds((prev) => new Set(prev).add(id));
@@ -375,12 +456,37 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
 function ResultCard({
   video,
   published,
+  aiSummary,
+  related,
+  summarizing,
+  loadingRelated,
+  geminiAvailable,
   onPublish,
+  onSummarize,
+  onRelated,
 }: {
   video: YoutubeVideoDetail;
   published: boolean;
+  aiSummary?: YoutubeAiSummary;
+  related?: RelatedData;
+  summarizing: boolean;
+  loadingRelated: boolean;
+  geminiAvailable: boolean;
   onPublish: () => void;
+  onSummarize: () => void;
+  onRelated: () => void;
 }) {
+  const [expanded, setExpanded] = useState<"summary" | "related" | null>(null);
+
+  const toggleSummary = () => {
+    if (!aiSummary && !summarizing) onSummarize();
+    setExpanded((e) => (e === "summary" ? null : "summary"));
+  };
+  const toggleRelated = () => {
+    if (!related && !loadingRelated) onRelated();
+    setExpanded((e) => (e === "related" ? null : "related"));
+  };
+
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
       {/* 썸네일 */}
@@ -417,32 +523,155 @@ function ResultCard({
         </div>
 
         {/* 액션 */}
-        <div className="mt-auto flex items-center gap-1.5 pt-2">
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
           <a
             href={video.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            className="inline-flex items-center justify-center gap-1 rounded-lg border border-gray-200 px-2 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-gray-50"
           >
-            <ExternalLink size={12} />
+            <ExternalLink size={11} />
             YouTube
           </a>
+          <button
+            type="button"
+            onClick={toggleSummary}
+            disabled={!geminiAvailable && !aiSummary}
+            title={!geminiAvailable ? "Gemini API 키 미설정" : ""}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition-colors",
+              expanded === "summary"
+                ? "border-purple-300 bg-purple-50 text-purple-700"
+                : "border-gray-200 text-gray-700 hover:bg-gray-50",
+              !geminiAvailable && !aiSummary && "opacity-40 cursor-not-allowed",
+            )}
+          >
+            {summarizing ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+            요약
+          </button>
+          <button
+            type="button"
+            onClick={toggleRelated}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition-colors",
+              expanded === "related"
+                ? "border-blue-300 bg-blue-50 text-blue-700"
+                : "border-gray-200 text-gray-700 hover:bg-gray-50",
+            )}
+          >
+            {loadingRelated ? <Loader2 size={11} className="animate-spin" /> : <Link2 size={11} />}
+            유사
+          </button>
           <button
             type="button"
             onClick={onPublish}
             disabled={published}
             className={cn(
-              "inline-flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors",
+              "ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
               published
                 ? "bg-emerald-100 text-emerald-700 cursor-default"
                 : "bg-primary-600 text-white hover:bg-primary-700",
             )}
           >
-            <Plus size={12} />
+            <Plus size={11} />
             {published ? "발행됨" : "발행"}
           </button>
         </div>
       </div>
+
+      {/* 펼침 영역 */}
+      {expanded === "summary" && (
+        <div className="border-t border-gray-100 bg-purple-50/40 px-3 py-3 text-xs">
+          {summarizing && !aiSummary ? (
+            <div className="flex items-center gap-1.5 text-gray-500">
+              <Loader2 size={12} className="animate-spin" /> AI 요약 생성 중...
+            </div>
+          ) : aiSummary ? (
+            <div className="space-y-2">
+              <p className="leading-relaxed text-gray-700 whitespace-pre-wrap">{aiSummary.summary}</p>
+              {aiSummary.recommendedTags.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {aiSummary.recommendedTags.map((t) => (
+                    <span key={t} className="rounded-full bg-white border border-purple-200 px-2 py-0.5 text-[10px] font-medium text-purple-700">
+                      #{t}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="pt-1 text-[10px] text-gray-400">발행 모달 열면 자동 채워집니다.</p>
+            </div>
+          ) : (
+            <p className="text-gray-400">결과 없음</p>
+          )}
+        </div>
+      )}
+
+      {expanded === "related" && (
+        <div className="border-t border-gray-100 bg-blue-50/40 px-3 py-3 text-xs space-y-3">
+          {loadingRelated && !related ? (
+            <div className="flex items-center gap-1.5 text-gray-500">
+              <Loader2 size={12} className="animate-spin" /> 유사 자료 검색 중...
+            </div>
+          ) : related ? (
+            <>
+              <div>
+                <h4 className="mb-1.5 font-semibold text-gray-700">같은 채널의 다른 영상</h4>
+                {related.channelVideos.length === 0 ? (
+                  <p className="text-gray-400">없음</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {related.channelVideos.map((v) => (
+                      <li key={v.videoId}>
+                        <a
+                          href={v.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 rounded-md p-1 hover:bg-white"
+                        >
+                          {v.thumbnailUrl && (
+                            <img src={v.thumbnailUrl} alt="" className="h-9 w-16 shrink-0 rounded object-cover" />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2 text-[11px] font-medium text-gray-800">{v.title}</span>
+                            <span className="text-[10px] text-gray-400">{compactNumber(v.viewCount)} · {formatDurationLabel(v.durationSeconds)}</span>
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <h4 className="mb-1.5 font-semibold text-gray-700">AISH의 비슷한 자료</h4>
+                {related.internalContents.length === 0 ? (
+                  <p className="text-gray-400">없음</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {related.internalContents.map((c) => {
+                      const path = c.group === "community" ? "/community" : "/media";
+                      return (
+                        <li key={c.id}>
+                          <a
+                            href={`${path}?id=${c.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block rounded-md p-1 text-[11px] text-gray-700 hover:bg-white"
+                          >
+                            <span className="line-clamp-1">{c.title}</span>
+                            <span className="text-[10px] text-gray-400">{c.boardKey}</span>
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-400">결과 없음</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
