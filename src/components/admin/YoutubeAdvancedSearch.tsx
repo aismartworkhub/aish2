@@ -41,6 +41,17 @@ import {
   MAX_FAVORITE_CHANNELS,
   type FavoriteChannel,
 } from "@/lib/youtube-favorite-channels";
+import {
+  getHistory,
+  pushHistory,
+  removeHistoryEntry,
+  clearHistory,
+  formatRelativeTime,
+  groupByPeriod,
+  describeHistoryOpts,
+  type HistoryEntry,
+  type SearchOptsSnapshot,
+} from "@/lib/youtube-search-history";
 
 type RelatedData = {
   channelVideos: YoutubeVideoDetail[];
@@ -123,6 +134,9 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   const [useFavoritesOnly, setUseFavoritesOnly] = useState(false);
   const [channelInput, setChannelInput] = useState("");
 
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+
   const [autoPublishEnabled, setAutoPublishEnabled] = useState(false);
   const [autoPublishBoardKey, setAutoPublishBoardKey] = useState<string>("media-resource");
   const [autoPublishPolicy, setAutoPublishPolicy] = useState<"review" | "publish">("review");
@@ -146,7 +160,7 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
     getGeminiApiKey().then((k) => { if (k) setGeminiKey(k); }).catch(() => {});
   }, []);
 
-  // 오늘의 쿼터 사용량 + 즐겨찾는 검색 조건 + 선호 채널 + 보드 목록 로드
+  // 오늘의 쿼터 사용량 + 프리셋 + 선호 채널 + 보드 목록 + 검색 히스토리 로드
   useEffect(() => {
     getYoutubeQuotaToday().then((q) => setQuotaUsedToday(q.used)).catch(() => {});
     getPresets().then(setPresets).catch(() => {});
@@ -157,7 +171,46 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
         ...getBoardsByGroupDefault("community"),
       ], list)))
       .catch(() => {});
+    setHistory(getHistory());
   }, []);
+
+  const applyHistory = (opts: SearchOptsSnapshot) => {
+    setCategoryId(opts.categoryId);
+    setKeywords(opts.keywords);
+    setKeywordMode(opts.keywordMode);
+    setMinViews(opts.minViews);
+    setMinSubs(opts.minSubs);
+    setPeriodDays(opts.periodDays);
+    setOrder(opts.order);
+    setDurations(new Set(opts.durations));
+    setMaxResults(opts.maxResults);
+    setUseFavoritesOnly(opts.useFavoritesOnly);
+  };
+
+  const handleRemoveHistory = (ts: number) => {
+    removeHistoryEntry(ts);
+    setHistory(getHistory());
+  };
+
+  const handleClearHistory = () => {
+    if (!window.confirm("검색 히스토리를 모두 삭제하시겠습니까?")) return;
+    clearHistory();
+    setHistory([]);
+    setHistoryExpanded(false);
+  };
+
+  const captureCurrentOpts = (): SearchOptsSnapshot => ({
+    categoryId,
+    keywords,
+    keywordMode,
+    minViews,
+    minSubs,
+    periodDays,
+    order,
+    durations: [...durations],
+    maxResults,
+    useFavoritesOnly,
+  });
 
   const favoriteChannelIds = useMemo(
     () => new Set(favoriteChannels.map((c) => c.channelId)),
@@ -366,6 +419,9 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
     setSearched(true);
     setExistsInAishIds(new Set());
     setFromCache(false);
+    // 검색 히스토리 자동 저장 (빈 검색은 모듈 내부에서 무시)
+    pushHistory(captureCurrentOpts());
+    setHistory(getHistory());
     try {
       const publishedAfter = periodDays > 0
         ? new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString()
@@ -537,6 +593,95 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
               </button>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* 검색 히스토리 */}
+      {history.length > 0 && (
+        <div className="rounded-xl border border-gray-100 bg-gray-50/40 p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold text-gray-700">최근 검색 ({history.length})</h3>
+            <div className="flex items-center gap-2 text-[10px]">
+              <button
+                type="button"
+                onClick={() => setHistoryExpanded((v) => !v)}
+                className="text-gray-500 hover:text-gray-900"
+              >
+                {historyExpanded ? "접기 ▲" : "모두 보기 ▼"}
+              </button>
+              <button
+                type="button"
+                onClick={handleClearHistory}
+                className="text-gray-400 hover:text-red-500"
+              >
+                전체 비우기
+              </button>
+            </div>
+          </div>
+
+          {/* inline 5개 */}
+          <div className="flex flex-wrap gap-1">
+            {history.slice(0, 5).map((entry) => (
+              <button
+                key={entry.ts}
+                type="button"
+                onClick={() => applyHistory(entry.opts)}
+                className="inline-flex max-w-[200px] items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-xs text-gray-700 hover:border-primary-300 hover:bg-primary-50"
+                title="이 조건으로 폼 복원 (검색은 별도 클릭)"
+              >
+                <span className="truncate">{describeHistoryOpts(entry.opts)}</span>
+                <span className="shrink-0 text-[10px] text-gray-400">· {formatRelativeTime(entry.ts)}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* 펼침 패널 */}
+          {historyExpanded && (() => {
+            const grouped = groupByPeriod(history);
+            const renderGroup = (label: string, entries: HistoryEntry[]) => entries.length > 0 && (
+              <div className="space-y-0.5">
+                <h4 className="text-[10px] font-semibold uppercase text-gray-400">{label} ({entries.length})</h4>
+                <ul className="space-y-0.5">
+                  {entries.map((entry) => (
+                    <li key={entry.ts} className="flex items-center gap-2 rounded-md px-1.5 py-1 text-xs hover:bg-white">
+                      <button
+                        type="button"
+                        onClick={() => applyHistory(entry.opts)}
+                        className="min-w-0 flex-1 text-left"
+                        title="이 조건으로 폼 복원"
+                      >
+                        <span className="block truncate text-gray-700">{describeHistoryOpts(entry.opts)}</span>
+                        <span className="block text-[10px] text-gray-400">
+                          {formatRelativeTime(entry.ts)}
+                          {entry.opts.useFavoritesOnly && " · 선호 채널만"}
+                          {entry.opts.durations.length > 0 && ` · 길이 ${entry.opts.durations.length}개`}
+                          {entry.opts.minViews > 0 && ` · 조회수 ${entry.opts.minViews.toLocaleString()}+`}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveHistory(entry.ts)}
+                        aria-label="히스토리 항목 삭제"
+                        className="shrink-0 rounded-full p-0.5 text-gray-300 hover:bg-gray-100 hover:text-red-500"
+                      >
+                        <X size={10} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+            return (
+              <div className="border-t border-gray-100 pt-2 space-y-2 max-h-72 overflow-y-auto">
+                {renderGroup("오늘", grouped.today)}
+                {renderGroup("이번 주", grouped.thisWeek)}
+                {renderGroup("이번 달", grouped.thisMonth)}
+                {grouped.today.length + grouped.thisWeek.length + grouped.thisMonth.length === 0 && (
+                  <p className="text-xs text-gray-400">이번 달 기록이 없습니다.</p>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1041,23 +1186,25 @@ function ResultCard({
       {/* 본문 */}
       <div className="flex flex-1 flex-col gap-2 p-3">
         <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">{video.title}</h3>
-        <div className="flex items-center gap-1 text-xs text-gray-500">
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <span className="truncate min-w-0">{video.channelTitle}</span>
+          {video.channelSubscribers > 0 && (
+            <span className="shrink-0 text-gray-400">· 구독 {compactNumber(video.channelSubscribers)}</span>
+          )}
           <button
             type="button"
             onClick={onToggleFavoriteChannel}
-            aria-label={isFavoriteChannel ? "선호 채널 제거" : "선호 채널 추가"}
-            title={isFavoriteChannel ? "선호 채널 제거" : "선호 채널 추가"}
+            title={isFavoriteChannel ? "선호 채널 — 클릭해 제거" : "이 채널을 선호 채널로 등록"}
             className={cn(
-              "shrink-0 rounded p-0.5 transition-colors",
-              isFavoriteChannel ? "text-amber-500 hover:bg-amber-50" : "text-gray-300 hover:bg-gray-50 hover:text-amber-400",
+              "ml-auto shrink-0 inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+              isFavoriteChannel
+                ? "border-amber-300 bg-amber-50 text-amber-700"
+                : "border-gray-200 text-gray-500 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700",
             )}
           >
-            <Star size={11} className={isFavoriteChannel ? "fill-amber-500" : ""} />
+            <Star size={9} className={isFavoriteChannel ? "fill-amber-500 text-amber-500" : ""} />
+            {isFavoriteChannel ? "선호" : "선호 등록"}
           </button>
-          <span className="truncate">{video.channelTitle}</span>
-          {video.channelSubscribers > 0 && (
-            <span className="ml-0.5 shrink-0 text-gray-400">· 구독 {compactNumber(video.channelSubscribers)}</span>
-          )}
         </div>
         <div className="flex items-center gap-3 text-[11px] text-gray-400">
           <span className="flex items-center gap-0.5"><Eye size={11} /> {compactNumber(video.viewCount)}</span>
