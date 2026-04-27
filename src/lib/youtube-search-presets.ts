@@ -17,7 +17,8 @@ export type YoutubeSearchPreset = {
     minSubs: number;
     periodDays: number;
     order: "viewCount" | "date" | "relevance";
-    duration: "any" | "short" | "medium" | "long";
+    /** 빈 배열 = 전체. Phase 4-2 이전 단일값 "any" 등은 빈 배열로 마이그레이션. */
+    durations: ("short" | "medium" | "long")[];
     maxResults: 25 | 50;
   };
 };

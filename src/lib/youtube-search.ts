@@ -356,6 +356,13 @@ export function parseIso8601Duration(iso: string): number {
   return h * 3600 + min * 60 + sec;
 }
 
+/** YouTube 길이 카테고리 — search.list videoDuration 분류와 동일 */
+export function durationCategory(seconds: number): "short" | "medium" | "long" {
+  if (seconds < 240) return "short";        // <4분
+  if (seconds <= 1200) return "medium";     // 4~20분
+  return "long";                            // >20분
+}
+
 /** 초 → "1:23:45" 또는 "23:45" */
 export function formatDurationLabel(seconds: number): string {
   if (!seconds) return "";

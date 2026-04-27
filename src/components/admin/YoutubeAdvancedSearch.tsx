@@ -10,6 +10,7 @@ import {
   listChannelVideos,
   summarizeYouTubeVideo,
   formatDurationLabel,
+  durationCategory,
   type YoutubeVideoDetail,
   type YoutubeCategory,
   type YoutubeSearchOpts,
@@ -67,11 +68,10 @@ const ORDER_OPTIONS = [
   { label: "관련도", value: "relevance" as const },
 ];
 
-const DURATION_OPTIONS = [
-  { label: "전체", value: "any" as const },
-  { label: "짧은 영상 (<4분)", value: "short" as const },
-  { label: "중간 (4~20분)", value: "medium" as const },
-  { label: "긴 영상 (>20분)", value: "long" as const },
+const DURATION_CHOICES: { value: "short" | "medium" | "long"; label: string }[] = [
+  { value: "short", label: "짧은 (<4분)" },
+  { value: "medium", label: "중간 (4~20분)" },
+  { value: "long", label: "긴 (>20분)" },
 ];
 
 export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
@@ -84,7 +84,7 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   const [minSubs, setMinSubs] = useState<number>(0);
   const [periodDays, setPeriodDays] = useState<number>(30);
   const [order, setOrder] = useState<"viewCount" | "date" | "relevance">("viewCount");
-  const [duration, setDuration] = useState<"any" | "short" | "medium" | "long">("any");
+  const [durations, setDurations] = useState<Set<"short" | "medium" | "long">>(new Set());
   const [maxResults, setMaxResults] = useState<25 | 50>(25);
 
   const [results, setResults] = useState<YoutubeVideoDetail[]>([]);
@@ -226,6 +226,8 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
       const publishedAfter = periodDays > 0
         ? new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString()
         : undefined;
+      // 길이 단일 선택 시에만 API에 전달 (멀티는 클라 필터)
+      const apiVideoDuration = durations.size === 1 ? [...durations][0] : undefined;
       const opts: YoutubeSearchOpts = {
         q: buildQ,
         categoryId: categoryId || undefined,
@@ -233,19 +235,24 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
         minSubscribers: minSubs,
         publishedAfter,
         order,
-        videoDuration: duration === "any" ? undefined : duration,
+        videoDuration: apiVideoDuration,
         maxResults,
-        regionCode: "KR",
-        relevanceLanguage: "ko",
+      };
+
+      // 길이 멀티 선택 시 클라이언트 필터 (size 0 또는 3 = 전체 통과)
+      const filterByDurations = (items: YoutubeVideoDetail[]): YoutubeVideoDetail[] => {
+        if (durations.size === 0 || durations.size === 3) return items;
+        return items.filter((v) => durations.has(durationCategory(v.durationSeconds)));
       };
 
       // 캐시 적중 (forceRefresh 미체크 시)
       if (!forceRefresh) {
         const cached = readSearchCache(opts);
         if (cached) {
-          setResults(cached);
+          const filtered = filterByDurations(cached);
+          setResults(filtered);
           setFromCache(true);
-          if (cached.length > 0) matchExistsInAish(cached);
+          if (filtered.length > 0) matchExistsInAish(filtered);
           else toast("캐시: 결과 없음", "info");
           setLoading(false);
           return;
@@ -253,18 +260,19 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
       }
 
       const { items, quotaUsed } = await searchYouTubeVideos(youtubeApiKey, opts);
-      setResults(items);
+      const filteredItems = filterByDurations(items);
+      setResults(filteredItems);
       setQuotaUsedSession((q) => q + quotaUsed);
       if (quotaUsed > 0) {
         incrementYoutubeQuota(quotaUsed)
           .then(() => setQuotaUsedToday((u) => u + quotaUsed))
           .catch(() => {});
       }
-      writeSearchCache(opts, items);
-      if (items.length === 0) {
+      writeSearchCache(opts, items); // 캐시는 unfiltered (필터는 매 검색 시 재적용)
+      if (filteredItems.length === 0) {
         toast("검색 결과가 없습니다. 조건을 완화해보세요.", "info");
       } else {
-        matchExistsInAish(items);
+        matchExistsInAish(filteredItems);
       }
     } catch (e) {
       toast(`검색 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
@@ -281,7 +289,7 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
     setMinSubs(preset.opts.minSubs);
     setPeriodDays(preset.opts.periodDays);
     setOrder(preset.opts.order);
-    setDuration(preset.opts.duration);
+    setDurations(new Set(preset.opts.durations ?? []));
     setMaxResults(preset.opts.maxResults);
     toast(`프리셋 "${preset.name}" 적용됨`, "info");
   };
@@ -307,7 +315,7 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
         minSubs,
         periodDays,
         order,
-        duration,
+        durations: [...durations],
         maxResults,
       },
     };
@@ -522,18 +530,39 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
               ))}
             </select>
           </div>
-          {/* 영상 길이 */}
+          {/* 영상 길이 (멀티) */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">영상 길이</label>
-            <select
-              value={duration}
-              onChange={(e) => setDuration(e.target.value as "any" | "short" | "medium" | "long")}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-            >
-              {DURATION_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              영상 길이 <span className="text-[10px] text-gray-400">(미선택 = 전체)</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {DURATION_CHOICES.map((c) => {
+                const checked = durations.has(c.value);
+                return (
+                  <label
+                    key={c.value}
+                    className={cn(
+                      "inline-flex cursor-pointer items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                      checked ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        setDurations((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(c.value)) next.delete(c.value); else next.add(c.value);
+                          return next;
+                        });
+                      }}
+                      className="sr-only"
+                    />
+                    {c.label}
+                  </label>
+                );
+              })}
+            </div>
           </div>
           {/* 결과 수 */}
           <div>
