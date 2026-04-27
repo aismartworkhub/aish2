@@ -45,6 +45,15 @@
             "value": "max-age=31536000, immutable"
           }
         ]
+      },
+      {
+        "source": "/admin/**",
+        "headers": [
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "unsafe-none"
+          }
+        ]
       }
     ]
   }
