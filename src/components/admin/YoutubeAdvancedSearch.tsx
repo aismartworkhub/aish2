@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Loader2, ExternalLink, Plus, Eye, ThumbsUp, MessageCircle, Sparkles, Link2 } from "lucide-react";
+import { Search, Loader2, ExternalLink, Plus, Eye, ThumbsUp, MessageCircle, Sparkles, Link2, Bookmark, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import {
@@ -16,9 +16,18 @@ import {
   type YoutubeAiSummary,
 } from "@/lib/youtube-search";
 import { getGeminiApiKey } from "@/lib/gemini";
-import { getContentsPaginated } from "@/lib/content-engine";
+import { getContentsPaginated, findContentsByMediaUrls } from "@/lib/content-engine";
 import type { Content } from "@/types/content";
 import YoutubePublishModal from "@/components/admin/YoutubePublishModal";
+import {
+  getYoutubeQuotaToday,
+  incrementYoutubeQuota,
+  YOUTUBE_DAILY_LIMIT,
+  YOUTUBE_WARN_THRESHOLD,
+  YOUTUBE_BLOCK_THRESHOLD,
+} from "@/lib/youtube-quota";
+import { readSearchCache, writeSearchCache } from "@/lib/youtube-search-cache";
+import { getPresets, savePresets, MAX_PRESETS, type YoutubeSearchPreset } from "@/lib/youtube-search-presets";
 
 type RelatedData = {
   channelVideos: YoutubeVideoDetail[];
@@ -84,12 +93,18 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   const [quotaUsedSession, setQuotaUsedSession] = useState(0);
   const [publishModalVideo, setPublishModalVideo] = useState<YoutubeVideoDetail | null>(null);
   const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
+  const [existsInAishIds, setExistsInAishIds] = useState<Set<string>>(new Set());
 
   const [geminiKey, setGeminiKey] = useState<string>("");
   const [summaries, setSummaries] = useState<Map<string, YoutubeAiSummary>>(new Map());
   const [summarizingId, setSummarizingId] = useState<string | null>(null);
   const [relatedData, setRelatedData] = useState<Map<string, RelatedData>>(new Map());
   const [loadingRelatedId, setLoadingRelatedId] = useState<string | null>(null);
+
+  const [quotaUsedToday, setQuotaUsedToday] = useState(0);
+  const [forceRefresh, setForceRefresh] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
+  const [presets, setPresets] = useState<YoutubeSearchPreset[]>([]);
 
   // 카테고리 로드 (API 키가 있을 때 한 번)
   useEffect(() => {
@@ -104,6 +119,12 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   // Gemini 키 로드 (AI 요약용, 선택사항)
   useEffect(() => {
     getGeminiApiKey().then((k) => { if (k) setGeminiKey(k); }).catch(() => {});
+  }, []);
+
+  // 오늘의 쿼터 사용량 + 즐겨찾는 검색 조건 로드
+  useEffect(() => {
+    getYoutubeQuotaToday().then((q) => setQuotaUsedToday(q.used)).catch(() => {});
+    getPresets().then(setPresets).catch(() => {});
   }, []);
 
   const buildQ = useMemo(() => {
@@ -152,6 +173,11 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
       // 같은 영상 자체는 제외
       const channelVideos = channelRes.items.filter((v) => v.videoId !== video.videoId).slice(0, 5);
       setQuotaUsedSession((q) => q + channelRes.quotaUsed);
+      if (channelRes.quotaUsed > 0) {
+        incrementYoutubeQuota(channelRes.quotaUsed)
+          .then(() => setQuotaUsedToday((u) => u + channelRes.quotaUsed))
+          .catch(() => {});
+      }
       setRelatedData((prev) => new Map(prev).set(video.videoId, {
         channelVideos,
         internalContents: internalPage.items,
@@ -163,6 +189,21 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
     }
   };
 
+  const matchExistsInAish = (items: YoutubeVideoDetail[]) => {
+    findContentsByMediaUrls(items.map((v) => v.url))
+      .then((matched) => {
+        const set = new Set<string>();
+        const ytPrefix = "https://www.youtube.com/watch?v=";
+        for (const c of matched) {
+          if (c.mediaUrl?.startsWith(ytPrefix)) {
+            set.add(c.mediaUrl.slice(ytPrefix.length));
+          }
+        }
+        setExistsInAishIds(set);
+      })
+      .catch(() => {});
+  };
+
   const handleSearch = async () => {
     if (!youtubeApiKey) {
       toast("YouTube API 키가 설정되지 않았습니다. '대시보드' 탭에서 입력하세요.", "error");
@@ -172,9 +213,15 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
       toast("검색어를 입력하세요.", "error");
       return;
     }
+    if (quotaUsedToday >= YOUTUBE_BLOCK_THRESHOLD) {
+      toast(`오늘 YouTube API 쿼터가 거의 소진되었습니다 (${quotaUsedToday}/${YOUTUBE_DAILY_LIMIT}). 내일 다시 시도하세요.`, "error");
+      return;
+    }
     setLoading(true);
     setResults([]);
     setSearched(true);
+    setExistsInAishIds(new Set());
+    setFromCache(false);
     try {
       const publishedAfter = periodDays > 0
         ? new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString()
@@ -191,16 +238,96 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
         regionCode: "KR",
         relevanceLanguage: "ko",
       };
+
+      // 캐시 적중 (forceRefresh 미체크 시)
+      if (!forceRefresh) {
+        const cached = readSearchCache(opts);
+        if (cached) {
+          setResults(cached);
+          setFromCache(true);
+          if (cached.length > 0) matchExistsInAish(cached);
+          else toast("캐시: 결과 없음", "info");
+          setLoading(false);
+          return;
+        }
+      }
+
       const { items, quotaUsed } = await searchYouTubeVideos(youtubeApiKey, opts);
       setResults(items);
       setQuotaUsedSession((q) => q + quotaUsed);
+      if (quotaUsed > 0) {
+        incrementYoutubeQuota(quotaUsed)
+          .then(() => setQuotaUsedToday((u) => u + quotaUsed))
+          .catch(() => {});
+      }
+      writeSearchCache(opts, items);
       if (items.length === 0) {
         toast("검색 결과가 없습니다. 조건을 완화해보세요.", "info");
+      } else {
+        matchExistsInAish(items);
       }
     } catch (e) {
       toast(`검색 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyPreset = (preset: YoutubeSearchPreset) => {
+    setCategoryId(preset.opts.categoryId);
+    setKeywords(preset.opts.keywords);
+    setKeywordMode(preset.opts.keywordMode);
+    setMinViews(preset.opts.minViews);
+    setMinSubs(preset.opts.minSubs);
+    setPeriodDays(preset.opts.periodDays);
+    setOrder(preset.opts.order);
+    setDuration(preset.opts.duration);
+    setMaxResults(preset.opts.maxResults);
+    toast(`프리셋 "${preset.name}" 적용됨`, "info");
+  };
+
+  const handleSavePreset = async () => {
+    if (presets.length >= MAX_PRESETS) {
+      toast(`프리셋은 최대 ${MAX_PRESETS}개까지 저장됩니다.`, "error");
+      return;
+    }
+    if (!keywords.trim()) {
+      toast("저장할 검색 조건이 없습니다 (검색어를 입력하세요).", "error");
+      return;
+    }
+    const name = window.prompt("프리셋 이름을 입력하세요:");
+    if (!name?.trim()) return;
+    const next: YoutubeSearchPreset = {
+      name: name.trim(),
+      opts: {
+        categoryId,
+        keywords,
+        keywordMode,
+        minViews,
+        minSubs,
+        periodDays,
+        order,
+        duration,
+        maxResults,
+      },
+    };
+    const updated = [...presets, next];
+    try {
+      await savePresets(updated);
+      setPresets(updated);
+      toast("프리셋 저장 완료", "success");
+    } catch {
+      toast("프리셋 저장 실패", "error");
+    }
+  };
+
+  const handleDeletePreset = async (idx: number) => {
+    const updated = presets.filter((_, i) => i !== idx);
+    try {
+      await savePresets(updated);
+      setPresets(updated);
+    } catch {
+      toast("프리셋 삭제 실패", "error");
     }
   };
 
@@ -214,11 +341,43 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
             카테고리·검색어·조회수·구독자수·기간·길이를 조합해 영상을 찾고 AISH에 발행합니다.
           </p>
         </div>
-        <div className="text-right text-xs text-gray-500">
-          이번 세션 사용: <span className="font-semibold text-gray-900">{quotaUsedSession.toLocaleString()}</span> 단위
-          <div className="text-[10px] text-gray-400">일일 무료 쿼터 10,000</div>
+        <div className="text-right text-xs">
+          <div className={cn(
+            quotaUsedToday >= YOUTUBE_BLOCK_THRESHOLD ? "text-red-600 font-bold"
+              : quotaUsedToday >= YOUTUBE_WARN_THRESHOLD ? "text-amber-600 font-semibold"
+              : "text-gray-500",
+          )}>
+            오늘 사용: <span className="font-semibold">{quotaUsedToday.toLocaleString()}</span> / {YOUTUBE_DAILY_LIMIT.toLocaleString()}
+          </div>
+          <div className="text-[10px] text-gray-400">이번 세션 {quotaUsedSession.toLocaleString()} 단위</div>
         </div>
       </div>
+
+      {/* 즐겨찾는 검색 조건 (Presets) */}
+      {presets.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-gray-500 mr-1">프리셋:</span>
+          {presets.map((p, idx) => (
+            <span key={`${p.name}-${idx}`} className="inline-flex items-center gap-0.5 rounded-full border border-gray-200 bg-white pl-2.5 pr-1 py-0.5 text-xs hover:border-primary-300">
+              <button
+                type="button"
+                onClick={() => applyPreset(p)}
+                className="text-gray-700 hover:text-primary-700"
+              >
+                {p.name}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeletePreset(idx)}
+                aria-label="프리셋 삭제"
+                className="ml-0.5 rounded-full p-0.5 text-gray-300 hover:bg-gray-100 hover:text-red-500"
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* 검색 폼 */}
       <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
@@ -390,21 +549,52 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
           </div>
         </div>
 
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={handleSearch}
-            disabled={loading || !youtubeApiKey}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-          >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-            {loading ? "검색 중..." : "검색"}
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <label className="flex items-center gap-1.5 text-xs text-gray-500">
+            <input
+              type="checkbox"
+              checked={forceRefresh}
+              onChange={(e) => setForceRefresh(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600"
+            />
+            강제 재검색 (캐시 무시)
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSavePreset}
+              disabled={presets.length >= MAX_PRESETS}
+              title={presets.length >= MAX_PRESETS ? `최대 ${MAX_PRESETS}개` : "이 조건을 프리셋으로 저장"}
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Bookmark size={12} />
+              이 조건 저장
+            </button>
+            <button
+              type="button"
+              onClick={handleSearch}
+              disabled={loading || !youtubeApiKey || quotaUsedToday >= YOUTUBE_BLOCK_THRESHOLD}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+              {loading ? "검색 중..." : "검색"}
+            </button>
+          </div>
         </div>
 
         {!youtubeApiKey && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
             YouTube API 키가 설정되지 않았습니다. <strong>대시보드 탭</strong>에서 입력 후 다시 시도하세요.
+          </div>
+        )}
+        {quotaUsedToday >= YOUTUBE_BLOCK_THRESHOLD && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+            오늘 YouTube API 쿼터가 거의 소진되었습니다. KST 자정 이후에 다시 시도하세요.
+          </div>
+        )}
+        {quotaUsedToday >= YOUTUBE_WARN_THRESHOLD && quotaUsedToday < YOUTUBE_BLOCK_THRESHOLD && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            오늘 사용량이 90%를 초과했습니다. 캐시 활용을 권장합니다.
           </div>
         )}
       </div>
@@ -418,13 +608,21 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
 
       {results.length > 0 && (
         <div>
-          <p className="mb-3 text-sm text-gray-500">{results.length}건 발견</p>
+          <p className="mb-3 flex items-center gap-2 text-sm text-gray-500">
+            {results.length}건 발견
+            {fromCache && (
+              <span className="rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                캐시 (24h)
+              </span>
+            )}
+          </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {results.map((v) => (
               <ResultCard
                 key={v.videoId}
                 video={v}
                 published={publishedIds.has(v.videoId)}
+                existsInAish={existsInAishIds.has(v.videoId)}
                 aiSummary={summaries.get(v.videoId)}
                 related={relatedData.get(v.videoId)}
                 summarizing={summarizingId === v.videoId}
@@ -456,6 +654,7 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
 function ResultCard({
   video,
   published,
+  existsInAish,
   aiSummary,
   related,
   summarizing,
@@ -467,6 +666,7 @@ function ResultCard({
 }: {
   video: YoutubeVideoDetail;
   published: boolean;
+  existsInAish: boolean;
   aiSummary?: YoutubeAiSummary;
   related?: RelatedData;
   summarizing: boolean;
@@ -476,6 +676,7 @@ function ResultCard({
   onSummarize: () => void;
   onRelated: () => void;
 }) {
+  const blocked = published || existsInAish;
   const [expanded, setExpanded] = useState<"summary" | "related" | null>(null);
 
   const toggleSummary = () => {
@@ -499,11 +700,15 @@ function ResultCard({
             {formatDurationLabel(video.durationSeconds)}
           </span>
         )}
-        {published && (
+        {published ? (
           <span className="absolute top-1.5 left-1.5 rounded bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">
             ✓ 발행됨
           </span>
-        )}
+        ) : existsInAish ? (
+          <span className="absolute top-1.5 left-1.5 rounded bg-gray-700/90 px-2 py-0.5 text-[10px] font-bold text-white">
+            이미 있음
+          </span>
+        ) : null}
       </div>
 
       {/* 본문 */}
@@ -565,16 +770,19 @@ function ResultCard({
           <button
             type="button"
             onClick={onPublish}
-            disabled={published}
+            disabled={blocked}
+            title={existsInAish && !published ? "AISH에 이미 등록된 영상" : ""}
             className={cn(
               "ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
               published
                 ? "bg-emerald-100 text-emerald-700 cursor-default"
-                : "bg-primary-600 text-white hover:bg-primary-700",
+                : existsInAish
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-primary-600 text-white hover:bg-primary-700",
             )}
           >
             <Plus size={11} />
-            {published ? "발행됨" : "발행"}
+            {published ? "발행됨" : existsInAish ? "있음" : "발행"}
           </button>
         </div>
       </div>

@@ -342,6 +342,30 @@ export async function getContentsByIds(ids: string[]): Promise<Content[]> {
   return ids.map((id) => lookup.get(id)).filter((c): c is Content => c !== undefined);
 }
 
+/**
+ * mediaUrl 일괄 매칭으로 이미 등록된 콘텐츠를 찾는다.
+ * YouTube 발행 화면의 "이미 있음" 배지용. Firestore "in" 30개 제약 → 청크 분할.
+ */
+export async function findContentsByMediaUrls(urls: string[]): Promise<Content[]> {
+  if (urls.length === 0) return [];
+  const unique = [...new Set(urls.filter(Boolean))];
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += 30) {
+    chunks.push(unique.slice(i, i + 30));
+  }
+  const matched: Content[] = [];
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      const q = query(collection(db, COLLECTIONS.CONTENTS), where("mediaUrl", "in", chunk));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        matched.push({ id: d.id, ...d.data() } as Content);
+      }
+    }),
+  );
+  return matched;
+}
+
 /** 사용자 본인 작성 콘텐츠 (authorUid 매칭, 최신순). 마이 대시보드 "내 글" 탭. */
 export async function getMyContents(uid: string, max = 50): Promise<Content[]> {
   const q = query(
