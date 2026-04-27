@@ -24,6 +24,7 @@ import { createContentIfNew, deleteContent, getContents } from "@/lib/content-en
 import type { Content } from "@/types/content";
 import YoutubeAdvancedSearch from "@/components/admin/YoutubeAdvancedSearch";
 import YoutubeSearchHistoryChips from "@/components/admin/YoutubeSearchHistoryChips";
+import YoutubeSearchSnapshotsList from "@/components/admin/YoutubeSearchSnapshotsList";
 import type { SearchOptsSnapshot } from "@/lib/youtube-search-history";
 
 // ── 타입 ──
@@ -741,11 +742,23 @@ function HistoryTab({
 }) {
   return (
     <div className="space-y-6">
-      {/* YouTube 검색 히스토리 — 클릭 시 고급 검색 탭으로 전환·복원 */}
+      {/* YouTube 검색 결과 회차 — 발견된 영상 목록 영구 보관 */}
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+          <Eye size={14} className="text-gray-400" />
+          YouTube 검색 결과 회차
+        </h2>
+        <p className="text-xs text-gray-500">
+          최근 검색에서 발견된 영상 목록을 회차별로 보관합니다. 펼치면 썸네일·제목·채널·조회수를 확인할 수 있습니다.
+        </p>
+        <YoutubeSearchSnapshotsList onApplyOpts={onApplySearchHistory} />
+      </section>
+
+      {/* YouTube 검색 조건 히스토리 — 칩 클릭 시 고급 검색 탭으로 전환·복원 */}
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
           <Search size={14} className="text-gray-400" />
-          YouTube 검색 히스토리
+          YouTube 검색 조건
         </h2>
         <YoutubeSearchHistoryChips onApply={onApplySearchHistory} variant="full" />
       </section>

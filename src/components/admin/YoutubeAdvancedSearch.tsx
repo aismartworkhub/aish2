@@ -48,6 +48,7 @@ import {
   filterItemsByDurations,
   type SearchOptsSnapshot,
 } from "@/lib/youtube-search-history";
+import { saveSnapshot } from "@/lib/youtube-search-snapshots";
 import YoutubeSearchHistoryChips from "@/components/admin/YoutubeSearchHistoryChips";
 
 type RelatedData = {
@@ -472,6 +473,12 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey, initialApply }: P
           setFromCache(true);
           if (filtered.length > 0) {
             const exists = await matchExistsInAish(filtered);
+            saveSnapshot({
+              opts: captureCurrentOpts(),
+              items: filtered,
+              existsInAishCount: exists.size,
+              fromCache: true,
+            });
             if (autoPublishEnabled) await handleAutoPublish(filtered, exists);
           } else {
             toast("캐시: 결과 없음", "info");
@@ -499,6 +506,12 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey, initialApply }: P
         toast("검색 결과가 없습니다. 조건을 완화해보세요.", "info");
       } else {
         const exists = await matchExistsInAish(filteredItems);
+        saveSnapshot({
+          opts: captureCurrentOpts(),
+          items: filteredItems,
+          existsInAishCount: exists.size,
+          fromCache: false,
+        });
         if (autoPublishEnabled) await handleAutoPublish(filteredItems, exists);
       }
     } catch (e) {
