@@ -236,11 +236,12 @@ export async function findVideosByChannel(
 
 /**
  * search.list 의 channelId 파라미터를 직접 쓰는 채널 영상 조회 (Phase 2 정식).
+ * q 파라미터 지원 — 채널 내 키워드 검색에도 사용.
  */
 export async function listChannelVideos(
   apiKey: string,
   channelId: string,
-  opts: { maxResults?: number; order?: "viewCount" | "date" } = {},
+  opts: { maxResults?: number; order?: "viewCount" | "date" | "relevance"; q?: string; publishedAfter?: string } = {},
 ): Promise<{ items: YoutubeVideoDetail[]; quotaUsed: number }> {
   if (!apiKey || !channelId) return { items: [], quotaUsed: 0 };
   let quotaUsed = 0;
@@ -253,6 +254,8 @@ export async function listChannelVideos(
     maxResults: String(Math.min(opts.maxResults ?? 5, 25)),
     key: apiKey,
   });
+  if (opts.q?.trim()) searchParams.set("q", opts.q.trim());
+  if (opts.publishedAfter) searchParams.set("publishedAfter", opts.publishedAfter);
   const searchRes = await fetch(`${YT_API}/search?${searchParams.toString()}`);
   if (!searchRes.ok) throw new Error(`YouTube search.list (channel) 실패: ${searchRes.status}`);
   quotaUsed += 100;
@@ -309,6 +312,136 @@ export async function listChannelVideos(
   });
 
   return { items, quotaUsed };
+}
+
+/* ── 선호 채널 일괄 검색 (Phase 4-3) ── */
+
+/**
+ * 등록된 선호 채널 N개에 대해 search.list 병렬 호출 + videos.list 일괄 + channels.list 일괄.
+ * 비용: N×100 + 1 + 1 단위.
+ * minViews/minSubscribers 등 클라 필터는 searchYouTubeVideos와 동일 로직 재사용.
+ */
+export async function searchInFavoriteChannels(
+  apiKey: string,
+  channels: { channelId: string }[],
+  opts: YoutubeSearchOpts,
+): Promise<{ items: YoutubeVideoDetail[]; quotaUsed: number }> {
+  if (!apiKey) throw new Error("YouTube API 키가 설정되지 않았습니다.");
+  if (channels.length === 0) return { items: [], quotaUsed: 0 };
+
+  let quotaUsed = 0;
+  const perChannelMax = Math.max(5, Math.ceil((opts.maxResults ?? 25) / channels.length));
+
+  // 1) 채널별 search.list 병렬 호출
+  const searchResults = await Promise.all(
+    channels.map(async (ch) => {
+      const sp = new URLSearchParams({
+        part: "snippet",
+        type: "video",
+        channelId: ch.channelId,
+        order: opts.order ?? "viewCount",
+        maxResults: String(Math.min(perChannelMax, 25)),
+        key: apiKey,
+      });
+      if (opts.q?.trim()) sp.set("q", opts.q.trim());
+      if (opts.publishedAfter) sp.set("publishedAfter", opts.publishedAfter);
+      if (opts.videoDuration && opts.videoDuration !== "any") sp.set("videoDuration", opts.videoDuration);
+      try {
+        const res = await fetch(`${YT_API}/search?${sp.toString()}`);
+        if (!res.ok) return [] as string[];
+        const data = (await res.json()) as { items?: Array<{ id?: { videoId?: string } }> };
+        return (data.items ?? []).map((it) => it.id?.videoId).filter((id): id is string => Boolean(id));
+      } catch {
+        return [] as string[];
+      }
+    }),
+  );
+  quotaUsed += channels.length * 100;
+
+  const videoIds = [...new Set(searchResults.flat())];
+  if (videoIds.length === 0) return { items: [], quotaUsed };
+
+  // 2) videos.list 일괄 (50개씩 청크)
+  type VideoApiItem = {
+    id?: string;
+    snippet?: {
+      title?: string; description?: string; channelId?: string; channelTitle?: string;
+      publishedAt?: string; tags?: string[]; categoryId?: string;
+      thumbnails?: { high?: { url?: string }; medium?: { url?: string }; default?: { url?: string } };
+    };
+    statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+    contentDetails?: { duration?: string };
+  };
+  const videoItems: VideoApiItem[] = [];
+  for (let i = 0; i < videoIds.length; i += 50) {
+    const chunk = videoIds.slice(i, i + 50);
+    const sp = new URLSearchParams({ part: "snippet,statistics,contentDetails", id: chunk.join(","), key: apiKey });
+    const res = await fetch(`${YT_API}/videos?${sp.toString()}`);
+    if (!res.ok) continue;
+    quotaUsed += 1;
+    const data = (await res.json()) as { items?: VideoApiItem[] };
+    videoItems.push(...(data.items ?? []));
+  }
+
+  // 3) channels.list — 구독자수 (선호 채널 ID는 알고 있음)
+  const channelSubsMap = new Map<string, number>();
+  const channelIds = [...new Set(videoItems.map((v) => v.snippet?.channelId).filter((id): id is string => Boolean(id)))];
+  for (let i = 0; i < channelIds.length; i += 50) {
+    const chunk = channelIds.slice(i, i + 50);
+    const sp = new URLSearchParams({ part: "statistics", id: chunk.join(","), key: apiKey });
+    const res = await fetch(`${YT_API}/channels?${sp.toString()}`);
+    if (!res.ok) continue;
+    quotaUsed += 1;
+    const data = (await res.json()) as {
+      items?: Array<{ id?: string; statistics?: { subscriberCount?: string; hiddenSubscriberCount?: boolean } }>;
+    };
+    for (const c of data.items ?? []) {
+      if (!c.id) continue;
+      const subs = c.statistics?.hiddenSubscriberCount ? 0 : Number(c.statistics?.subscriberCount ?? 0);
+      channelSubsMap.set(c.id, subs);
+    }
+  }
+
+  // 4) 결합 + 클라 필터
+  const minViews = opts.minViews ?? 0;
+  const minSubs = opts.minSubscribers ?? 0;
+  const items: YoutubeVideoDetail[] = videoItems
+    .map((v) => {
+      const id = v.id ?? "";
+      const sn = v.snippet ?? {};
+      const st = v.statistics ?? {};
+      const cd = v.contentDetails ?? {};
+      const channelId = sn.channelId ?? "";
+      const subs = channelSubsMap.get(channelId) ?? 0;
+      const duration = cd.duration ?? "";
+      return {
+        videoId: id,
+        title: sn.title ?? "",
+        description: sn.description ?? "",
+        channelId,
+        channelTitle: sn.channelTitle ?? "",
+        channelSubscribers: subs,
+        thumbnailUrl: sn.thumbnails?.high?.url ?? sn.thumbnails?.medium?.url ?? sn.thumbnails?.default?.url ?? "",
+        publishedAt: sn.publishedAt ?? "",
+        duration,
+        durationSeconds: parseIso8601Duration(duration),
+        viewCount: Number(st.viewCount ?? 0),
+        likeCount: Number(st.likeCount ?? 0),
+        commentCount: Number(st.commentCount ?? 0),
+        url: id ? `https://www.youtube.com/watch?v=${id}` : "",
+        tags: sn.tags,
+        categoryId: sn.categoryId,
+      };
+    })
+    .filter((v) => v.videoId !== "")
+    .filter((v) => v.viewCount >= minViews)
+    .filter((v) => v.channelSubscribers >= minSubs);
+
+  // 정렬 — opts.order 적용 (search.list가 채널별이라 전체 정렬은 클라 측)
+  if (opts.order === "viewCount") items.sort((a, b) => b.viewCount - a.viewCount);
+  else if (opts.order === "date") items.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+  return { items: items.slice(0, opts.maxResults ?? 25), quotaUsed };
 }
 
 /* ── AI 요약 (Gemini, Phase 2 사용) ── */

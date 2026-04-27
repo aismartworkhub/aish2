@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Loader2, ExternalLink, Plus, Eye, ThumbsUp, MessageCircle, Sparkles, Link2, Bookmark, X } from "lucide-react";
+import { Search, Loader2, ExternalLink, Plus, Eye, ThumbsUp, MessageCircle, Sparkles, Link2, Bookmark, X, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import {
   searchYouTubeVideos,
+  searchInFavoriteChannels,
   listVideoCategories,
   listChannelVideos,
   summarizeYouTubeVideo,
@@ -29,6 +30,14 @@ import {
 } from "@/lib/youtube-quota";
 import { readSearchCache, writeSearchCache } from "@/lib/youtube-search-cache";
 import { getPresets, savePresets, MAX_PRESETS, type YoutubeSearchPreset } from "@/lib/youtube-search-presets";
+import {
+  getFavoriteChannels,
+  addFavoriteChannel,
+  removeFavoriteChannel,
+  extractChannelId,
+  MAX_FAVORITE_CHANNELS,
+  type FavoriteChannel,
+} from "@/lib/youtube-favorite-channels";
 
 type RelatedData = {
   channelVideos: YoutubeVideoDetail[];
@@ -106,6 +115,10 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
   const [fromCache, setFromCache] = useState(false);
   const [presets, setPresets] = useState<YoutubeSearchPreset[]>([]);
 
+  const [favoriteChannels, setFavoriteChannels] = useState<FavoriteChannel[]>([]);
+  const [useFavoritesOnly, setUseFavoritesOnly] = useState(false);
+  const [channelInput, setChannelInput] = useState("");
+
   // 카테고리 로드 (API 키가 있을 때 한 번)
   useEffect(() => {
     if (!youtubeApiKey) return;
@@ -121,11 +134,69 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
     getGeminiApiKey().then((k) => { if (k) setGeminiKey(k); }).catch(() => {});
   }, []);
 
-  // 오늘의 쿼터 사용량 + 즐겨찾는 검색 조건 로드
+  // 오늘의 쿼터 사용량 + 즐겨찾는 검색 조건 + 선호 채널 로드
   useEffect(() => {
     getYoutubeQuotaToday().then((q) => setQuotaUsedToday(q.used)).catch(() => {});
     getPresets().then(setPresets).catch(() => {});
+    getFavoriteChannels().then(setFavoriteChannels).catch(() => {});
   }, []);
+
+  const favoriteChannelIds = useMemo(
+    () => new Set(favoriteChannels.map((c) => c.channelId)),
+    [favoriteChannels],
+  );
+
+  const handleAddFavoriteChannel = async (channelId: string, channelTitle: string) => {
+    if (favoriteChannels.length >= MAX_FAVORITE_CHANNELS) {
+      toast(`선호 채널은 최대 ${MAX_FAVORITE_CHANNELS}개까지 등록 가능합니다.`, "error");
+      return;
+    }
+    try {
+      const next = await addFavoriteChannel({ channelId, channelTitle, addedAt: new Date().toISOString() });
+      setFavoriteChannels(next);
+      toast(`"${channelTitle}" 선호 채널 추가됨`, "success");
+    } catch {
+      toast("선호 채널 추가 실패", "error");
+    }
+  };
+
+  const handleRemoveFavoriteChannel = async (channelId: string) => {
+    try {
+      const next = await removeFavoriteChannel(channelId);
+      setFavoriteChannels(next);
+    } catch {
+      toast("선호 채널 삭제 실패", "error");
+    }
+  };
+
+  const handleAddChannelByInput = async () => {
+    const id = extractChannelId(channelInput);
+    if (!id) {
+      toast("UC로 시작하는 채널 ID 또는 youtube.com/channel/UC... URL을 입력하세요. (@handle 미지원)", "error");
+      return;
+    }
+    if (favoriteChannelIds.has(id)) {
+      toast("이미 등록된 채널입니다.", "info");
+      return;
+    }
+    // 채널명 조회 (channels.list — 1단위)
+    try {
+      const sp = new URLSearchParams({ part: "snippet", id, key: youtubeApiKey });
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?${sp.toString()}`);
+      if (!res.ok) throw new Error("채널 정보 조회 실패");
+      incrementYoutubeQuota(1).then(() => setQuotaUsedToday((u) => u + 1)).catch(() => {});
+      const data = (await res.json()) as { items?: Array<{ snippet?: { title?: string } }> };
+      const title = data.items?.[0]?.snippet?.title;
+      if (!title) {
+        toast("존재하지 않는 채널 ID입니다.", "error");
+        return;
+      }
+      await handleAddFavoriteChannel(id, title);
+      setChannelInput("");
+    } catch (e) {
+      toast(`채널 조회 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    }
+  };
 
   const buildQ = useMemo(() => {
     const tokens = keywords.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
@@ -209,7 +280,9 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
       toast("YouTube API 키가 설정되지 않았습니다. '대시보드' 탭에서 입력하세요.", "error");
       return;
     }
-    if (!buildQ) {
+    const usingFavoritesOnly = useFavoritesOnly && favoriteChannels.length > 0;
+    // 선호 채널 모드는 q 미입력도 허용 (채널 인기/최신 영상 그대로)
+    if (!usingFavoritesOnly && !buildQ) {
       toast("검색어를 입력하세요.", "error");
       return;
     }
@@ -245,8 +318,9 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
         return items.filter((v) => durations.has(durationCategory(v.durationSeconds)));
       };
 
-      // 캐시 적중 (forceRefresh 미체크 시)
-      if (!forceRefresh) {
+      // 선호 채널만 검색 모드는 캐시 키가 충돌 가능 → 캐시 패스 스킵 (별도 분기 없음)
+      // 일반 검색만 캐시 적용
+      if (!usingFavoritesOnly && !forceRefresh) {
         const cached = readSearchCache(opts);
         if (cached) {
           const filtered = filterByDurations(cached);
@@ -259,7 +333,9 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
         }
       }
 
-      const { items, quotaUsed } = await searchYouTubeVideos(youtubeApiKey, opts);
+      const { items, quotaUsed } = usingFavoritesOnly
+        ? await searchInFavoriteChannels(youtubeApiKey, favoriteChannels, opts)
+        : await searchYouTubeVideos(youtubeApiKey, opts);
       const filteredItems = filterByDurations(items);
       setResults(filteredItems);
       setQuotaUsedSession((q) => q + quotaUsed);
@@ -268,7 +344,9 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
           .then(() => setQuotaUsedToday((u) => u + quotaUsed))
           .catch(() => {});
       }
-      writeSearchCache(opts, items); // 캐시는 unfiltered (필터는 매 검색 시 재적용)
+      if (!usingFavoritesOnly) {
+        writeSearchCache(opts, items); // 일반 검색만 캐시 (선호 채널은 채널 변동 가능)
+      }
       if (filteredItems.length === 0) {
         toast("검색 결과가 없습니다. 조건을 완화해보세요.", "info");
       } else {
@@ -386,6 +464,73 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
           ))}
         </div>
       )}
+
+      {/* 선호 채널 */}
+      <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+            <Star size={14} className="text-amber-500 fill-amber-500" />
+            선호 채널 ({favoriteChannels.length}/{MAX_FAVORITE_CHANNELS})
+          </h3>
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={useFavoritesOnly}
+              onChange={(e) => setUseFavoritesOnly(e.target.checked)}
+              disabled={favoriteChannels.length === 0}
+              className="h-3.5 w-3.5 rounded border-gray-300 text-amber-500"
+            />
+            선호 채널만 검색
+            {useFavoritesOnly && favoriteChannels.length > 0 && (
+              <span className="text-[10px] text-amber-700">
+                — 약 {favoriteChannels.length * 100 + 2} 단위 예상
+              </span>
+            )}
+          </label>
+        </div>
+
+        <div className="flex gap-1.5">
+          <input
+            type="text"
+            value={channelInput}
+            onChange={(e) => setChannelInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleAddChannelByInput(); }}
+            placeholder="UC... 채널 ID 또는 youtube.com/channel/UC... URL"
+            className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+            disabled={!youtubeApiKey}
+          />
+          <button
+            type="button"
+            onClick={handleAddChannelByInput}
+            disabled={!youtubeApiKey || !channelInput.trim()}
+            className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+          >
+            추가
+          </button>
+        </div>
+
+        {favoriteChannels.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {favoriteChannels.map((c) => (
+              <span key={c.channelId} className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-white pl-2.5 pr-1 py-0.5 text-xs">
+                <span className="text-gray-700">{c.channelTitle}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFavoriteChannel(c.channelId)}
+                  aria-label="선호 채널 삭제"
+                  className="ml-0.5 rounded-full p-0.5 text-gray-300 hover:bg-gray-100 hover:text-red-500"
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">
+            아직 등록된 채널이 없습니다. 검색 결과 카드의 ★ 또는 위 입력창으로 추가하세요.
+          </p>
+        )}
+      </div>
 
       {/* 검색 폼 */}
       <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-4">
@@ -657,9 +802,14 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey }: Props) {
                 summarizing={summarizingId === v.videoId}
                 loadingRelated={loadingRelatedId === v.videoId}
                 geminiAvailable={Boolean(geminiKey)}
+                isFavoriteChannel={favoriteChannelIds.has(v.channelId)}
                 onPublish={() => setPublishModalVideo(v)}
                 onSummarize={() => handleSummarize(v)}
                 onRelated={() => handleRelated(v)}
+                onToggleFavoriteChannel={() => {
+                  if (favoriteChannelIds.has(v.channelId)) handleRemoveFavoriteChannel(v.channelId);
+                  else handleAddFavoriteChannel(v.channelId, v.channelTitle);
+                }}
               />
             ))}
           </div>
@@ -688,9 +838,11 @@ function ResultCard({
   summarizing,
   loadingRelated,
   geminiAvailable,
+  isFavoriteChannel,
   onPublish,
   onSummarize,
   onRelated,
+  onToggleFavoriteChannel,
 }: {
   video: YoutubeVideoDetail;
   published: boolean;
@@ -700,9 +852,11 @@ function ResultCard({
   summarizing: boolean;
   loadingRelated: boolean;
   geminiAvailable: boolean;
+  isFavoriteChannel: boolean;
   onPublish: () => void;
   onSummarize: () => void;
   onRelated: () => void;
+  onToggleFavoriteChannel: () => void;
 }) {
   const blocked = published || existsInAish;
   const [expanded, setExpanded] = useState<"summary" | "related" | null>(null);
@@ -742,10 +896,22 @@ function ResultCard({
       {/* 본문 */}
       <div className="flex flex-1 flex-col gap-2 p-3">
         <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">{video.title}</h3>
-        <div className="text-xs text-gray-500">
-          {video.channelTitle}
+        <div className="flex items-center gap-1 text-xs text-gray-500">
+          <button
+            type="button"
+            onClick={onToggleFavoriteChannel}
+            aria-label={isFavoriteChannel ? "선호 채널 제거" : "선호 채널 추가"}
+            title={isFavoriteChannel ? "선호 채널 제거" : "선호 채널 추가"}
+            className={cn(
+              "shrink-0 rounded p-0.5 transition-colors",
+              isFavoriteChannel ? "text-amber-500 hover:bg-amber-50" : "text-gray-300 hover:bg-gray-50 hover:text-amber-400",
+            )}
+          >
+            <Star size={11} className={isFavoriteChannel ? "fill-amber-500" : ""} />
+          </button>
+          <span className="truncate">{video.channelTitle}</span>
           {video.channelSubscribers > 0 && (
-            <span className="ml-1 text-gray-400">· 구독 {compactNumber(video.channelSubscribers)}</span>
+            <span className="ml-0.5 shrink-0 text-gray-400">· 구독 {compactNumber(video.channelSubscribers)}</span>
           )}
         </div>
         <div className="flex items-center gap-3 text-[11px] text-gray-400">
