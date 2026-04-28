@@ -64,6 +64,20 @@ export interface Content {
   commentCount: number;
   /** 자료 다운로드 클릭 누적 (PDF·문서·외부 링크). incrementContentDownloads로 +1. */
   downloadCount?: number;
+
+  /** YouTube 메타 (mediaType==="youtube"일 때만 의미 있음). X.com 스타일 헤더용. */
+  channelTitle?: string;
+  channelId?: string;
+  channelUrl?: string;
+  /** 영상 원본 게시일 (createdAt은 AISH 등록일) */
+  publishedAtSource?: string;
+  /** 영상 원본 조회수 (views는 AISH 내 조회수) */
+  viewCountSource?: number;
+  /** 영상 원본 좋아요수 (likeCount는 AISH 좋아요) */
+  likeCountSource?: number;
+  /** 영상 길이(초) — 0이면 라이브/실시간 */
+  durationSeconds?: number;
+
   createdAt: unknown;
   updatedAt?: unknown;
 }

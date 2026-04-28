@@ -106,6 +106,14 @@ export default function YoutubePublishModal({
         authorUid: user.uid,
         authorName: profile?.displayName ?? user.displayName ?? "관리자",
         authorPhotoURL: user.photoURL ?? undefined,
+        // YouTube 메타 — X.com 스타일 헤더용
+        channelTitle: video.channelTitle,
+        channelId: video.channelId,
+        channelUrl: video.channelId ? `https://www.youtube.com/channel/${video.channelId}` : undefined,
+        publishedAtSource: video.publishedAt,
+        viewCountSource: video.viewCount,
+        likeCountSource: video.likeCount,
+        durationSeconds: video.durationSeconds,
       });
       toast(
         policy === "publish" ? "공개 발행되었습니다." : "검토 대기로 등록되었습니다.",
