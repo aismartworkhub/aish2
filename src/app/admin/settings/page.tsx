@@ -980,6 +980,10 @@ function AdminSettingsInner() {
               { key: "phase5" as const, label: "Phase 5 — AI 상담사", desc: "사이트 전체 데이터를 학습한 AI 챗봇", subs: [
                 { key: "aiCounselor", label: "AI 상담사 채팅" },
               ]},
+              { key: "phase6" as const, label: "Phase 6 — 통합 피드 (홈)", desc: "콘텐츠·프로그램·강사·이벤트·자료·커뮤니티 6종 통합 + 활동순 정렬 + 카테고리 필터. 시장 반응 검증 후 본공개.", subs: [
+                { key: "unifiedFeedHome", label: "홈 메인에 통합 피드 노출" },
+                { key: "enableActivitySort", label: "활동순 정렬 (댓글 시 상단)" },
+              ]},
             ]).map((phase) => (
               <div key={phase.key} className="border border-gray-200 rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
@@ -1033,6 +1037,57 @@ function AdminSettingsInner() {
                           placeholder="https://script.google.com/macros/s/..."
                           className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                         />
+                      </div>
+                    )}
+                    {phase.key === "phase6" && (
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 mb-1 block">공개 대상</label>
+                          <div className="flex gap-2">
+                            {(["admin", "all"] as const).map((level) => {
+                              const cur = (featureFlags.phase6 as FeatureFlags["phase6"]).audienceLevel || "admin";
+                              const active = cur === level;
+                              return (
+                                <button
+                                  key={level}
+                                  type="button"
+                                  onClick={() => setFeatureFlags((prev) => ({
+                                    ...prev,
+                                    phase6: { ...prev.phase6, audienceLevel: level },
+                                  }))}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-lg text-xs font-medium",
+                                    active ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200",
+                                  )}
+                                >
+                                  {level === "admin" ? "👤 관리자만 (시장 검증)" : "🌐 전체 방문자 (본공개)"}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          {([
+                            { key: "interleaveProgram" as const, label: "프로그램", suffix: "번째마다" },
+                            { key: "interleaveInstructor" as const, label: "강사", suffix: "번째마다" },
+                            { key: "interleaveEvent" as const, label: "이벤트", suffix: "번째마다" },
+                          ]).map((f) => (
+                            <div key={f.key}>
+                              <label className="text-xs text-gray-600 mb-1 block">{f.label} {f.suffix}</label>
+                              <input
+                                type="number"
+                                min={2}
+                                max={50}
+                                value={Number((featureFlags.phase6 as FeatureFlags["phase6"])[f.key] ?? 0)}
+                                onChange={(e) => setFeatureFlags((prev) => ({
+                                  ...prev,
+                                  phase6: { ...prev.phase6, [f.key]: Number(e.target.value) || 5 },
+                                }))}
+                                className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm"
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

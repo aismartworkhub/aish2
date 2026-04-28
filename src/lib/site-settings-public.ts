@@ -101,7 +101,7 @@ export { DEFAULT_HERO_SLIDE };
 
 export interface PhaseFlags {
   enabled: boolean;
-  [key: string]: boolean | string;
+  [key: string]: boolean | string | number;
 }
 
 export interface FeatureFlags {
@@ -110,6 +110,15 @@ export interface FeatureFlags {
   phase3: PhaseFlags;
   phase4: PhaseFlags;
   phase5: PhaseFlags;
+  /** 통합 피드 — 6 소스 활동순 + 인터리브 + Feature Flag 점진 공개 */
+  phase6: PhaseFlags & {
+    /** "admin"=관리자만, "all"=모두 */
+    audienceLevel: string;
+    /** 5번째마다 프로그램 등 */
+    interleaveProgram: number;
+    interleaveInstructor: number;
+    interleaveEvent: number;
+  };
 }
 
 export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
@@ -118,6 +127,15 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   phase3: { enabled: false, geminiKeyInput: true, businessCardScan: true, extendedProfile: true },
   phase4: { enabled: false, notificationSystem: true, shareButton: true, popularPosts: true },
   phase5: { enabled: false, aiCounselor: true },
+  phase6: {
+    enabled: false,
+    unifiedFeedHome: true,
+    audienceLevel: "admin",
+    enableActivitySort: true,
+    interleaveProgram: 5,
+    interleaveInstructor: 8,
+    interleaveEvent: 10,
+  },
 };
 
 let ffCache: FeatureFlags | null = null;
@@ -136,6 +154,7 @@ export async function loadFeatureFlags(): Promise<FeatureFlags> {
           phase3: merge(DEFAULT_FEATURE_FLAGS.phase3, doc?.phase3),
           phase4: merge(DEFAULT_FEATURE_FLAGS.phase4, doc?.phase4),
           phase5: merge(DEFAULT_FEATURE_FLAGS.phase5, doc?.phase5),
+          phase6: { ...DEFAULT_FEATURE_FLAGS.phase6, ...doc?.phase6 } as FeatureFlags["phase6"],
         };
         ffCache = next;
         return next;
