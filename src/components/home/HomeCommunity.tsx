@@ -15,7 +15,7 @@ import SampleBadge from "@/components/ui/SampleBadge";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { STAT_ICONS } from "@/hooks/useHomeData";
 import RatingSummary from "@/components/community/RatingSummary";
-import RecentActivityFeed from "@/components/home/RecentActivityFeed";
+import HomeRecentSection from "@/components/home/HomeRecentSection";
 import type { HomeDataProps } from "@/hooks/useHomeData";
 
 const MEMBER_BENEFITS = [
@@ -562,7 +562,7 @@ export default function HomeCommunity(props: HomeDataProps) {
       </section>
 
       {/* S8.5: 최근 커뮤니티 활동 (X 풍) */}
-      <RecentActivityFeed items={recentActivity} />
+      <HomeRecentSection items={recentActivity} />
 
       {/* ── S9: NewsRoom + 최종 CTA ── */}
       <section className="flex flex-col md:flex-row min-h-[500px] bg-brand-gray">

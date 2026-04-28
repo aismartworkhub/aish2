@@ -14,7 +14,7 @@ import SampleBadge from "@/components/ui/SampleBadge";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import RatingSummary from "@/components/community/RatingSummary";
-import RecentActivityFeed from "@/components/home/RecentActivityFeed";
+import HomeRecentSection from "@/components/home/HomeRecentSection";
 import { STAT_ICONS, COMMUNITY_SHORTCUTS } from "@/hooks/useHomeData";
 import type { HomeDataProps } from "@/hooks/useHomeData";
 
@@ -621,7 +621,7 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
 
       {/* S8.5: 최근 커뮤니티 활동 (X 풍 1줄 피드) */}
-      <RecentActivityFeed items={recentActivity} />
+      <HomeRecentSection items={recentActivity} />
 
       {/* S9: 커뮤니티 아이콘 바 */}
       <section className="py-16 md:py-20 bg-white border-t border-brand-border">
