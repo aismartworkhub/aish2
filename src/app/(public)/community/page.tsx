@@ -20,6 +20,11 @@ import { useLoginGuard } from "@/hooks/useLoginGuard";
 import { useAuth } from "@/contexts/AuthContext";
 import RatingSummary from "@/components/community/RatingSummary";
 import CommunityFreeTimeline from "@/components/community/CommunityFreeTimeline";
+import { ContentCard } from "@/components/content";
+import ViewModeToggle from "@/components/ui/ViewModeToggle";
+import { useViewMode } from "@/hooks/useViewMode";
+import { reviewToContent, postToContent, resourceToContent } from "@/lib/legacy-to-content";
+import UnifiedFeedSection from "@/components/home/UnifiedFeedSection";
 import { useUiMode } from "@/hooks/useUiMode";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 import { createNotification } from "@/lib/notification-service";
@@ -320,6 +325,12 @@ function CommunityContent() {
   const { mode: uiMode, setMode: setUiMode, hydrated: uiHydrated } = useUiMode();
   // hydration 전엔 새 디자인 가정. 자유 탭만 X 스타일로 전환 (공지·FAQ·후기·자료 등은 그대로).
   const isLegacyCommunity = uiHydrated && uiMode === "legacy";
+  // 탭별 뷰 모드 토글 — 수강후기·공지·학습자료 탭에서 X피드/카드/리스트 전환
+  const { mode: reviewView, setMode: setReviewView } = useViewMode("community-review", "x-feed");
+  const { mode: noticeView, setMode: setNoticeView } = useViewMode("community-notice", "board-list");
+  const { mode: resourceView, setMode: setResourceView } = useViewMode("community-resource", "card-feed");
+  const variantOf = (m: "x-feed" | "card-feed" | "board-list") =>
+    m === "x-feed" ? "timeline" : m === "card-feed" ? "dispatch" : "list";
   // 탭별 스크롤 위치 복원 — 탭 전환 후 복귀 시 같은 스크롤 위치
   useScrollRestoration({ key: `community-${activeTab}` });
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
@@ -941,6 +952,13 @@ function CommunityContent() {
         {/* 전체보기 */}
         {activeTab === ALL_TAB_KEY && (
           <div className="space-y-8">
+            {/* 📰 통합 피드 — phase6 enabled 시 노출 (관리자 audienceLevel 정책 적용) */}
+            {ff.phase6?.enabled && (
+              ff.phase6.audienceLevel === "all" ||
+              (ff.phase6.audienceLevel === "admin" && (profile?.role === "admin" || profile?.role === "superadmin"))
+            ) && (
+              <UnifiedFeedSection phase6={ff.phase6} />
+            )}
             {/* 인기글 */}
             {(() => {
               if (!showPopularPosts) return null;
@@ -1542,12 +1560,15 @@ function CommunityContent() {
           const visibleReviews = reviews.filter((r) => r.isApproved !== false || r.authorUid === user?.uid);
           return (
           <div className="card-base overflow-hidden">
-            <div className="p-6 border-b border-brand-border flex items-center justify-between">
+            <div className="p-6 border-b border-brand-border flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">수강 후기</h2>
                 <p className="text-sm text-gray-500 mt-1">수강 경험을 나눠주세요.</p>
               </div>
-              {user && <button onClick={() => setShowReviewForm(!showReviewForm)} className="btn-primary btn-sm"><Plus size={14} />후기 작성</button>}
+              <div className="flex items-center gap-2">
+                <ViewModeToggle mode={reviewView} onChange={setReviewView} compact />
+                {user && <button onClick={() => setShowReviewForm(!showReviewForm)} className="btn-primary btn-sm"><Plus size={14} />후기 작성</button>}
+              </div>
             </div>
 
             {/* 평점 평균 + 분포 요약 (공통 컴포넌트) */}
@@ -1576,21 +1597,19 @@ function CommunityContent() {
                 </div>
               </div>
             )}
-            <div className="divide-y divide-gray-50">
-              {reviews.filter((r) => r.isApproved !== false || r.authorUid === user?.uid).length === 0 ? (
-                <div className="px-6 py-12 text-center text-gray-400 text-sm">등록된 후기가 없습니다.</div>
-              ) : reviews.filter((r) => r.isApproved !== false || r.authorUid === user?.uid).map((r) => (
-                <div key={r.id} className="px-6 py-5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex gap-0.5">{[1,2,3,4,5].map((s) => <span key={s} className={cn("text-sm", s <= r.rating ? "text-amber-400" : "text-gray-200")}>★</span>)}</div>
-                    <span className="text-xs text-gray-400">{r.programTitle}</span>
-                    {r.isApproved === false && <span className="badge-base bg-yellow-100 text-yellow-700">승인 대기</span>}
-                  </div>
-                  <p className="text-sm text-gray-700 leading-relaxed">{r.content}</p>
-                  <p className="text-xs text-gray-400 mt-2">{r.authorName} · {r.authorCohort}</p>
-                </div>
-              ))}
-            </div>
+            {visibleReviews.length === 0 ? (
+              <div className="px-6 py-12 text-center text-gray-400 text-sm">등록된 후기가 없습니다.</div>
+            ) : (
+              <div>
+                {visibleReviews.map((r) => (
+                  <ContentCard
+                    key={r.id ?? `${r.authorName}-${r.createdAt}`}
+                    content={reviewToContent(r)}
+                    variant={variantOf(reviewView)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
           );
         })()}

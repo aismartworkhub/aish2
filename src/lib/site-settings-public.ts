@@ -128,9 +128,10 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   phase4: { enabled: false, notificationSystem: true, shareButton: true, popularPosts: true },
   phase5: { enabled: false, aiCounselor: true },
   phase6: {
-    enabled: false,
+    // 본공개 기본값 — 즉시 전체 방문자 노출. 관리자가 admin/settings에서 OFF 가능 (Flag 항상 유지).
+    enabled: true,
     unifiedFeedHome: true,
-    audienceLevel: "admin",
+    audienceLevel: "all",
     enableActivitySort: true,
     interleaveProgram: 5,
     interleaveInstructor: 8,
@@ -147,7 +148,7 @@ export async function loadFeatureFlags(): Promise<FeatureFlags> {
     ffInflight = getSingletonDoc<Partial<FeatureFlags>>(COLLECTIONS.SETTINGS, "featureFlags")
       .then((doc) => {
         const merge = (def: PhaseFlags, loaded?: Partial<PhaseFlags>): PhaseFlags =>
-          loaded ? { ...def, ...loaded } : { ...def };
+          loaded ? ({ ...def, ...loaded } as PhaseFlags) : { ...def };
         const next: FeatureFlags = {
           phase1: merge(DEFAULT_FEATURE_FLAGS.phase1, doc?.phase1),
           phase2: { ...DEFAULT_FEATURE_FLAGS.phase2, ...doc?.phase2 } as FeatureFlags["phase2"],
