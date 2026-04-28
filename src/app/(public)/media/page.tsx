@@ -16,7 +16,8 @@ import { loadPageContent, DEFAULT_MEDIA } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
 import { useInfiniteContents } from "@/hooks/useInfiniteContents";
 import { getContentById } from "@/lib/content-engine";
-import { useUiMode } from "@/hooks/useUiMode";
+import { useViewMode } from "@/hooks/useViewMode";
+import ViewModeToggle from "@/components/ui/ViewModeToggle";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Loader2 } from "lucide-react";
@@ -24,14 +25,6 @@ import { Loader2 } from "lucide-react";
 const ALL_KEY = "__all__";
 
 type MediaTypeFilter = typeof ALL_KEY | "youtube" | "image" | "pdf" | "link";
-
-const MEDIA_FILTERS: { key: MediaTypeFilter; label: string }[] = [
-  { key: ALL_KEY, label: "전체" },
-  { key: "youtube", label: "영상" },
-  { key: "image", label: "이미지" },
-  { key: "pdf", label: "문서" },
-  { key: "link", label: "링크" },
-];
 
 /**
  * 1차 카테고리 — 사용자 의도(무엇을 보고 싶나)부터 고름.
@@ -71,9 +64,8 @@ function MediaPageInner() {
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
   const ff = useFeatureFlags();
   const contentDeepLink = ff.phase1.enabled && ff.phase1.contentDeepLink === true;
-  const { mode: uiMode, setMode: setUiMode, hydrated: uiHydrated } = useUiMode();
-  // hydration 전에는 새 디자인을 기본 가정(SSR 깜빡임 회피).
-  const isLegacy = uiHydrated && uiMode === "legacy";
+  // 3-스타일 뷰 모드 (페이지별 독립 localStorage)
+  const { mode: viewMode, setMode: setViewMode } = useViewMode("media", "card-feed");
 
   const [boards, setBoards] = useState<BoardConfig[]>(() =>
     mergeBoardsByKey(getBoardsByGroupDefault("media"), []),
@@ -335,82 +327,56 @@ function MediaPageInner() {
           </div>
         )}
 
-        {!isLegacy ? (
-          <>
-            {/* 1차 카테고리 — 사용자 의도(무엇을 보고 싶나) 우선 */}
-            <div className="mb-3 -mx-4 overflow-x-auto px-4">
-              <div className="flex gap-2 pb-2">
-                {PRIMARY_CATEGORIES.map((cat) => {
-                  const Icon = cat.icon;
-                  const active = activeCategory === cat.key;
-                  return (
-                    <button
-                      key={cat.key}
-                      type="button"
-                      onClick={() => handleCategoryClick(cat)}
-                      className={cn(
-                        "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors whitespace-nowrap",
-                        active ? cat.activeClass : cat.inactiveClass,
-                      )}
-                      aria-pressed={active}
-                    >
-                      <Icon size={14} />
-                      {cat.label}
-                    </button>
-                  );
-                })}
-              </div>
+        {/* 1차 카테고리 + 뷰 모드 토글 */}
+        <div className="mb-3 flex items-center gap-2">
+          <div className="flex-1 -mx-4 overflow-x-auto px-4">
+            <div className="flex gap-2 pb-2">
+              {PRIMARY_CATEGORIES.map((cat) => {
+                const Icon = cat.icon;
+                const active = activeCategory === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => handleCategoryClick(cat)}
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors whitespace-nowrap",
+                      active ? cat.activeClass : cat.inactiveClass,
+                    )}
+                    aria-pressed={active}
+                  >
+                    <Icon size={14} />
+                    {cat.label}
+                  </button>
+                );
+              })}
             </div>
+          </div>
+          <ViewModeToggle mode={viewMode} onChange={setViewMode} className="shrink-0" />
+        </div>
 
-            {/* 2차 칩 — 활성 카테고리에 보드 ≥2개일 때만 동적 노출 */}
-            {secondaryBoards.length > 1 && (
-              <div className="mb-3 -mx-4 overflow-x-auto px-4">
-                <div className="flex gap-1.5 pb-2">
-                  <span className="shrink-0 self-center text-xs font-medium text-gray-400">세부 분류</span>
-                  {secondaryBoards.map((b) => (
-                    <button
-                      key={b.key}
-                      type="button"
-                      onClick={() => setActiveBoardKey(b.key)}
-                      className={cn(
-                        "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
-                        activeBoardKey === b.key
-                          ? "bg-gray-700 text-white"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-                      )}
-                    >
-                      {b.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          // 레거시: 기존 2줄 칩 그대로 유지
-          <>
-            <div className="mb-3 -mx-4 overflow-x-auto px-4">
-              <div className="flex gap-2 pb-2">
-                <Chip active={activeBoardKey === null} onClick={() => setActiveBoardKey(null)} label="전체" />
-                {boards.map((b) => (
-                  <Chip key={b.key} active={activeBoardKey === b.key} onClick={() => setActiveBoardKey(b.key)} label={b.label} />
-                ))}
-                <span className="self-center text-gray-200">|</span>
-                <Chip
-                  active={activeBoardKey === "community-review"}
-                  onClick={() => setActiveBoardKey("community-review")}
-                  label="⭐ 수강후기"
-                />
-              </div>
+        {/* 2차 칩 — 활성 카테고리에 보드 ≥2개일 때만 동적 노출 */}
+        {secondaryBoards.length > 1 && (
+          <div className="mb-3 -mx-4 overflow-x-auto px-4">
+            <div className="flex gap-1.5 pb-2">
+              <span className="shrink-0 self-center text-xs font-medium text-gray-400">세부 분류</span>
+              {secondaryBoards.map((b) => (
+                <button
+                  key={b.key}
+                  type="button"
+                  onClick={() => setActiveBoardKey(b.key)}
+                  className={cn(
+                    "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                    activeBoardKey === b.key
+                      ? "bg-gray-700 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                  )}
+                >
+                  {b.label}
+                </button>
+              ))}
             </div>
-            <div className="mb-3 -mx-4 overflow-x-auto px-4">
-              <div className="flex gap-2 pb-2">
-                {MEDIA_FILTERS.map((f) => (
-                  <Chip key={f.key} variant="muted" active={activeMediaType === f.key} onClick={() => setActiveMediaType(f.key)} label={f.label} />
-                ))}
-              </div>
-            </div>
-          </>
+          </div>
         )}
 
         {/* 인기 태그 칩 (동적) */}
@@ -447,8 +413,8 @@ function MediaPageInner() {
           <EmptyState isFiltered={isFiltered} onClear={clearAllFilters} />
         ) : (
           <>
-            {!isLegacy ? (
-              // 새 디자인: 인스타 Explore 그리드 — 모바일 2열, 태블릿 3열, 데스크톱 4열, 타이트한 갭
+            {viewMode === "card-feed" && (
+              // 카드 피드: 인스타 Explore 그리드 — 모바일 2열, 태블릿 3열, 데스크톱 4열
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2 lg:grid-cols-4">
                 {filtered.map((c) => (
                   <ContentCard
@@ -460,17 +426,32 @@ function MediaPageInner() {
                   />
                 ))}
               </div>
-            ) : (
-              // 레거시: 기존 마소닉 그리드 + grid 카드
-              <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4">
+            )}
+            {viewMode === "x-feed" && (
+              // X 피드: 단일 컬럼 timeline (X.com 스타일)
+              <div className="mx-auto max-w-2xl border-x border-gray-100 bg-white">
                 {filtered.map((c) => (
-                  <div key={c.id} className="mb-4 break-inside-avoid">
-                    <ContentCard
-                      content={c}
-                      board={boardForContent(c)}
-                      onClick={selectContent}
-                    />
-                  </div>
+                  <ContentCard
+                    key={c.id}
+                    content={c}
+                    board={boardForContent(c)}
+                    onClick={selectContent}
+                    variant="timeline"
+                  />
+                ))}
+              </div>
+            )}
+            {viewMode === "board-list" && (
+              // 게시판 리스트: 한 줄씩
+              <div className="bg-white border border-gray-100 rounded-lg overflow-hidden">
+                {filtered.map((c) => (
+                  <ContentCard
+                    key={c.id}
+                    content={c}
+                    board={boardForContent(c)}
+                    onClick={selectContent}
+                    variant="list"
+                  />
                 ))}
               </div>
             )}
@@ -485,19 +466,6 @@ function MediaPageInner() {
               <div className="py-6 text-center text-xs text-gray-400">— 더 이상 콘텐츠가 없습니다 —</div>
             )}
           </>
-        )}
-
-        {/* 이전 모드 / 새 디자인 토글 — 큰 UX 변경의 안전망 */}
-        {uiHydrated && (
-          <div className="mt-12 mb-4 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setUiMode(isLegacy ? "new" : "legacy")}
-              className="text-xs text-gray-400 underline hover:text-gray-600"
-            >
-              {isLegacy ? "새 디자인 보기" : "이전 디자인 보기"}
-            </button>
-          </div>
         )}
       </div>
 
@@ -515,34 +483,6 @@ function MediaPageInner() {
   );
 }
 
-function Chip({
-  active,
-  onClick,
-  label,
-  variant = "primary",
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  variant?: "primary" | "muted";
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
-        active
-          ? variant === "muted"
-            ? "bg-gray-700 text-white"
-            : "bg-gray-900 text-white"
-          : "bg-gray-100 text-gray-600 hover:bg-gray-200",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
 
 function EmptyState({ isFiltered, onClear }: { isFiltered: boolean; onClear: () => void }) {
   return (
