@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { MessageCircle, Heart, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ChevronRight } from "lucide-react";
 import type { Content } from "@/types/content";
-import { contentDisplayTitle, contentDisplayBody } from "@/lib/content-display";
 import { ContentCard } from "@/components/content";
 import ContentDetailModal from "@/components/content/ContentDetailModal";
 import { useViewMode } from "@/hooks/useViewMode";
@@ -58,55 +56,17 @@ export default function RecentActivityFeed({ items }: { items: Content[] }) {
         )}
 
         {viewMode === "card-feed" && (
-          // 카드 피드 — 기존 1줄 미니 카드 디자인 유지 (마케팅 친화)
-          <ul className="divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border bg-white">
-            {items.map((c) => {
-              const tab = c.boardKey === "community-qna" ? "qna" : "free";
-              const boardLabel = c.boardKey === "community-qna" ? "Q&A" : "자유";
-              return (
-                <li key={c.id}>
-                  <Link
-                    href={`/community?tab=${tab}`}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-gray-50",
-                    )}
-                  >
-                    <span className={cn(
-                      "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold",
-                      c.boardKey === "community-qna"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-blue-100 text-blue-700",
-                    )}>
-                      {boardLabel}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-1 text-sm font-medium text-gray-900">
-                        {contentDisplayTitle(c)}
-                      </p>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
-                        <span className="truncate">{c.authorName}</span>
-                        {contentDisplayBody(c) && (
-                          <>
-                            <span className="text-gray-300">·</span>
-                            <span className="truncate hidden sm:inline">{contentDisplayBody(c).slice(0, 60)}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="shrink-0 hidden sm:flex items-center gap-2 text-xs text-gray-400">
-                      {c.commentCount > 0 && (
-                        <span className="flex items-center gap-0.5"><MessageCircle size={11} />{c.commentCount}</span>
-                      )}
-                      {c.likeCount > 0 && (
-                        <span className="flex items-center gap-0.5"><Heart size={11} />{c.likeCount}</span>
-                      )}
-                    </div>
-                    <ChevronRight size={14} className="shrink-0 text-gray-300" />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          // 카드 피드 — 디스패치 뉴스 스타일 (가로 미니 썸네일 + 제목 + 요약)
+          <div className="mx-auto max-w-3xl border border-brand-border bg-white rounded-xl overflow-hidden">
+            {items.map((c) => (
+              <ContentCard
+                key={c.id}
+                content={c}
+                variant="dispatch"
+                onClick={(content) => setSelected(content)}
+              />
+            ))}
+          </div>
         )}
 
         <div className="mt-6 text-center md:hidden">

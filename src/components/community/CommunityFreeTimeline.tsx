@@ -16,7 +16,7 @@ import type { Content } from "@/types/content";
 
 const VARIANT_BY_MODE = {
   "x-feed": "timeline",
-  "card-feed": "grid",
+  "card-feed": "dispatch",
   "board-list": "list",
 } as const;
 
@@ -109,21 +109,7 @@ export default function CommunityFreeTimeline() {
             {(() => {
               const visibleItems = feed.items.filter((c) => c.isApproved !== false || c.authorUid === user?.uid);
               const variant = VARIANT_BY_MODE[viewMode];
-              if (viewMode === "card-feed") {
-                return (
-                  <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {visibleItems.map((c) => (
-                      <ContentCard
-                        key={c.id}
-                        content={c}
-                        variant={variant}
-                        onClick={(content) => setSelected(content)}
-                      />
-                    ))}
-                  </div>
-                );
-              }
-              // x-feed (timeline) 또는 board-list (list) — 둘 다 단일 컬럼
+              // 모든 모드 단일 컬럼 — dispatch도 가로형 카드라 단일 컬럼이 적합
               return (
                 <div>
                   {visibleItems.map((c) => (

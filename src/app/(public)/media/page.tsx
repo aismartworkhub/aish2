@@ -65,7 +65,7 @@ function MediaPageInner() {
   const ff = useFeatureFlags();
   const contentDeepLink = ff.phase1.enabled && ff.phase1.contentDeepLink === true;
   // 3-스타일 뷰 모드 (페이지별 독립 localStorage)
-  const { mode: viewMode, setMode: setViewMode } = useViewMode("media", "card-feed");
+  const { mode: viewMode, setMode: setViewMode } = useViewMode("media", "x-feed");
 
   const [boards, setBoards] = useState<BoardConfig[]>(() =>
     mergeBoardsByKey(getBoardsByGroupDefault("media"), []),
@@ -414,15 +414,15 @@ function MediaPageInner() {
         ) : (
           <>
             {viewMode === "card-feed" && (
-              // 카드 피드: 인스타 Explore 그리드 — 모바일 2열, 태블릿 3열, 데스크톱 4열
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2 lg:grid-cols-4">
+              // 카드 피드: 디스패치 뉴스 스타일 — 가로 미니 썸네일 + 제목 + 요약
+              <div className="mx-auto max-w-3xl border-x border-gray-100 bg-white">
                 {filtered.map((c) => (
                   <ContentCard
                     key={c.id}
                     content={c}
                     board={boardForContent(c)}
                     onClick={selectContent}
-                    variant="instagram"
+                    variant="dispatch"
                   />
                 ))}
               </div>

@@ -43,7 +43,7 @@ function sourceTimeAgo(iso: string | undefined): string {
   }
 }
 
-export type ContentCardVariant = "grid" | "list" | "faq" | "instagram" | "timeline";
+export type ContentCardVariant = "grid" | "list" | "faq" | "instagram" | "timeline" | "dispatch";
 
 type Props = {
   content: Content;
@@ -554,7 +554,103 @@ export default function ContentCard({ content, board, onClick, variant }: Props)
 
   if (layout === "instagram") return <InstagramCard content={content} onClick={onClick} />;
   if (layout === "timeline") return <TimelineCard content={content} onClick={onClick} />;
+  if (layout === "dispatch") return <DispatchCard content={content} onClick={onClick} />;
   if (layout === "faq") return <FaqRow content={content} />;
   if (layout === "list") return <ListRow content={content} onClick={onClick} />;
   return <GridCard content={content} onClick={onClick} />;
+}
+
+/**
+ * 디스패치 뉴스 스타일 카드 — 가로형 미니 썸네일 + 제목 + 요약 + 메타.
+ * 빠른 정보 스캔에 최적화 (모바일·데스크톱 동일 레이아웃, 모바일에선 썸네일 작게).
+ */
+function DispatchCard({ content, onClick }: Omit<Props, "board" | "variant">) {
+  const ms = createdAtMs(content.createdAt);
+  const isYouTube = content.mediaType === "youtube" && !!content.channelTitle;
+  const headerName = isYouTube ? content.channelTitle! : content.authorName;
+  const headerTime = isYouTube && content.publishedAtSource
+    ? sourceTimeAgo(content.publishedAtSource)
+    : ms > 0
+      ? timeAgo(content.createdAt)
+      : "";
+  const durationLabel = formatDurationBadge(content.durationSeconds);
+  const summary = content.body?.trim();
+
+  return (
+    <button
+      type="button"
+      onClick={() => onClick?.(content)}
+      className={cn(
+        "flex w-full gap-3 border-b border-gray-100 bg-white p-3 text-left transition-colors hover:bg-gray-50",
+        content.isPinned && "bg-primary-50/40",
+      )}
+    >
+      {/* 썸네일 — 모바일 96px, sm+ 144px */}
+      <div className="relative shrink-0 w-24 sm:w-36 aspect-video overflow-hidden rounded-md bg-gray-100">
+        {content.thumbnailUrl ? (
+          <img
+            src={content.thumbnailUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-300">
+            no image
+          </div>
+        )}
+        {isYouTube && (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+            <Play size={20} className="text-white fill-white drop-shadow" />
+          </span>
+        )}
+        {durationLabel && (
+          <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-bold text-white">
+            {durationLabel}
+          </span>
+        )}
+        {ms > 0 && Date.now() - ms < 7 * 24 * 60 * 60 * 1000 && (
+          <span className="absolute top-1 left-1 rounded bg-rose-500 px-1 py-0.5 text-[9px] font-bold text-white">
+            NEW
+          </span>
+        )}
+      </div>
+
+      {/* 본문 — 제목 + 요약 + 메타 */}
+      <div className="min-w-0 flex-1 flex flex-col">
+        <h3 className="line-clamp-2 text-sm font-bold text-gray-900 leading-snug">
+          {content.isPinned && <Pin size={11} className="mr-1 inline text-primary-500" />}
+          {contentDisplayTitle(content)}
+        </h3>
+        {summary && (
+          <p className="mt-1 line-clamp-2 text-xs text-gray-600 leading-relaxed">
+            {summary}
+          </p>
+        )}
+        <div className="mt-auto pt-1.5 flex items-center gap-2 text-[11px] text-gray-400">
+          <span className="flex items-center gap-1 truncate min-w-0">
+            <span className="truncate font-medium text-gray-600">{headerName}</span>
+            {isYouTube && (
+              <BadgeCheck size={11} className="shrink-0 text-red-500 fill-red-50" aria-label="YouTube 채널" />
+            )}
+          </span>
+          {headerTime && (
+            <>
+              <span className="text-gray-300" aria-hidden>·</span>
+              <span className="shrink-0">{headerTime}</span>
+            </>
+          )}
+          <span className="ml-auto flex items-center gap-2 shrink-0">
+            <span className="flex items-center gap-0.5"><Eye size={11} />{content.views}</span>
+            {content.likeCount > 0 && (
+              <span className="flex items-center gap-0.5"><Heart size={11} />{content.likeCount}</span>
+            )}
+            {content.commentCount > 0 && (
+              <span className="flex items-center gap-0.5"><MessageCircle size={11} />{content.commentCount}</span>
+            )}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
 }
