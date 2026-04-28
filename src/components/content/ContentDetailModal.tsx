@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, Eye, Heart, Bookmark, Download, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Eye, Heart, Bookmark, Download, ExternalLink, ChevronLeft, ChevronRight, MessageCircle, Share2, Play, BadgeCheck } from "lucide-react";
 import { cn, googleDriveUcExportViewUrl, extractGoogleDriveFileId } from "@/lib/utils";
 import { extractYouTubeVideoId } from "@/lib/youtube";
 import type { Content } from "@/types/content";
@@ -10,8 +10,34 @@ import {
   incrementContentViews,
   incrementContentDownloads,
   getRelatedContents,
+  toggleReaction,
 } from "@/lib/content-engine";
 import MediaPreview from "@/components/content/MediaPreview";
+import CommentSection from "@/components/content/CommentSection";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLoginGuard } from "@/hooks/useLoginGuard";
+import LoginModal from "@/components/public/LoginModal";
+import { useToast } from "@/components/ui/Toast";
+
+/** publishedAtSource 같은 ISO 시간을 한국어 상대 시간으로 */
+function relativeTime(iso: string | undefined): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const diff = Date.now() - d.getTime();
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 1) return "방금 전";
+    if (mins < 60) return `${mins}분 전`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}시간 전`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}일 전`;
+    return d.toLocaleDateString("ko-KR");
+  } catch {
+    return "";
+  }
+}
 
 type Props = {
   content: Content | null;
@@ -73,6 +99,20 @@ export default function ContentDetailModal({
   const [viewIncremented, setViewIncremented] = useState<string | null>(null);
   const [related, setRelated] = useState<Content[]>([]);
   const touchStartX = useRef<number | null>(null);
+  const { user } = useAuth();
+  const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
+  const { toast } = useToast();
+  // 낙관적 좋아요·북마크 토글
+  const [likedDelta, setLikedDelta] = useState(0);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [busyLike, setBusyLike] = useState(false);
+  const [busyBookmark, setBusyBookmark] = useState(false);
+
+  // 콘텐츠 변경 시 토글 상태 초기화
+  useEffect(() => {
+    setLikedDelta(0);
+    setBookmarked(false);
+  }, [content?.id]);
 
   // 갤러리 모드 — 현재 인덱스 + 이동 핸들러
   const galleryIndex = useMemo(() => {
@@ -162,6 +202,67 @@ export default function ContentDetailModal({
     void incrementContentDownloads(content.id).catch(() => {});
   };
 
+  // YouTube 채널 헤더 매핑 (X.com 스타일)
+  const isYouTube = content.mediaType === "youtube" && !!content.channelTitle;
+  const headerName = isYouTube ? content.channelTitle! : content.authorName;
+  const headerHandle = isYouTube && content.channelId ? `@${content.channelId.slice(0, 14)}` : undefined;
+  const headerTime = isYouTube && content.publishedAtSource
+    ? relativeTime(content.publishedAtSource)
+    : "";
+  const displayLikeCount = Math.max(0, content.likeCount + likedDelta);
+  const isLiked = likedDelta > 0;
+
+  const handleLike = async () => {
+    if (!user) {
+      requireLogin(() => undefined, "좋아요는 로그인 후 가능합니다.");
+      return;
+    }
+    if (busyLike) return;
+    setBusyLike(true);
+    try {
+      const isNow = await toggleReaction(content.id, user.uid, "like");
+      setLikedDelta(isNow ? 1 : -1);
+    } catch {
+      /* 실패 시 원복 */
+    } finally {
+      setBusyLike(false);
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (!user) {
+      requireLogin(() => undefined, "북마크는 로그인 후 가능합니다.");
+      return;
+    }
+    if (busyBookmark) return;
+    setBusyBookmark(true);
+    try {
+      const isNow = await toggleReaction(content.id, user.uid, "bookmark");
+      setBookmarked(isNow);
+    } catch {
+      /* 실패 무시 */
+    } finally {
+      setBusyBookmark(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const url = typeof window !== "undefined"
+      ? `${window.location.origin}/media?id=${content.id}`
+      : `/media?id=${content.id}`;
+    try {
+      const nav = typeof navigator !== "undefined" ? navigator : null;
+      if (nav && "share" in nav && typeof nav.share === "function") {
+        await nav.share({ title, text: body?.slice(0, 100) ?? "", url });
+      } else if (nav?.clipboard?.writeText) {
+        await nav.clipboard.writeText(url);
+        toast("링크가 복사되었습니다.", "success");
+      }
+    } catch {
+      /* 사용자 취소 등 */
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden />
@@ -197,22 +298,46 @@ export default function ContentDetailModal({
           "relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl",
         )}
       >
-        {/* 헤더 */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+        {/* 헤더 — X.com 스타일 (아바타 + 채널/작성자 + 인증마크 + 시간) */}
+        <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-3">
+          {/* 아바타 */}
+          {isYouTube && content.thumbnailUrl ? (
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-100">
+              <img src={content.thumbnailUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+              <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                <Play size={12} className="text-white fill-white" />
+              </span>
+            </div>
+          ) : content.authorPhotoURL ? (
+            <img src={content.authorPhotoURL} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-sm font-bold text-white">
+              {headerName?.charAt(0) ?? "A"}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-base font-bold text-gray-900">{title}</h2>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-              <span>{content.authorName}</span>
-              <span className="flex items-center gap-1"><Eye size={12} />{content.views}</span>
-              <span className="flex items-center gap-1"><Heart size={12} />{content.likeCount}</span>
-              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">{content.boardKey}</span>
+            <div className="flex items-center gap-1.5 text-sm">
+              <span className="font-semibold text-gray-900 truncate">{headerName}</span>
+              {isYouTube && (
+                <BadgeCheck size={14} className="shrink-0 text-red-500 fill-red-50" aria-label="YouTube 채널" />
+              )}
+              {headerHandle && (
+                <span className="hidden sm:inline text-gray-500 text-xs truncate">{headerHandle}</span>
+              )}
+              {headerTime && (
+                <>
+                  <span className="text-gray-400" aria-hidden>·</span>
+                  <span className="text-gray-500 text-xs">{headerTime}</span>
+                </>
+              )}
+            </div>
+            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400">
+              <span className="rounded bg-gray-100 px-1.5 py-0.5">{content.boardKey}</span>
               {dlBadge && (
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                    dlBadge.tone === "new"
-                      ? "bg-rose-100 text-rose-700"
-                      : "bg-amber-100 text-amber-800",
+                    "rounded-full px-2 py-0.5 font-bold",
+                    dlBadge.tone === "new" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-800",
                   )}
                 >
                   {dlBadge.label}
@@ -273,9 +398,12 @@ export default function ContentDetailModal({
             ) : null}
           </div>
 
-          {/* 본문 텍스트 */}
-          {(body || content.tags?.length) && (
-            <div className="px-5 py-4">
+          {/* 제목 + 본문 텍스트 + 태그 */}
+          {(title || body || content.tags?.length) && (
+            <div className="px-5 py-4 border-t border-gray-100">
+              {title && (
+                <h1 className="text-lg font-bold text-gray-900 leading-snug mb-2">{title}</h1>
+              )}
               {body && (
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{body}</p>
               )}
@@ -294,37 +422,97 @@ export default function ContentDetailModal({
             </div>
           )}
 
-          {/* 관련 콘텐츠 4개 */}
+          {/* X.com 스타일 액션바 — 댓글·좋아요·북마크·공유·조회수 */}
+          <div className="flex items-center gap-6 border-y border-gray-100 px-5 py-3 text-sm text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <MessageCircle size={16} />
+              <span>{content.commentCount}</span>
+            </span>
+            <button
+              type="button"
+              onClick={handleLike}
+              disabled={busyLike}
+              className={cn(
+                "flex items-center gap-1.5 transition-colors hover:text-rose-500 disabled:opacity-50",
+                isLiked && "text-rose-500",
+              )}
+              aria-label="좋아요"
+              aria-pressed={isLiked}
+            >
+              <Heart size={16} className={isLiked ? "fill-current" : ""} />
+              <span>{displayLikeCount}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleBookmark}
+              disabled={busyBookmark}
+              className={cn(
+                "flex items-center gap-1.5 transition-colors hover:text-primary-600 disabled:opacity-50",
+                bookmarked && "text-primary-600",
+              )}
+              aria-label="북마크"
+              aria-pressed={bookmarked}
+            >
+              <Bookmark size={16} className={bookmarked ? "fill-current" : ""} />
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex items-center gap-1.5 transition-colors hover:text-primary-600"
+              aria-label="공유"
+            >
+              <Share2 size={16} />
+            </button>
+            <span className="ml-auto flex items-center gap-1.5">
+              <Eye size={16} />
+              <span>{content.views}</span>
+            </span>
+          </div>
+
+          {/* 댓글 섹션 — 답글 스레드 */}
+          <div className="px-5 py-4">
+            <CommentSection
+              contentId={content.id}
+              contentAuthorUid={content.authorUid}
+              contentTitle={title}
+            />
+          </div>
+
+          {/* 관련 콘텐츠 — 답글처럼 세로 카드 (X.com 스레드 스타일) */}
           {related.length > 0 && (
             <div className="border-t border-gray-100 bg-gray-50/60 px-5 py-4">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
                 관련 콘텐츠
               </h3>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <ul className="space-y-2">
                 {related.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => onSelectRelated?.(r)}
-                    className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left transition-shadow hover:shadow-md"
-                  >
-                    <div className="aspect-video w-full overflow-hidden bg-gray-100">
-                      <MediaPreview
-                        mediaUrl={r.mediaUrl}
-                        mediaType={r.mediaType}
-                        thumbnailUrl={r.thumbnailUrl}
-                        title={contentDisplayTitle(r)}
-                        className="h-full w-full"
-                      />
-                    </div>
-                    <div className="p-2">
-                      <p className="line-clamp-2 text-xs font-medium text-gray-800 group-hover:text-primary-600">
-                        {contentDisplayTitle(r)}
-                      </p>
-                    </div>
-                  </button>
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectRelated?.(r)}
+                      className="flex gap-3 w-full overflow-hidden rounded-lg border border-gray-200 bg-white text-left transition-shadow hover:shadow-md p-2"
+                    >
+                      <div className="w-32 aspect-video shrink-0 overflow-hidden bg-gray-100 rounded">
+                        <MediaPreview
+                          mediaUrl={r.mediaUrl}
+                          mediaType={r.mediaType}
+                          thumbnailUrl={r.thumbnailUrl}
+                          title={contentDisplayTitle(r)}
+                          className="h-full w-full"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-semibold text-gray-900 hover:text-primary-600">
+                          {contentDisplayTitle(r)}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500 truncate">
+                          {r.channelTitle ?? r.authorName}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
         </div>
@@ -355,17 +543,10 @@ export default function ContentDetailModal({
                 원본 열기
               </a>
             )}
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100"
-              aria-label="북마크 (곧 활성화)"
-              disabled
-            >
-              <Bookmark size={14} />
-            </button>
           </div>
         )}
       </div>
+      <LoginModal isOpen={showLogin} onClose={closeLogin} message={loginMessage} />
     </div>
   );
 }
