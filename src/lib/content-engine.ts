@@ -531,8 +531,10 @@ export async function createComment(
     ...data,
     createdAt: serverTimestamp(),
   });
+  // 활동순 정렬 — 댓글 추가 시 부모 콘텐츠의 lastActivityAt 갱신 (통합 피드에서 상단 이동)
   await updateDoc(doc(db, COLLECTIONS.CONTENTS, data.contentId), {
     commentCount: increment(1),
+    lastActivityAt: serverTimestamp(),
   });
   invalidateCache(COLLECTIONS.CONTENT_COMMENTS);
   invalidateCache(COLLECTIONS.CONTENTS);
@@ -544,6 +546,7 @@ export async function deleteComment(
   contentId: string,
 ): Promise<void> {
   await deleteDoc(doc(db, COLLECTIONS.CONTENT_COMMENTS, commentId));
+  // 삭제는 lastActivityAt 갱신 안 함 (마지막 진짜 활동 시각 유지)
   await updateDoc(doc(db, COLLECTIONS.CONTENTS, contentId), {
     commentCount: increment(-1),
   });

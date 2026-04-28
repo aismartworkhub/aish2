@@ -65,6 +65,9 @@ export interface Content {
   /** 자료 다운로드 클릭 누적 (PDF·문서·외부 링크). incrementContentDownloads로 +1. */
   downloadCount?: number;
 
+  /** 마지막 액션(댓글 작성/삭제) 시각. 통합 피드 활동순 정렬 기준. 없으면 createdAt 폴백. */
+  lastActivityAt?: unknown;
+
   /** YouTube 메타 (mediaType==="youtube"일 때만 의미 있음). X.com 스타일 헤더용. */
   channelTitle?: string;
   channelId?: string;
