@@ -4,7 +4,16 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type AdminSettingsHintTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai";
+export type AdminSettingsHintTab =
+  | "hero"
+  | "stats"
+  | "cta"
+  | "banner"
+  | "integrations"
+  | "theme"
+  | "ai"
+  | "phases"
+  | "sections";
 
 const COPY: Record<
   AdminSettingsHintTab,
@@ -67,10 +76,30 @@ const COPY: Record<
     publicPath: "/media",
     publicLabel: "콘텐츠실 열기",
   },
+  phases: {
+    title: "기능 플래그 (Phase) — 점진 공개 가이드",
+    lines: [
+      "각 단계는 코드는 이미 배포되어 있고, 여기서 토글로 사용자 노출만 켭니다.",
+      "관리자만 → 베타 검증 → 전체 공개 순으로 안전하게 출시하세요.",
+    ],
+    publicPath: "/",
+    publicLabel: "공개 홈",
+  },
+  sections: {
+    title: "섹션 표시 — 메인 페이지 노출 ON/OFF",
+    lines: [
+      "히어로·실적·프로그램 등 메인 섹션을 켜고 끌 수 있습니다.",
+      "비활성화 시 해당 섹션은 사용자에게 보이지 않습니다.",
+    ],
+    publicPath: "/",
+    publicLabel: "메인 페이지 열기",
+  },
 };
 
 export default function AdminSettingsPublicHint({ tab }: { tab: AdminSettingsHintTab }) {
   const c = COPY[tab];
+  // 정의되지 않은 탭은 안전하게 렌더 안 함 (방어)
+  if (!c) return null;
   return (
     <div
       className={cn(
