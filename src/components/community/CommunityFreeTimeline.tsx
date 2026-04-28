@@ -10,7 +10,15 @@ import ContentDetailModal from "@/components/content/ContentDetailModal";
 import InlineComposer from "@/components/community/InlineComposer";
 import { createContent } from "@/lib/content-engine";
 import { useToast } from "@/components/ui/Toast";
+import { useViewMode } from "@/hooks/useViewMode";
+import ViewModeToggle from "@/components/ui/ViewModeToggle";
 import type { Content } from "@/types/content";
+
+const VARIANT_BY_MODE = {
+  "x-feed": "timeline",
+  "card-feed": "grid",
+  "board-list": "list",
+} as const;
 
 /**
  * /community 자유게시판 탭의 X 스타일 타임라인.
@@ -24,6 +32,7 @@ export default function CommunityFreeTimeline() {
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
   const { toast } = useToast();
   const [selected, setSelected] = useState<Content | null>(null);
+  const { mode: viewMode, setMode: setViewMode } = useViewMode("community", "x-feed");
 
   const feed = useInfiniteContents({
     boardKey: "community-free",
@@ -66,6 +75,7 @@ export default function CommunityFreeTimeline() {
             <h2 className="text-xl font-bold text-brand-dark uppercase tracking-tight">묻고 답하기</h2>
             <p className="mt-1 text-sm text-gray-500">궁금한 점을 질문하고 서로 답변을 나눠보세요.</p>
           </div>
+          <ViewModeToggle mode={viewMode} onChange={setViewMode} className="shrink-0" />
         </div>
       </div>
 
@@ -96,16 +106,37 @@ export default function CommunityFreeTimeline() {
           </div>
         ) : (
           <>
-            {feed.items
-              .filter((c) => c.isApproved !== false || c.authorUid === user?.uid)
-              .map((c) => (
-                <ContentCard
-                  key={c.id}
-                  content={c}
-                  variant="timeline"
-                  onClick={(content) => setSelected(content)}
-                />
-              ))}
+            {(() => {
+              const visibleItems = feed.items.filter((c) => c.isApproved !== false || c.authorUid === user?.uid);
+              const variant = VARIANT_BY_MODE[viewMode];
+              if (viewMode === "card-feed") {
+                return (
+                  <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {visibleItems.map((c) => (
+                      <ContentCard
+                        key={c.id}
+                        content={c}
+                        variant={variant}
+                        onClick={(content) => setSelected(content)}
+                      />
+                    ))}
+                  </div>
+                );
+              }
+              // x-feed (timeline) 또는 board-list (list) — 둘 다 단일 컬럼
+              return (
+                <div>
+                  {visibleItems.map((c) => (
+                    <ContentCard
+                      key={c.id}
+                      content={c}
+                      variant={variant}
+                      onClick={(content) => setSelected(content)}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
             <div ref={feed.sentinelRef} className="h-12" aria-hidden />
             {feed.loadingMore && (
               <div className="py-4 text-center text-xs text-gray-400">더 불러오는 중...</div>
