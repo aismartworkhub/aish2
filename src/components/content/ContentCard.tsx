@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, MessageCircle, Eye, Pin, Bookmark, Share2 } from "lucide-react";
+import { Heart, MessageCircle, Eye, Pin, Bookmark, Share2, Play, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { contentDisplayTitle } from "@/lib/content-display";
 import type { Content, BoardConfig } from "@/types/content";
@@ -11,6 +11,37 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
 import { useToast } from "@/components/ui/Toast";
+
+/** 영상 길이(초) → 표시용 라벨 ("12:34", "1:23:45", "" if invalid) */
+function formatDurationBadge(seconds: number | undefined): string {
+  if (!seconds || seconds <= 0) return "";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const mm = m.toString().padStart(2, "0");
+  const ss = s.toString().padStart(2, "0");
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}
+
+/** 원본 시간(YouTube publishedAtSource) → "X시간 전" 형식 */
+function sourceTimeAgo(iso: string | undefined): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const diff = Date.now() - d.getTime();
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 1) return "방금 전";
+    if (mins < 60) return `${mins}분 전`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}시간 전`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return `${days}일 전`;
+    return d.toLocaleDateString("ko-KR");
+  } catch {
+    return "";
+  }
+}
 
 export type ContentCardVariant = "grid" | "list" | "faq" | "instagram" | "timeline";
 
@@ -325,6 +356,17 @@ function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
     }
   };
 
+  // YouTube 콘텐츠는 채널 헤더로 표시 (X.com 스타일)
+  const isYouTube = content.mediaType === "youtube" && !!content.channelTitle;
+  const headerName = isYouTube ? content.channelTitle! : content.authorName;
+  const headerHandle = isYouTube && content.channelId ? `@${content.channelId.slice(0, 14)}` : undefined;
+  const headerTime = isYouTube && content.publishedAtSource
+    ? sourceTimeAgo(content.publishedAtSource)
+    : ms > 0
+      ? timeAgo(content.createdAt)
+      : "";
+  const durationLabel = formatDurationBadge(content.durationSeconds);
+
   return (
     <article
       className={cn(
@@ -333,8 +375,20 @@ function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
       )}
     >
       <div className="flex gap-3">
-        {/* 아바타 */}
-        {content.authorPhotoURL ? (
+        {/* 아바타 — YouTube면 영상 썸네일에 ▶ 오버레이, 일반 글이면 작성자 사진 */}
+        {isYouTube && content.thumbnailUrl ? (
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-100">
+            <img
+              src={content.thumbnailUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+              <Play size={12} className="text-white fill-white" />
+            </span>
+          </div>
+        ) : content.authorPhotoURL ? (
           <img
             src={content.authorPhotoURL}
             alt=""
@@ -343,26 +397,32 @@ function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
           />
         ) : (
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-sm font-bold text-white">
-            {content.authorName?.charAt(0) ?? "A"}
+            {headerName?.charAt(0) ?? "A"}
           </div>
         )}
         <div className="min-w-0 flex-1">
-          {/* 작성자·시간 1줄 */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-semibold text-gray-900 truncate">{content.authorName}</span>
+          {/* 작성자·핸들·시간 1줄 (X.com 스타일) */}
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="font-semibold text-gray-900 truncate">{headerName}</span>
+            {isYouTube && (
+              <BadgeCheck size={14} className="shrink-0 text-red-500 fill-red-50" aria-label="YouTube 채널" />
+            )}
             {content.isPinned && <Pin size={12} className="shrink-0 text-primary-500" />}
+            {headerHandle && (
+              <span className="hidden sm:inline text-gray-500 text-xs truncate">{headerHandle}</span>
+            )}
             <span className="text-gray-400" aria-hidden>·</span>
             <span className="text-gray-500 text-xs" suppressHydrationWarning>
-              {ms > 0 ? timeAgo(content.createdAt) : ""}
+              {headerTime}
             </span>
           </div>
 
-          {/* 제목 */}
+          {/* 제목 — X.com에선 본문이라 평문 톤 다운 */}
           {content.title && (
             <button
               type="button"
               onClick={() => onClick?.(content)}
-              className="mt-1 block text-left text-sm font-bold text-gray-900 hover:text-primary-600"
+              className="mt-1 block text-left text-sm font-semibold text-gray-900 hover:text-primary-600"
             >
               {contentDisplayTitle(content)}
             </button>
@@ -383,7 +443,7 @@ function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
               className="mt-3 block w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50 text-left"
               aria-label="미디어 열기"
             >
-              <div className="aspect-video w-full">
+              <div className="relative aspect-video w-full">
                 <MediaPreview
                   mediaUrl={content.mediaUrl}
                   mediaType={content.mediaType}
@@ -391,6 +451,11 @@ function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
                   title={contentDisplayTitle(content)}
                   className="h-full w-full"
                 />
+                {isYouTube && durationLabel && (
+                  <span className="absolute bottom-1.5 right-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {durationLabel}
+                  </span>
+                )}
               </div>
             </button>
           )}
