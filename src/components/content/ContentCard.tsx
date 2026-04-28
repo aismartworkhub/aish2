@@ -51,6 +51,8 @@ type Props = {
   onClick?: (content: Content) => void;
   /** 시각 변형 — 기본은 board.layout. 명시 시 오버라이드 (예: /media에서 "instagram"). */
   variant?: ContentCardVariant;
+  /** Above-the-fold 가속 — 첫 N개 카드 이미지를 eager + fetchpriority high로 */
+  priority?: boolean;
 };
 
 function timeAgo(dateVal: unknown): string {
@@ -71,7 +73,7 @@ function timeAgo(dateVal: unknown): string {
 }
 
 /** 그리드(콘텐츠) 레이아웃 카드 */
-function GridCard({ content, onClick }: Omit<Props, "board">) {
+function GridCard({ content, onClick, priority }: Omit<Props, "board">) {
   return (
     <button
       type="button"
@@ -88,6 +90,7 @@ function GridCard({ content, onClick }: Omit<Props, "board">) {
           thumbnailUrl={content.thumbnailUrl}
           title={contentDisplayTitle(content)}
           className="h-full w-full transition-transform duration-200 group-hover:scale-105"
+          priority={priority}
         />
         {content.isShort && (
           <span className={cn(
@@ -222,7 +225,7 @@ function CornerBadge({ content }: { content: Content }) {
  * - hover/포커스 시 어두운 그라데이션 + 제목·뷰·좋아요 오버레이
  * - 좌상단 NEW/다운로드 배지
  */
-function InstagramCard({ content, onClick }: Omit<Props, "board" | "variant">) {
+function InstagramCard({ content, onClick, priority }: Omit<Props, "board" | "variant">) {
   return (
     <button
       type="button"
@@ -239,6 +242,7 @@ function InstagramCard({ content, onClick }: Omit<Props, "board" | "variant">) {
           thumbnailUrl={content.thumbnailUrl}
           title={contentDisplayTitle(content)}
           className="block w-full transition-transform duration-300 group-hover:scale-[1.03]"
+          priority={priority}
         />
         {content.isShort && (
           <span className="absolute bottom-2 right-2 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -282,7 +286,7 @@ function InstagramCard({ content, onClick }: Omit<Props, "board" | "variant">) {
  *   (이번 단계는 카운트만 표시·클릭은 카드 onClick으로 모달 진입.
  *   Sprint D Batch 2에서 인라인 토글로 교체.)
  */
-function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
+function TimelineCard({ content, onClick, priority }: Omit<Props, "board" | "variant">) {
   const ms = createdAtMs(content.createdAt);
   const { user } = useAuth();
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
@@ -450,6 +454,7 @@ function TimelineCard({ content, onClick }: Omit<Props, "board" | "variant">) {
                   thumbnailUrl={content.thumbnailUrl}
                   title={contentDisplayTitle(content)}
                   className="h-full w-full"
+                  priority={priority}
                 />
                 {isYouTube && durationLabel && (
                   <span className="absolute bottom-1.5 right-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -548,23 +553,23 @@ function FaqRow({ content }: Omit<Props, "board" | "onClick">) {
   );
 }
 
-export default function ContentCard({ content, board, onClick, variant }: Props) {
+export default function ContentCard({ content, board, onClick, variant, priority }: Props) {
   // variant 명시 시 보드 layout 무시 (예: /media에서 instagram 강제)
   const layout: ContentCardVariant = variant ?? board?.layout ?? "grid";
 
-  if (layout === "instagram") return <InstagramCard content={content} onClick={onClick} />;
-  if (layout === "timeline") return <TimelineCard content={content} onClick={onClick} />;
-  if (layout === "dispatch") return <DispatchCard content={content} onClick={onClick} />;
+  if (layout === "instagram") return <InstagramCard content={content} onClick={onClick} priority={priority} />;
+  if (layout === "timeline") return <TimelineCard content={content} onClick={onClick} priority={priority} />;
+  if (layout === "dispatch") return <DispatchCard content={content} onClick={onClick} priority={priority} />;
   if (layout === "faq") return <FaqRow content={content} />;
   if (layout === "list") return <ListRow content={content} onClick={onClick} />;
-  return <GridCard content={content} onClick={onClick} />;
+  return <GridCard content={content} onClick={onClick} priority={priority} />;
 }
 
 /**
  * 디스패치 뉴스 스타일 카드 — 가로형 미니 썸네일 + 제목 + 요약 + 메타.
  * 빠른 정보 스캔에 최적화 (모바일·데스크톱 동일 레이아웃, 모바일에선 썸네일 작게).
  */
-function DispatchCard({ content, onClick }: Omit<Props, "board" | "variant">) {
+function DispatchCard({ content, onClick, priority }: Omit<Props, "board" | "variant">) {
   const ms = createdAtMs(content.createdAt);
   const isYouTube = content.mediaType === "youtube" && !!content.channelTitle;
   const headerName = isYouTube ? content.channelTitle! : content.authorName;
@@ -592,6 +597,9 @@ function DispatchCard({ content, onClick }: Omit<Props, "board" | "variant">) {
             src={content.thumbnailUrl}
             alt=""
             className="h-full w-full object-cover"
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            decoding="async"
             referrerPolicy="no-referrer"
           />
         ) : (

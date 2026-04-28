@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
 import { useInfiniteContents } from "@/hooks/useInfiniteContents";
 import { ContentCard } from "@/components/content";
-import ContentDetailModal from "@/components/content/ContentDetailModal";
+import ContentCardSkeleton from "@/components/content/ContentCardSkeleton";
 import InlineComposer from "@/components/community/InlineComposer";
+
+// 상세 모달은 카드 클릭 시에만 필요 → 초기 번들에서 제외
+const ContentDetailModal = dynamic(() => import("@/components/content/ContentDetailModal"), {
+  ssr: false,
+});
 import { createContent } from "@/lib/content-engine";
 import { useToast } from "@/components/ui/Toast";
 import { useViewMode } from "@/hooks/useViewMode";
@@ -37,6 +43,7 @@ export default function CommunityFreeTimeline() {
   const feed = useInfiniteContents({
     boardKey: "community-free",
     pageSize: 20,
+    firstPageSize: 6, // ATF 가속
   });
 
   const handleSubmit = useCallback(
@@ -88,7 +95,10 @@ export default function CommunityFreeTimeline() {
       {/* 무한 스크롤 타임라인 */}
       <div>
         {feed.loading ? (
-          <div className="py-16 text-center text-sm text-gray-400">불러오는 중...</div>
+          <ContentCardSkeleton
+            variant={viewMode === "x-feed" ? "timeline" : viewMode === "board-list" ? "list" : "dispatch"}
+            count={6}
+          />
         ) : feed.error ? (
           <div className="py-16 text-center text-sm text-red-500">{feed.error}</div>
         ) : feed.items.length === 0 ? (
@@ -112,12 +122,13 @@ export default function CommunityFreeTimeline() {
               // 모든 모드 단일 컬럼 — dispatch도 가로형 카드라 단일 컬럼이 적합
               return (
                 <div>
-                  {visibleItems.map((c) => (
+                  {visibleItems.map((c, i) => (
                     <ContentCard
                       key={c.id}
                       content={c}
                       variant={variant}
                       onClick={(content) => setSelected(content)}
+                      priority={i < 3}
                     />
                   ))}
                 </div>

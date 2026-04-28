@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { ChevronRight } from "lucide-react";
 import type { Content } from "@/types/content";
 import { ContentCard } from "@/components/content";
-import ContentDetailModal from "@/components/content/ContentDetailModal";
 import { useViewMode } from "@/hooks/useViewMode";
 import ViewModeToggle from "@/components/ui/ViewModeToggle";
+
+const ContentDetailModal = dynamic(() => import("@/components/content/ContentDetailModal"), {
+  ssr: false,
+});
 
 /**
  * 홈 매거진의 최근 커뮤니티 활동 피드.

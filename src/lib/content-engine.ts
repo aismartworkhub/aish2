@@ -627,7 +627,7 @@ export function detectMediaType(url: string): {
   if (videoId) {
     return {
       mediaType: "youtube",
-      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+      thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
       embedUrl: `https://www.youtube.com/embed/${videoId}`,
     };
   }

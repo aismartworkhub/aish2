@@ -10,9 +10,34 @@ export type UseInfiniteContentsOptions = {
   tags?: string[];
   searchTerms?: string[];
   pageSize?: number;
+  /**
+   * 첫 페이지에만 적용되는 작은 크기 — Above-the-fold 가속용.
+   * 미지정 시 pageSize와 동일.
+   * 권장값: 6 (모바일 1열 / 데스크톱 한 화면 채울 수)
+   */
+  firstPageSize?: number;
+  /** 첫 페이지 로드 후 idle 시 다음 페이지 prefetch (기본 true) */
+  idlePrefetch?: boolean;
   /** true면 의존성 변경 시 처음부터 다시 로드 (기본값) */
   resetOnDeps?: boolean;
 };
+
+/** requestIdleCallback 폴백 (Safari 미지원) */
+function scheduleIdle(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  type IdleCallbackHandle = number;
+  type IdleWindow = Window & {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => IdleCallbackHandle;
+    cancelIdleCallback?: (handle: IdleCallbackHandle) => void;
+  };
+  const w = window as IdleWindow;
+  if (typeof w.requestIdleCallback === "function") {
+    const handle = w.requestIdleCallback(callback, { timeout: 1500 });
+    return () => w.cancelIdleCallback?.(handle);
+  }
+  const t = window.setTimeout(callback, 300);
+  return () => window.clearTimeout(t);
+}
 
 export type UseInfiniteContentsResult = {
   items: Content[];
@@ -36,6 +61,8 @@ export function useInfiniteContents(
   opts: UseInfiniteContentsOptions,
 ): UseInfiniteContentsResult {
   const pageSize = opts.pageSize ?? 24;
+  const firstPageSize = opts.firstPageSize ?? pageSize;
+  const idlePrefetchEnabled = opts.idlePrefetch ?? true;
   const [items, setItems] = useState<Content[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -59,12 +86,13 @@ export function useInfiniteContents(
     setError(null);
     lastDocRef.current = null;
     try {
+      // ATF 가속: 첫 페이지는 firstPageSize(작게)로 → 화면 빠르게 채움
       const page = await getContentsPaginated({
         boardKey: opts.boardKey,
         group: opts.group,
         tags: opts.tags,
         searchTerms: opts.searchTerms,
-        limit: pageSize,
+        limit: firstPageSize,
       });
       if (tickRef.current !== myTick) return;
       setItems(page.items);
@@ -79,7 +107,7 @@ export function useInfiniteContents(
       if (tickRef.current === myTick) setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [depKey, pageSize]);
+  }, [depKey, firstPageSize]);
 
   const loadMore = useCallback(async () => {
     if (!hasMore || loadingMore || loading) return;
@@ -112,6 +140,20 @@ export function useInfiniteContents(
   useEffect(() => {
     void loadFirst();
   }, [loadFirst]);
+
+  // 첫 페이지 로드 후 idle 시 다음 페이지 백그라운드 prefetch
+  // (스크롤 시작 시 이미 데이터 준비 완료 → 무한 스크롤 끊김 없음)
+  useEffect(() => {
+    if (!idlePrefetchEnabled) return;
+    if (loading || loadingMore) return;
+    if (!hasMore) return;
+    if (items.length === 0) return;
+    // 첫 페이지보다 작거나 같은 경우(=초기 로드 직후)에만 prefetch
+    if (items.length > firstPageSize) return;
+    const cancel = scheduleIdle(() => { void loadMore(); });
+    return cancel;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, loadingMore, hasMore, items.length, idlePrefetchEnabled, firstPageSize]);
 
   // Intersection Observer 부착
   const sentinelRef = useCallback(

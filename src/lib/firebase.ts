@@ -1,5 +1,10 @@
 import { initializeApp, getApps } from "firebase/app";
-import { initializeFirestore, getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -18,10 +23,27 @@ const app = isFirstInit
     )
   : getApps()[0];
 
-// undefined 필드를 자동으로 제거하여 SDK가 throw하는 것을 방지.
-// initializeFirestore는 첫 1회만 호출 가능하므로 isFirstInit 시점에만 실행.
-export const db = isFirstInit
-  ? initializeFirestore(app, { ignoreUndefinedProperties: true })
-  : getFirestore(app);
+/**
+ * Firestore 초기화 — IndexedDB 영구 캐시 활성화.
+ * - 재방문 시 같은 쿼리는 IndexedDB에서 즉시 반환 → 첫 표시 가속
+ * - 백그라운드에서 서버와 sync (stale-while-revalidate)
+ * - 멀티 탭 동기화 지원
+ * - SSR/빌드 시점에 indexedDB 미존재로 throw할 수 있어 try/catch로 폴백
+ */
+function createDb() {
+  try {
+    return initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch {
+    // SSR · 첫 호출 외 호출 · IndexedDB 미지원 환경 폴백
+    return initializeFirestore(app, { ignoreUndefinedProperties: true });
+  }
+}
+
+export const db = isFirstInit ? createDb() : getFirestore(app);
 export const auth = getAuth(app);
 export default app;

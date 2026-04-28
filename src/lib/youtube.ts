@@ -54,9 +54,11 @@ export type YoutubeThumbQuality = "maxresdefault" | "hqdefault" | "mqdefault" | 
 export function youtubeThumbnailUrls(videoUrl: string): string[] {
   const id = extractYouTubeVideoId(videoUrl);
   if (!id) return [];
+  // hqdefault 우선 — 첫 시도부터 좋은 품질 → 폴백 추가 요청 회피.
+  // (mqdefault는 일부 영상에서 letter-box 검은 띠가 있고, hqdefault는 항상 존재)
   return [
-    `https://img.youtube.com/vi/${id}/mqdefault.jpg`,
     `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+    `https://img.youtube.com/vi/${id}/mqdefault.jpg`,
     `https://img.youtube.com/vi/${id}/default.jpg`,
   ];
 }

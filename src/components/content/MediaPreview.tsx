@@ -20,6 +20,8 @@ type Props = {
   className?: string;
   /** true면 YouTube iframe 임베드, false면 썸네일만 */
   embed?: boolean;
+  /** Above-the-fold 첫 N개 카드 — 우선 로드 (eager + fetchpriority high) */
+  priority?: boolean;
 };
 
 const FALLBACK_ICON: Record<MediaType, typeof Play> = {
@@ -202,6 +204,7 @@ export default function MediaPreview({
   title,
   className,
   embed = false,
+  priority = false,
 }: Props) {
   const detected = useMemo(
     () => (mediaUrl ? detectMediaType(mediaUrl) : null),
@@ -268,7 +271,8 @@ export default function MediaPreview({
           src={currentSrc}
           alt={title}
           className="h-full w-full object-cover"
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
           decoding="async"
           referrerPolicy="no-referrer"
           onError={handleImgError}

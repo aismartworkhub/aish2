@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X, Plus, Sparkles, Play, Image as ImageIcon, FileText, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,7 +9,12 @@ import { getBoardsByGroup, buildSearchTerms, getPopularTags } from "@/lib/conten
 import { getBoardsByGroupDefault, mergeBoardsByKey, DEFAULT_BOARDS } from "@/lib/board-defaults";
 import type { Content, BoardConfig } from "@/types/content";
 import { ContentCard } from "@/components/content";
-import ContentDetailModal from "@/components/content/ContentDetailModal";
+import ContentCardSkeleton from "@/components/content/ContentCardSkeleton";
+
+// 상세 모달은 카드 클릭 시에만 필요 → 첫 페이지 로드에서 제외 (lazy chunk)
+const ContentDetailModal = dynamic(() => import("@/components/content/ContentDetailModal"), {
+  ssr: false,
+});
 import { useLoginGuard } from "@/hooks/useLoginGuard";
 import LoginModal from "@/components/public/LoginModal";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
@@ -89,12 +95,14 @@ function MediaPageInner() {
   }, [searchActive]);
 
   // 무한 스크롤 — boardKey가 선택되면 보드 단위, 아니면 group=media 통합 피드
+  // ATF 가속: 첫 페이지는 6건만 → 빠르게 첫 표시 후 idle 시 다음 18건 prefetch
   const feed = useInfiniteContents({
     boardKey: activeBoardKey ?? undefined,
     group: activeBoardKey ? undefined : "media",
     tags: tagFilter && !searchTokens ? tagFilter : undefined,
     searchTerms: searchTokens,
     pageSize: 24,
+    firstPageSize: 6,
   });
 
   // 스크롤 위치 복원 — 모달 닫고 돌아올 때 같은 위치
@@ -406,7 +414,13 @@ function MediaPageInner() {
 
         {/* 메인 그리드 — CSS columns 마소닉 */}
         {feed.loading ? (
-          <div className="py-20 text-center text-sm text-gray-400">콘텐츠를 불러오는 중...</div>
+          // 로딩 중에도 빈 화면 대신 스켈레톤 즉시 표시 (체감 속도 ↑)
+          <div className="mx-auto max-w-3xl border-x border-gray-100 bg-white">
+            <ContentCardSkeleton
+              variant={viewMode === "x-feed" ? "timeline" : viewMode === "board-list" ? "list" : "dispatch"}
+              count={6}
+            />
+          </div>
         ) : feed.error ? (
           <div className="py-20 text-center text-sm text-red-500">{feed.error}</div>
         ) : filtered.length === 0 ? (
@@ -416,13 +430,14 @@ function MediaPageInner() {
             {viewMode === "card-feed" && (
               // 카드 피드: 디스패치 뉴스 스타일 — 가로 미니 썸네일 + 제목 + 요약
               <div className="mx-auto max-w-3xl border-x border-gray-100 bg-white">
-                {filtered.map((c) => (
+                {filtered.map((c, i) => (
                   <ContentCard
                     key={c.id}
                     content={c}
                     board={boardForContent(c)}
                     onClick={selectContent}
                     variant="dispatch"
+                    priority={i < 4}
                   />
                 ))}
               </div>
@@ -430,13 +445,14 @@ function MediaPageInner() {
             {viewMode === "x-feed" && (
               // X 피드: 단일 컬럼 timeline (X.com 스타일)
               <div className="mx-auto max-w-2xl border-x border-gray-100 bg-white">
-                {filtered.map((c) => (
+                {filtered.map((c, i) => (
                   <ContentCard
                     key={c.id}
                     content={c}
                     board={boardForContent(c)}
                     onClick={selectContent}
                     variant="timeline"
+                    priority={i < 2}
                   />
                 ))}
               </div>
