@@ -8,6 +8,16 @@
 import type { Content } from "@/types/content";
 import type { Review, Post, Resource } from "@/types/firestore";
 
+/** Cohort (수료증 기수) — admin/certificates/page.tsx와 동일 shape (별도 export type 없음) */
+export interface CohortLike {
+  id: string;
+  name: string;
+  programTitle: string;
+  startDate: string;
+  endDate: string;
+  graduateCount: number;
+}
+
 /** Review (수강후기) → Content-like */
 export function reviewToContent(r: Review): Content {
   return {
@@ -51,6 +61,28 @@ export function postToContent(p: Post): Content {
     likeCount: 0,
     commentCount: 0,
     createdAt: p.createdAt ?? new Date().toISOString(),
+  };
+}
+
+/** Cohort (수료증 기수) → Content-like — community 통합 피드용 */
+export function cohortToContent(c: CohortLike): Content {
+  return {
+    id: c.id,
+    boardKey: "community-certificate",
+    group: "community",
+    title: `${c.name} ${c.programTitle ? `· ${c.programTitle}` : ""}`,
+    body: c.graduateCount > 0
+      ? `🎓 ${c.graduateCount}명 수료 — ${c.startDate} ~ ${c.endDate}`
+      : `${c.startDate} ~ ${c.endDate}`,
+    authorUid: "",
+    authorName: "AISH 운영팀",
+    tags: ["수료", c.name],
+    isPinned: false,
+    isApproved: true,
+    views: 0,
+    likeCount: 0,
+    commentCount: c.graduateCount, // 수료자 수를 댓글 자리에 표시 (시각적 카운트)
+    createdAt: c.endDate || c.startDate || new Date().toISOString(),
   };
 }
 

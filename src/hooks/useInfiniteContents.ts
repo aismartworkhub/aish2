@@ -6,6 +6,8 @@ import type { Content, BoardGroup } from "@/types/content";
 
 export type UseInfiniteContentsOptions = {
   boardKey?: string;
+  /** 다중 보드 IN 쿼리 — boardKey보다 우선. 최대 30개. */
+  boardKeys?: string[];
   group?: BoardGroup;
   tags?: string[];
   searchTerms?: string[];
@@ -75,6 +77,7 @@ export function useInfiniteContents(
   // 의존성 시리얼라이즈 (배열도 안정적으로 비교)
   const depKey = JSON.stringify({
     b: opts.boardKey ?? null,
+    bs: opts.boardKeys ?? null,
     g: opts.group ?? null,
     t: opts.tags ?? null,
     s: opts.searchTerms ?? null,
@@ -89,6 +92,7 @@ export function useInfiniteContents(
       // ATF 가속: 첫 페이지는 firstPageSize(작게)로 → 화면 빠르게 채움
       const page = await getContentsPaginated({
         boardKey: opts.boardKey,
+        boardKeys: opts.boardKeys,
         group: opts.group,
         tags: opts.tags,
         searchTerms: opts.searchTerms,
@@ -117,6 +121,7 @@ export function useInfiniteContents(
     try {
       const page = await getContentsPaginated({
         boardKey: opts.boardKey,
+        boardKeys: opts.boardKeys,
         group: opts.group,
         tags: opts.tags,
         searchTerms: opts.searchTerms,

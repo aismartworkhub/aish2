@@ -251,6 +251,8 @@ export type ContentsPage = {
 
 export async function getContentsPaginated(opts: {
   boardKey?: string;
+  /** 다중 보드 IN 쿼리 (단일 boardKey보다 우선). Firestore 제약상 최대 30개. */
+  boardKeys?: string[];
   group?: BoardConfig["group"];
   tags?: string[];
   searchTerms?: string[];
@@ -259,7 +261,9 @@ export async function getContentsPaginated(opts: {
 }): Promise<ContentsPage> {
   const constraints: QueryConstraint[] = [];
 
-  if (opts.boardKey) {
+  if (opts.boardKeys && opts.boardKeys.length > 0) {
+    constraints.push(where("boardKey", "in", opts.boardKeys.slice(0, 30)));
+  } else if (opts.boardKey) {
     constraints.push(where("boardKey", "==", opts.boardKey));
   } else if (opts.group) {
     constraints.push(where("group", "==", opts.group));

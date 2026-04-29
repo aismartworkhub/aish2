@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { getBoardsByGroup, buildSearchTerms, getPopularTags } from "@/lib/content-engine";
 import { getBoardsByGroupDefault, mergeBoardsByKey, DEFAULT_BOARDS } from "@/lib/board-defaults";
 import type { Content, BoardConfig } from "@/types/content";
+import { cohortToContent, type CohortLike } from "@/lib/legacy-to-content";
 import { ContentCard } from "@/components/content";
 import ContentCardSkeleton from "@/components/content/ContentCardSkeleton";
 
@@ -102,16 +103,61 @@ function CommunityPageInner() {
     return buildSearchTerms({ title: searchActive });
   }, [searchActive]);
 
-  // 무한 스크롤 — boardKey가 선택되면 보드 단위, 아니면 group=community 통합 피드
+  // "전체" 카테고리는 community 4개 보드 + media-gallery + media-resource 다중 IN 쿼리
+  // → 자유/Q&A/후기/공지 + 갤러리 + 자료를 하나의 피드에 통합 노출
+  const ALL_COMMUNITY_BOARDS = useMemo(() => [
+    "community-free",
+    "community-qna",
+    "community-review",
+    "community-notice",
+    "media-gallery",
+    "media-resource",
+  ], []);
+
+  // 무한 스크롤 — boardKey가 선택되면 보드 단위, 아니면 다중 보드 통합 피드
   // ATF 가속: 첫 페이지는 6건만 → 빠르게 첫 표시 후 idle 시 다음 18건 prefetch
   const feed = useInfiniteContents({
     boardKey: activeBoardKey ?? undefined,
-    group: activeBoardKey ? undefined : "community",
+    boardKeys: activeBoardKey ? undefined : ALL_COMMUNITY_BOARDS,
     tags: tagFilter && !searchTokens ? tagFilter : undefined,
     searchTerms: searchTokens,
     pageSize: 24,
     firstPageSize: 6,
   });
+
+  // "전체"일 때 수료증(Cohort) 데이터도 별도 fetch → 클라이언트에서 merge
+  const [cohortCards, setCohortCards] = useState<Content[]>([]);
+  useEffect(() => {
+    if (activeBoardKey) {
+      // 단일 보드 선택 시 수료증 미포함
+      setCohortCards([]);
+      return;
+    }
+    let cancelled = false;
+    import("@/lib/firestore").then(({ getCollection, COLLECTIONS }) =>
+      getCollection<CohortLike>(COLLECTIONS.CERTIFICATES_COHORTS),
+    )
+      .then((cohorts) => {
+        if (cancelled) return;
+        const cards = cohorts.map(cohortToContent);
+        setCohortCards(cards);
+      })
+      .catch(() => {
+        if (!cancelled) setCohortCards([]);
+      });
+    return () => { cancelled = true; };
+  }, [activeBoardKey]);
+
+  // 콘텐츠 + 수료증 카드 merge (정렬은 createdAt desc)
+  const mergedItems = useMemo(() => {
+    if (cohortCards.length === 0) return feed.items;
+    const all = [...feed.items, ...cohortCards];
+    return all.sort((a, b) => {
+      const ta = typeof a.createdAt === "string" ? new Date(a.createdAt).getTime() : 0;
+      const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() : 0;
+      return tb - ta;
+    });
+  }, [feed.items, cohortCards]);
 
   // 스크롤 위치 복원 — 모달 닫고 돌아올 때 같은 위치
   useScrollRestoration({
@@ -220,16 +266,18 @@ function CommunityPageInner() {
   }, [router]);
 
   // 클라이언트 측 미디어 타입 필터 (서버 필터와 별개 — 발견형 칩)
+  // 전체일 때는 mergedItems(콘텐츠 + 수료증), 단일 보드일 때는 feed.items
+  const baseItems = mergedItems;
   const filtered = useMemo(() => {
-    if (activeMediaType === ALL_KEY) return feed.items;
-    return feed.items.filter((c) => {
+    if (activeMediaType === ALL_KEY) return baseItems;
+    return baseItems.filter((c) => {
       if (activeMediaType === "youtube") return c.mediaType === "youtube";
       if (activeMediaType === "image") return c.mediaType === "image" || c.mediaType === "gif";
       if (activeMediaType === "pdf") return c.mediaType === "pdf";
       if (activeMediaType === "link") return c.mediaType === "link";
       return true;
     });
-  }, [feed.items, activeMediaType]);
+  }, [baseItems, activeMediaType]);
 
   const triggerSearch = () => setSearchActive(searchInput.trim());
   const clearSearch = () => { setSearchInput(""); setSearchActive(""); };
