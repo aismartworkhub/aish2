@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X, Plus, Sparkles, MessageCircle, HelpCircle, Star, Megaphone, FileText, Image as ImageIcon, Mail, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,6 +46,8 @@ type PrimaryCategory = {
   inactiveClass: string;
   /** 0=전체, 1=단일 보드, N=2차 칩 노출 */
   boards: string[];
+  /** 설정 시 클릭 → 해당 URL로 이동 (필터링이 아닌 별도 화면). FAQ/갤러리/문의/수료증용. */
+  href?: string;
 };
 
 const PRIMARY_CATEGORIES: PrimaryCategory[] = [
@@ -56,14 +57,11 @@ const PRIMARY_CATEGORIES: PrimaryCategory[] = [
   { key: "review", label: "후기", icon: Star, activeClass: "bg-amber-500 text-white", inactiveClass: "bg-amber-50 text-amber-700", boards: ["community-review"] },
   { key: "notice", label: "공지", icon: Megaphone, activeClass: "bg-rose-500 text-white", inactiveClass: "bg-rose-50 text-rose-700", boards: ["community-notice"] },
   { key: "docs", label: "자료", icon: FileText, activeClass: "bg-violet-500 text-white", inactiveClass: "bg-violet-50 text-violet-700", boards: ["media-resource"] },
-];
-
-/** 헤더 우측 보조 메뉴 — 콘텐츠 카드 외 부속 기능들 → legacy 페이지로 점프 */
-const SECONDARY_LINKS = [
-  { label: "FAQ", href: "/community/legacy?tab=faq", icon: HelpCircle },
-  { label: "갤러리", href: "/community/legacy?tab=gallery", icon: ImageIcon },
-  { label: "협력문의", href: "/community/legacy?tab=inquiry", icon: Mail },
-  { label: "수료증", href: "/community/legacy?tab=certificate", icon: Award },
+  // ↓ 카드 피드 외 부속 기능 — 동일 줄에 함께 배치, 클릭 시 legacy 화면으로 이동
+  { key: "faq", label: "FAQ", icon: HelpCircle, activeClass: "bg-cyan-500 text-white", inactiveClass: "bg-cyan-50 text-cyan-700", boards: [], href: "/community/legacy?tab=faq" },
+  { key: "gallery", label: "갤러리", icon: ImageIcon, activeClass: "bg-pink-500 text-white", inactiveClass: "bg-pink-50 text-pink-700", boards: [], href: "/community/legacy?tab=gallery" },
+  { key: "inquiry", label: "협력문의", icon: Mail, activeClass: "bg-orange-500 text-white", inactiveClass: "bg-orange-50 text-orange-700", boards: [], href: "/community/legacy?tab=inquiry" },
+  { key: "certificate", label: "수료증", icon: Award, activeClass: "bg-teal-500 text-white", inactiveClass: "bg-teal-50 text-teal-700", boards: [], href: "/community/legacy?tab=certificate" },
 ];
 
 export default function CommunityPage() {
@@ -207,6 +205,11 @@ function CommunityPageInner() {
   }, [activeCategory, boards]);
 
   const handleCategoryClick = useCallback((cat: PrimaryCategory) => {
+    // FAQ/갤러리/협력문의/수료증 — 외부 화면(legacy)으로 이동
+    if (cat.href) {
+      router.push(cat.href);
+      return;
+    }
     if (cat.boards.length === 0) {
       setActiveBoardKey(null);
     } else {
@@ -214,7 +217,7 @@ function CommunityPageInner() {
       setActiveBoardKey(cat.boards[0]);
     }
     setActiveMediaType(ALL_KEY);
-  }, []);
+  }, [router]);
 
   // 클라이언트 측 미디어 타입 필터 (서버 필터와 별개 — 발견형 칩)
   const filtered = useMemo(() => {
@@ -291,24 +294,6 @@ function CommunityPageInner() {
             <Plus size={16} />
             작성하기
           </button>
-        </div>
-
-        {/* 보조 메뉴 — FAQ/갤러리/협력문의/수료증은 별도 화면(legacy)으로 이동 */}
-        <div className="mb-4 flex flex-wrap items-center justify-center gap-1 text-xs">
-          <span className="text-gray-400 mr-1">더보기:</span>
-          {SECONDARY_LINKS.map((l) => {
-            const Icon = l.icon;
-            return (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-gray-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 transition-colors"
-              >
-                <Icon size={11} />
-                {l.label}
-              </Link>
-            );
-          })}
         </div>
 
         {/* 검색 */}
