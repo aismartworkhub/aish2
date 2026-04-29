@@ -55,7 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
      { label: "AI 콘텐츠", href: "/admin/ai-content", icon: "Sparkles" },
      { label: "Google 트렌드", href: "/admin/trends", icon: "TrendingUp" },
      { label: "게시판 설정", href: "/admin/boards", icon: "LayoutGrid" },
-     { label: "교육자료", href: "/admin/resources", icon: "FolderOpen" },
+     { label: "교육자료", href: "/admin/contents?boardKey=media-resource", icon: "FolderOpen" },
    ],
  },
  {

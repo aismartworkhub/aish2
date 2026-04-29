@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -15,9 +16,11 @@ import {
   detectMediaType,
 } from "@/lib/content-engine";
 import type { BoardConfig, Content, ContentInput, MediaType } from "@/types/content";
+import type { DriveAttachment } from "@/types/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import MediaPreview from "@/components/content/MediaPreview";
+import DriveFileUploader from "@/components/admin/DriveFileUploader";
 import { contentDisplayTitle } from "@/lib/content-display";
 
 const EMPTY_CONTENT: Omit<ContentInput, "authorUid" | "authorName"> = {
@@ -40,10 +43,20 @@ const EMPTY_CONTENT: Omit<ContentInput, "authorUid" | "authorName"> = {
 };
 
 export default function AdminContentsPage() {
+  return (
+    <Suspense fallback={<AdminLoading />}>
+      <AdminContentsInner />
+    </Suspense>
+  );
+}
+
+function AdminContentsInner() {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const searchParams = useSearchParams();
+  const initialBoardKey = searchParams.get("boardKey") || "";
   const [boards, setBoards] = useState<BoardConfig[]>(DEFAULT_BOARDS);
-  const [selectedBoard, setSelectedBoard] = useState<string>("");
+  const [selectedBoard, setSelectedBoard] = useState<string>(initialBoardKey);
   const [contents, setContents] = useState<Content[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -508,6 +521,46 @@ export default function AdminContentsPage() {
                   {/* 콘텐츠 URL */}
                   {activeBoard?.group === "media" && (
                     <div className="space-y-3">
+                      {/* media-resource(교육자료) 보드는 Google Drive 직접 업로드 지원 */}
+                      {selectedBoard === "media-resource" && (
+                        <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-medium text-blue-700">
+                              📁 Google Drive에 직접 업로드 — 파일 선택 시 mediaUrl·썸네일이 자동 채워집니다
+                            </p>
+                          </div>
+                          <DriveFileUploader
+                            attachments={
+                              editing.mediaUrl && /drive\.google\.com|googleusercontent\.com/.test(editing.mediaUrl)
+                                ? [{
+                                    name: editing.title || "업로드 파일",
+                                    url: editing.mediaUrl,
+                                    size: "",
+                                    type: editing.mediaType === "pdf" ? "drive" : "drive",
+                                    driveDownloadUrl: editing.mediaUrl,
+                                  } as DriveAttachment]
+                                : []
+                            }
+                            onChange={(atts) => {
+                              if (atts.length === 0) {
+                                setEditing({ ...editing, mediaUrl: "", thumbnailUrl: "", mediaType: "none" });
+                                return;
+                              }
+                              const a = atts[0];
+                              const url = a.driveDownloadUrl || a.driveViewUrl || a.url;
+                              const isPdf = /\.pdf(\?|$)/i.test(a.name) || a.type === "drive";
+                              setEditing({
+                                ...editing,
+                                mediaUrl: url,
+                                mediaType: isPdf ? "pdf" : "link",
+                                title: editing.title || a.name,
+                              });
+                            }}
+                            maxFiles={1}
+                            allowLinks={false}
+                          />
+                        </div>
+                      )}
                       <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">콘텐츠 URL</label>
                         <input
