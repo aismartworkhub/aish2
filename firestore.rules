@@ -271,6 +271,15 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // 사용자 버그 신고·피드백 — 누구나 생성 가능, 조회/수정/삭제는 관리자만
+    match /feedbackReports/{docId} {
+      allow create: if request.resource.data.status == "open"
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() < 5000;
+      allow read, update, delete: if isAdmin();
+    }
+
     // 기본 거부: 위에 명시되지 않은 모든 경로
     match /{document=**} {
       allow read, write: if false;
