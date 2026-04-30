@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X, Plus, Sparkles, MessageCircle, HelpCircle, Star, Megaphone, Mail, Award } from "lucide-react";
+import { Search, X, Plus, Sparkles, MessageCircle, HelpCircle, Star, Megaphone, Mail, Award, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBoardsByGroup, buildSearchTerms, getPopularTags } from "@/lib/content-engine";
 import { getBoardsByGroupDefault, mergeBoardsByKey, DEFAULT_BOARDS } from "@/lib/board-defaults";
@@ -204,6 +204,17 @@ function CommunityPageInner() {
       return tb - ta;
     });
   }, [inlineView, cohortCards, inquiryCards, feed.items]);
+
+  // 커뮤니티 허브 상단 고정 피드 — 관리자가 isPinned 토글한 콘텐츠
+  const [pinnedItems, setPinnedItems] = useState<Content[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    import("@/lib/content-engine")
+      .then(({ getPinnedCommunityContents }) => getPinnedCommunityContents(6))
+      .then((items) => { if (!cancelled) setPinnedItems(items); })
+      .catch(() => { if (!cancelled) setPinnedItems([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   // 스크롤 위치 복원 — 모달 닫고 돌아올 때 같은 위치
   useScrollRestoration({
@@ -536,6 +547,28 @@ function CommunityPageInner() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* 상단 고정 피드 — 관리자가 isPinned 한 콘텐츠. '전체' 탭이고 검색·태그 필터 없을 때만 노출 */}
+        {!isFiltered && pinnedItems.length > 0 && (
+          <section className="mb-8 rounded-xl border border-amber-200 bg-amber-50/40 p-4 md:p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Pin size={16} className="text-amber-600" />
+              <h3 className="text-sm font-bold text-amber-900">상단 고정</h3>
+              <span className="text-xs text-amber-700/70">관리자가 선정한 주요 게시글</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+              {pinnedItems.map((c) => (
+                <ContentCard
+                  key={`pin-${c.id}`}
+                  content={c}
+                  board={boardForContent(c)}
+                  onClick={selectContent}
+                  variant="grid"
+                />
+              ))}
+            </div>
+          </section>
         )}
 
         {/* 메인 그리드 — CSS columns 마소닉 */}

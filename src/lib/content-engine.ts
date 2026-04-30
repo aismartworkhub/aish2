@@ -322,6 +322,19 @@ export async function getContentById(id: string): Promise<Content | null> {
   return { id: snap.id, ...snap.data() } as Content;
 }
 
+/** 커뮤니티 허브 상단 고정 피드 — group=community AND isPinned=true */
+export async function getPinnedCommunityContents(maxItems = 6): Promise<Content[]> {
+  const q = query(
+    collection(db, COLLECTIONS.CONTENTS),
+    where("group", "==", "community"),
+    where("isPinned", "==", true),
+    orderBy("createdAt", "desc"),
+    firestoreLimit(maxItems),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Content));
+}
+
 /**
  * 콘텐츠 ID 배열을 받아 일괄 조회. Firestore "in" 쿼리는 30개까지만 가능하므로
  * 청크 분할 후 Promise.all로 병렬 조회. 결과는 입력 순서대로 정렬.
