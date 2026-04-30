@@ -4,6 +4,7 @@ import ActionCluster from "@/components/public/ActionCluster";
 import BottomTabNav from "@/components/public/BottomTabNav";
 import QuickBannerDisplay from "@/components/public/QuickBannerDisplay";
 import ProfileCompletionBanner from "@/components/public/ProfileCompletionBanner";
+import FeedbackButton from "@/components/feedback/FeedbackButton";
 
 export default function PublicLayout({
  children,
@@ -22,6 +23,7 @@ export default function PublicLayout({
      <Footer />
      <ActionCluster />
      <BottomTabNav />
+     <FeedbackButton />
    </>
  );
 }

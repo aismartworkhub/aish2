@@ -8,7 +8,7 @@ import {
  Star, Trophy, HelpCircle, Mail, ImageIcon, Handshake, Clock,
  Award, Shield, ChevronDown, ChevronRight, X,
  Megaphone, Calendar, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
- Archive, Sparkles, TrendingUp,
+ Archive, Sparkles, TrendingUp, Bug,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
  LayoutDashboard, Settings, BookOpen, Users, FileText, Video,
  Star, Trophy, HelpCircle, Mail, Image: ImageIcon, Handshake, Clock,
  Award, Shield, Megaphone, Calendar, FolderOpen, LayoutTemplate, Layers, LayoutGrid,
- Archive, Sparkles, TrendingUp,
+ Archive, Sparkles, TrendingUp, Bug,
 };
 
 interface NavChild {
@@ -72,6 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
    title: "커뮤니티",
    items: [
      { label: "문의 관리", href: "/admin/inquiries", icon: "Mail" },
+     { label: "사용자 신고", href: "/admin/feedback", icon: "Bug" },
    ],
  },
  {
