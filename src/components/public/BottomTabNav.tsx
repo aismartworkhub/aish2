@@ -21,7 +21,7 @@ const TABS: Tab[] = [
   { href: "/", label: "홈", icon: Home },
   { href: "/media", label: "탐색", icon: Compass, matchPrefix: "/media" },
   // 중앙 FAB는 별도 처리
-  { href: "/community", label: "커뮤니티", icon: Users, matchPrefix: "/community" },
+  { href: "/community", label: "허브", icon: Users, matchPrefix: "/community" },
   { href: "/profile", label: "MY", icon: User, matchPrefix: "/profile" },
 ];
 

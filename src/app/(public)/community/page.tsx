@@ -47,8 +47,12 @@ type PrimaryCategory = {
   inactiveClass: string;
   /** 0=전체, 1=단일 보드, N=2차 칩 노출 */
   boards: string[];
-  /** 설정 시 클릭 → 해당 URL로 이동 (필터링이 아닌 별도 화면). FAQ/갤러리/문의/수료증용. */
+  /** 설정 시 칩 클릭이 즉시 이동(필터링 아님) */
   href?: string;
+  /** 설정 시 인라인 도입창에 외부 데이터(cohort/inquiry)를 노출. 카드 클릭은 legacy로 이동. */
+  inlineKey?: "certificate" | "inquiry";
+  /** inlineKey 활성 시 카드 클릭 시 이동할 legacy URL */
+  legacyHref?: string;
 };
 
 const PRIMARY_CATEGORIES: PrimaryCategory[] = [
@@ -57,11 +61,11 @@ const PRIMARY_CATEGORIES: PrimaryCategory[] = [
   { key: "qna", label: "Q&A", icon: HelpCircle, activeClass: "bg-emerald-500 text-white", inactiveClass: "bg-emerald-50 text-emerald-700", boards: ["community-qna"] },
   { key: "review", label: "후기", icon: Star, activeClass: "bg-amber-500 text-white", inactiveClass: "bg-amber-50 text-amber-700", boards: ["community-review"] },
   { key: "notice", label: "공지", icon: Megaphone, activeClass: "bg-rose-500 text-white", inactiveClass: "bg-rose-50 text-rose-700", boards: ["community-notice"] },
-  // FAQ는 community-faq 보드를 인라인 필터로 노출 (legacy 이동 X)
+  // FAQ는 community-faq 보드를 인라인 필터로 노출
   { key: "faq", label: "FAQ", icon: HelpCircle, activeClass: "bg-cyan-500 text-white", inactiveClass: "bg-cyan-50 text-cyan-700", boards: ["community-faq"] },
-  // ↓ 인라인 필터 외 부속 기능 — 클릭 시 legacy 화면으로 이동
-  { key: "inquiry", label: "협력문의", icon: Mail, activeClass: "bg-orange-500 text-white", inactiveClass: "bg-orange-50 text-orange-700", boards: [], href: "/community/legacy?tab=inquiry" },
-  { key: "certificate", label: "수료증", icon: Award, activeClass: "bg-teal-500 text-white", inactiveClass: "bg-teal-50 text-teal-700", boards: [], href: "/community/legacy?tab=certificate" },
+  // 협력문의·수료증 — 인라인 도입창은 새 카드 스타일, 카드 클릭은 legacy 상세
+  { key: "inquiry", label: "협력문의", icon: Mail, activeClass: "bg-orange-500 text-white", inactiveClass: "bg-orange-50 text-orange-700", boards: [], inlineKey: "inquiry", legacyHref: "/community/legacy?tab=inquiry" },
+  { key: "certificate", label: "수료증", icon: Award, activeClass: "bg-teal-500 text-white", inactiveClass: "bg-teal-50 text-teal-700", boards: [], inlineKey: "certificate", legacyHref: "/community/legacy?tab=certificate" },
 ];
 
 export default function CommunityPage() {
@@ -85,6 +89,8 @@ function CommunityPageInner() {
     mergeBoardsByKey(getBoardsByGroupDefault("community"), []),
   );
   const [activeBoardKey, setActiveBoardKey] = useState<string | null>(null);
+  // 외부 데이터(수료증/협력문의) 인라인 도입창 모드
+  const [inlineView, setInlineView] = useState<"certificate" | "inquiry" | null>(null);
   const [activeMediaType, setActiveMediaType] = useState<MediaTypeFilter>(ALL_KEY);
   const [searchInput, setSearchInput] = useState("");
   const [searchActive, setSearchActive] = useState<string>("");
@@ -123,31 +129,73 @@ function CommunityPageInner() {
     firstPageSize: 6,
   });
 
-  // "전체"일 때 수료증(Cohort) 데이터도 별도 fetch → 클라이언트에서 merge
+  // 수료증(Cohort) — '전체' 또는 inlineView=certificate일 때 fetch
   const [cohortCards, setCohortCards] = useState<Content[]>([]);
   useEffect(() => {
-    if (activeBoardKey) {
-      // 단일 보드 선택 시 수료증 미포함
-      setCohortCards([]);
-      return;
-    }
+    const needCohorts = !activeBoardKey || inlineView === "certificate";
+    if (!needCohorts) { setCohortCards([]); return; }
     let cancelled = false;
     import("@/lib/firestore").then(({ getCollection, COLLECTIONS }) =>
       getCollection<CohortLike>(COLLECTIONS.CERTIFICATES_COHORTS),
     )
       .then((cohorts) => {
         if (cancelled) return;
-        const cards = cohorts.map(cohortToContent);
-        setCohortCards(cards);
+        setCohortCards(cohorts.map(cohortToContent));
       })
-      .catch(() => {
-        if (!cancelled) setCohortCards([]);
-      });
+      .catch(() => { if (!cancelled) setCohortCards([]); });
     return () => { cancelled = true; };
-  }, [activeBoardKey]);
+  }, [activeBoardKey, inlineView]);
 
-  // 콘텐츠 + 수료증 카드 merge (정렬은 createdAt desc)
+  // 협력문의 — 인라인 도입창에 노출할 정적 안내 카드 3종 (모두 클릭 시 legacy 폼)
+  const inquiryCards: Content[] = useMemo(() => [
+    {
+      id: "inquiry-corp",
+      boardKey: "community-inquiry",
+      group: "community",
+      title: "기업 협력 문의",
+      body: "AI 교육·도입·자문 등 기업 단위 협력을 원하시면 문의해 주세요.",
+      authorUid: "",
+      authorName: "AISH 운영팀",
+      tags: ["협력문의", "기업"],
+      isPinned: false,
+      isApproved: true,
+      views: 0, likeCount: 0, commentCount: 0,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "inquiry-edu",
+      boardKey: "community-inquiry",
+      group: "community",
+      title: "교육 협력 문의",
+      body: "대학·기관과의 공동 교육 프로그램·강의 협력 제안.",
+      authorUid: "",
+      authorName: "AISH 운영팀",
+      tags: ["협력문의", "교육"],
+      isPinned: false,
+      isApproved: true,
+      views: 0, likeCount: 0, commentCount: 0,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "inquiry-research",
+      boardKey: "community-inquiry",
+      group: "community",
+      title: "연구·기술 협력 문의",
+      body: "공동 연구, 기술 검증, R&D 파트너십 제안.",
+      authorUid: "",
+      authorName: "AISH 운영팀",
+      tags: ["협력문의", "연구"],
+      isPinned: false,
+      isApproved: true,
+      views: 0, likeCount: 0, commentCount: 0,
+      createdAt: new Date().toISOString(),
+    },
+  ], []);
+
+  // items 통합: inlineView 우선 → 일반 피드(+ '전체'에서 cohort merge)
   const mergedItems = useMemo(() => {
+    if (inlineView === "certificate") return cohortCards;
+    if (inlineView === "inquiry") return inquiryCards;
     if (cohortCards.length === 0) return feed.items;
     const all = [...feed.items, ...cohortCards];
     return all.sort((a, b) => {
@@ -155,7 +203,7 @@ function CommunityPageInner() {
       const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() : 0;
       return tb - ta;
     });
-  }, [feed.items, cohortCards]);
+  }, [inlineView, cohortCards, inquiryCards, feed.items]);
 
   // 스크롤 위치 복원 — 모달 닫고 돌아올 때 같은 위치
   useScrollRestoration({
@@ -211,6 +259,15 @@ function CommunityPageInner() {
   }, [contentDeepLink, searchParams, selected]);
 
   const selectContent = useCallback((c: Content) => {
+    // 인라인 도입창의 외부 데이터(수료증·협력문의) — 모달 대신 legacy 상세로 이동
+    if (c.boardKey === "community-certificate") {
+      router.push("/community/legacy?tab=certificate");
+      return;
+    }
+    if (c.boardKey === "community-inquiry") {
+      router.push("/community/legacy?tab=inquiry");
+      return;
+    }
     setSelected(c);
     if (contentDeepLink) {
       const next = new URLSearchParams(searchParams.toString());
@@ -236,10 +293,12 @@ function CommunityPageInner() {
 
   // 새 디자인용 1차 카테고리 — activeBoardKey로부터 역산
   const activeCategory: string = useMemo(() => {
+    if (inlineView === "certificate") return "certificate";
+    if (inlineView === "inquiry") return "inquiry";
     if (!activeBoardKey) return "all";
     const cat = PRIMARY_CATEGORIES.find((c) => c.boards.includes(activeBoardKey));
     return cat?.key ?? "all";
-  }, [activeBoardKey]);
+  }, [activeBoardKey, inlineView]);
 
   // 2차 칩 — 활성 카테고리의 보드 ≥2개일 때만 노출
   const secondaryBoards = useMemo(() => {
@@ -249,15 +308,22 @@ function CommunityPageInner() {
   }, [activeCategory, boards]);
 
   const handleCategoryClick = useCallback((cat: PrimaryCategory) => {
-    // FAQ/갤러리/협력문의/수료증 — 외부 화면(legacy)으로 이동
+    // 즉시 외부 이동 (현재 사용처 없음, 호환성)
     if (cat.href) {
       router.push(cat.href);
       return;
     }
+    // 인라인 도입창(수료증·협력문의) — 외부 데이터로 카드 표시, 카드 클릭은 legacy
+    if (cat.inlineKey) {
+      setInlineView(cat.inlineKey);
+      setActiveBoardKey(null);
+      setActiveMediaType(ALL_KEY);
+      return;
+    }
+    setInlineView(null);
     if (cat.boards.length === 0) {
       setActiveBoardKey(null);
     } else {
-      // 다중 보드 카테고리 → 첫 보드부터. 2차 칩으로 추가 정밀화 가능.
       setActiveBoardKey(cat.boards[0]);
     }
     setActiveMediaType(ALL_KEY);

@@ -13,7 +13,7 @@ export const NAV_ITEMS = [
  { label: "AI실전마스터", href: "/instructors" },
  { label: "스마트워크톤", href: "/workathon" },
  { label: "콘텐츠", href: "/media" },
- { label: "커뮤니티", href: "/community" },
+ { label: "커뮤니티 허브", href: "/community" },
 ] as const;
 
 export const ADMIN_NAV_ITEMS = [

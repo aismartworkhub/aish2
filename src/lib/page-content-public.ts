@@ -97,8 +97,8 @@ export const DEFAULT_MEDIA: PageContentBase = {
 export const DEFAULT_COMMUNITY: PageContentBase = {
   hero: {
     imageUrl: "",
-    title: "커뮤니티",
-    subtitle: "AISH 커뮤니티에서 다양한 정보와 서비스를 이용하세요.",
+    title: "커뮤니티 허브",
+    subtitle: "AISH 커뮤니티 허브에서 다양한 정보와 서비스를 이용하세요.",
   },
   sections: {},
 };
