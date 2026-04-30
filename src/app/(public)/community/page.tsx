@@ -57,9 +57,9 @@ const PRIMARY_CATEGORIES: PrimaryCategory[] = [
   { key: "qna", label: "Q&A", icon: HelpCircle, activeClass: "bg-emerald-500 text-white", inactiveClass: "bg-emerald-50 text-emerald-700", boards: ["community-qna"] },
   { key: "review", label: "후기", icon: Star, activeClass: "bg-amber-500 text-white", inactiveClass: "bg-amber-50 text-amber-700", boards: ["community-review"] },
   { key: "notice", label: "공지", icon: Megaphone, activeClass: "bg-rose-500 text-white", inactiveClass: "bg-rose-50 text-rose-700", boards: ["community-notice"] },
-  // ↓ 카드 피드 외 부속 기능 — 동일 줄에 함께 배치, 클릭 시 legacy 화면으로 이동
-  // 갤러리·자료는 /media 본진과 중복되므로 /community에서는 제외
-  { key: "faq", label: "FAQ", icon: HelpCircle, activeClass: "bg-cyan-500 text-white", inactiveClass: "bg-cyan-50 text-cyan-700", boards: [], href: "/community/legacy?tab=faq" },
+  // FAQ는 community-faq 보드를 인라인 필터로 노출 (legacy 이동 X)
+  { key: "faq", label: "FAQ", icon: HelpCircle, activeClass: "bg-cyan-500 text-white", inactiveClass: "bg-cyan-50 text-cyan-700", boards: ["community-faq"] },
+  // ↓ 인라인 필터 외 부속 기능 — 클릭 시 legacy 화면으로 이동
   { key: "inquiry", label: "협력문의", icon: Mail, activeClass: "bg-orange-500 text-white", inactiveClass: "bg-orange-50 text-orange-700", boards: [], href: "/community/legacy?tab=inquiry" },
   { key: "certificate", label: "수료증", icon: Award, activeClass: "bg-teal-500 text-white", inactiveClass: "bg-teal-50 text-teal-700", boards: [], href: "/community/legacy?tab=certificate" },
 ];

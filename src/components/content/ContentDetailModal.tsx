@@ -102,16 +102,18 @@ export default function ContentDetailModal({
   const { user } = useAuth();
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
   const { toast } = useToast();
-  // 낙관적 좋아요·북마크 토글
+  // 낙관적 좋아요·북마크·댓글 카운트 — DB 반영 직후 인디케이터 즉시 갱신
   const [likedDelta, setLikedDelta] = useState(0);
   const [bookmarked, setBookmarked] = useState(false);
   const [busyLike, setBusyLike] = useState(false);
   const [busyBookmark, setBusyBookmark] = useState(false);
+  const [commentDelta, setCommentDelta] = useState(0);
 
   // 콘텐츠 변경 시 토글 상태 초기화
   useEffect(() => {
     setLikedDelta(0);
     setBookmarked(false);
+    setCommentDelta(0);
   }, [content?.id]);
 
   // 갤러리 모드 — 현재 인덱스 + 이동 핸들러
@@ -426,7 +428,7 @@ export default function ContentDetailModal({
           <div className="flex items-center gap-6 border-y border-gray-100 px-5 py-3 text-sm text-gray-500">
             <span className="flex items-center gap-1.5">
               <MessageCircle size={16} />
-              <span>{content.commentCount}</span>
+              <span>{Math.max(0, (content.commentCount ?? 0) + commentDelta)}</span>
             </span>
             <button
               type="button"
@@ -475,6 +477,7 @@ export default function ContentDetailModal({
               contentId={content.id}
               contentAuthorUid={content.authorUid}
               contentTitle={title}
+              onCountChange={(delta) => setCommentDelta((d) => d + delta)}
             />
           </div>
 

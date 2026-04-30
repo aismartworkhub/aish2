@@ -12,6 +12,8 @@ type Props = {
   contentId: string;
   contentAuthorUid?: string;
   contentTitle?: string;
+  /** 댓글 수 변경 시 호출(+1=작성, -1=삭제) — 부모가 인디케이터를 즉시 갱신할 수 있게 */
+  onCountChange?: (delta: number) => void;
 };
 
 function timeLabel(dateVal: unknown): string {
@@ -91,7 +93,7 @@ function CommentItem({
   );
 }
 
-export default function CommentSection({ contentId, contentAuthorUid, contentTitle }: Props) {
+export default function CommentSection({ contentId, contentAuthorUid, contentTitle, onCountChange }: Props) {
   const { user, profile } = useAuth();
   const [comments, setComments] = useState<ContentComment[]>([]);
   const [text, setText] = useState("");
@@ -121,6 +123,7 @@ export default function CommentSection({ contentId, contentAuthorUid, contentTit
       });
       setText("");
       setReplyTo(null);
+      onCountChange?.(1);
       await load();
       if (contentAuthorUid && contentAuthorUid !== user.uid) {
         createNotification({
@@ -141,6 +144,7 @@ export default function CommentSection({ contentId, contentAuthorUid, contentTit
   const handleDelete = async (commentId: string) => {
     if (!confirm("댓글을 삭제하시겠습니까?")) return;
     await deleteComment(commentId, contentId);
+    onCountChange?.(-1);
     await load();
   };
 
