@@ -198,8 +198,14 @@ service cloud.firestore {
     match /contents/{docId} {
       allow read: if true;
       allow create: if isAuthenticated();
-      allow update: if isAdmin() ||
-        (isAuthenticated() && resource.data.authorUid == request.auth.uid);
+      // 작성자/관리자: 모든 필드 수정 허용
+      // 그 외 인증 사용자: engagement 카운터(commentCount/likeCount/views/downloadCount/lastActivityAt)만
+      // — 다른 사용자가 댓글/좋아요/조회 시 부모 글 카운터 increment를 위해 필요
+      allow update: if isAdmin()
+        || (isAuthenticated() && resource.data.authorUid == request.auth.uid)
+        || (isAuthenticated()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['commentCount','likeCount','views','downloadCount','lastActivityAt']));
       allow delete: if isAdmin() ||
         (isAuthenticated() && resource.data.authorUid == request.auth.uid);
     }
