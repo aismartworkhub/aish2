@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X, Plus, Sparkles, MessageCircle, HelpCircle, Star, Megaphone, FileText, Image as ImageIcon, Mail, Award } from "lucide-react";
+import { Search, X, Plus, Sparkles, MessageCircle, HelpCircle, Star, Megaphone, Mail, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBoardsByGroup, buildSearchTerms, getPopularTags } from "@/lib/content-engine";
 import { getBoardsByGroupDefault, mergeBoardsByKey, DEFAULT_BOARDS } from "@/lib/board-defaults";
@@ -57,10 +57,9 @@ const PRIMARY_CATEGORIES: PrimaryCategory[] = [
   { key: "qna", label: "Q&A", icon: HelpCircle, activeClass: "bg-emerald-500 text-white", inactiveClass: "bg-emerald-50 text-emerald-700", boards: ["community-qna"] },
   { key: "review", label: "후기", icon: Star, activeClass: "bg-amber-500 text-white", inactiveClass: "bg-amber-50 text-amber-700", boards: ["community-review"] },
   { key: "notice", label: "공지", icon: Megaphone, activeClass: "bg-rose-500 text-white", inactiveClass: "bg-rose-50 text-rose-700", boards: ["community-notice"] },
-  { key: "docs", label: "자료", icon: FileText, activeClass: "bg-violet-500 text-white", inactiveClass: "bg-violet-50 text-violet-700", boards: ["media-resource"] },
   // ↓ 카드 피드 외 부속 기능 — 동일 줄에 함께 배치, 클릭 시 legacy 화면으로 이동
+  // 갤러리·자료는 /media 본진과 중복되므로 /community에서는 제외
   { key: "faq", label: "FAQ", icon: HelpCircle, activeClass: "bg-cyan-500 text-white", inactiveClass: "bg-cyan-50 text-cyan-700", boards: [], href: "/community/legacy?tab=faq" },
-  { key: "gallery", label: "갤러리", icon: ImageIcon, activeClass: "bg-pink-500 text-white", inactiveClass: "bg-pink-50 text-pink-700", boards: [], href: "/community/legacy?tab=gallery" },
   { key: "inquiry", label: "협력문의", icon: Mail, activeClass: "bg-orange-500 text-white", inactiveClass: "bg-orange-50 text-orange-700", boards: [], href: "/community/legacy?tab=inquiry" },
   { key: "certificate", label: "수료증", icon: Award, activeClass: "bg-teal-500 text-white", inactiveClass: "bg-teal-50 text-teal-700", boards: [], href: "/community/legacy?tab=certificate" },
 ];
@@ -103,15 +102,14 @@ function CommunityPageInner() {
     return buildSearchTerms({ title: searchActive });
   }, [searchActive]);
 
-  // "전체" 카테고리는 community 4개 보드 + media-gallery + media-resource 다중 IN 쿼리
-  // → 자유/Q&A/후기/공지 + 갤러리 + 자료를 하나의 피드에 통합 노출
+  // "전체" 카테고리는 community 4개 보드 다중 IN 쿼리
+  // → 자유/Q&A/후기/공지를 하나의 피드에 통합 노출 (수료증은 별도 fetch 후 merge)
+  // 갤러리·자료(media-*)는 /media 본진과 중복되므로 제외
   const ALL_COMMUNITY_BOARDS = useMemo(() => [
     "community-free",
     "community-qna",
     "community-review",
     "community-notice",
-    "media-gallery",
-    "media-resource",
   ], []);
 
   // 무한 스크롤 — boardKey가 선택되면 보드 단위, 아니면 다중 보드 통합 피드
