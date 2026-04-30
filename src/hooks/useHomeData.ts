@@ -165,13 +165,14 @@ export function useHomeData() {
           setIsDemoInstructors(false);
         }
         try {
-          const [runmoaRes, eventsData, lectureContents, resourceContents, freeContents, qnaContents] = await Promise.all([
+          const [runmoaRes, eventsData, lectureContents, resourceContents, freeContents, qnaContents, noticeContents] = await Promise.all([
             getRunmoaContents({ status: "publish", limit: 8 }),
             getCollection<AdminEvent & { id: string }>(COLLECTIONS.ADMIN_EVENTS),
             getContents("media-lecture", { maxItems: 4 }),
             getContents("media-resource", { maxItems: 4 }),
             getContents("community-free", { maxItems: 5 }).catch(() => [] as Content[]),
             getContents("community-qna", { maxItems: 5 }).catch(() => [] as Content[]),
+            getContents("community-notice", { maxItems: 4 }).catch(() => [] as Content[]),
           ]);
           if (runmoaRes.data.length > 0) setRunmoaPrograms(runmoaRes.data);
           if (eventsData.length > 0) setAdminEvents(eventsData.filter((e) => e.status !== "COMPLETED" && e.status !== "CANCELLED"));
@@ -194,6 +195,32 @@ export function useHomeData() {
             })
             .slice(0, 5);
           if (activity.length > 0) setRecentActivity(activity);
+
+          // NewsRoom — 레거시 posts(NOTICE) + 신규 contents(community-notice) 통합 정렬
+          type NoticeRow = { id: string; tag: string; title: string; date: string; ts: number };
+          const fromContents: NoticeRow[] = noticeContents
+            .filter((c) => c.isApproved !== false)
+            .map((c) => ({
+              id: c.id || "",
+              tag: c.tags?.[0] || "공지",
+              title: c.title,
+              date: toDateString(typeof c.createdAt === "string" ? c.createdAt : ""),
+              ts: typeof c.createdAt === "string" ? new Date(c.createdAt).getTime() : 0,
+            }));
+          const fromPosts: NoticeRow[] = (firestorePosts ?? [])
+            .filter((p) => (p.type || p.boardType) === "NOTICE")
+            .map((p) => ({
+              id: p.id || "",
+              tag: p.category || "공지",
+              title: p.title,
+              date: toDateString(p.createdAt || p.date),
+              ts: p.createdAt ? new Date(p.createdAt).getTime() : (p.date ? new Date(p.date).getTime() : 0),
+            }));
+          const mergedNotices = [...fromContents, ...fromPosts]
+            .sort((a, b) => b.ts - a.ts)
+            .slice(0, 4)
+            .map(({ id, tag, title, date }) => ({ id, tag, title, date }));
+          if (mergedNotices.length > 0) { setNotices(mergedNotices); setIsDemoNotices(false); }
         } catch { /* Runmoa/Event/Contents 실패 시 무시 */ }
         if (firestoreReviews.length > 0) { setReviews(firestoreReviews.filter((r) => (r as { isApproved?: boolean }).isApproved !== false)); setIsDemoReviews(false); }
         if (firestoreEvents.length > 0) {
@@ -209,18 +236,7 @@ export function useHomeData() {
           if (featured.length > 0) setFeaturedVideos(featured);
           else setFeaturedVideos(pool.slice(0, 4));
         }
-        if (firestorePosts.length > 0) {
-          const recentNotices = firestorePosts
-            .filter((p) => (p.type || p.boardType) === "NOTICE")
-            .sort((a, b) => {
-              const da = a.createdAt || a.date || "";
-              const db = b.createdAt || b.date || "";
-              return db > da ? 1 : db < da ? -1 : 0;
-            })
-            .slice(0, 4)
-            .map((p) => ({ id: p.id || "", tag: p.category || "공지", title: p.title, date: toDateString(p.createdAt || p.date) }));
-          if (recentNotices.length > 0) { setNotices(recentNotices); setIsDemoNotices(false); }
-        }
+        // NewsRoom notices는 위쪽 inner try 블록에서 contents+posts 통합 처리
       } catch (e) {
         console.error("Failed to load data, using demo data:", e);
       } finally {

@@ -14,7 +14,7 @@ import SampleBadge from "@/components/ui/SampleBadge";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import RatingSummary from "@/components/community/RatingSummary";
-import HomeRecentSection from "@/components/home/HomeRecentSection";
+import HomeNewsTicker from "@/components/home/HomeNewsTicker";
 import { STAT_ICONS, COMMUNITY_SHORTCUTS } from "@/hooks/useHomeData";
 import type { HomeDataProps } from "@/hooks/useHomeData";
 
@@ -123,6 +123,9 @@ export default function HomeDefault(props: HomeDataProps) {
         </div>
       </section>
       )}
+
+      {/* S1.5: 최신 소식 띠 — 히어로 직하 (NewsRoom 헤드라인 1건 회전) */}
+      <HomeNewsTicker items={notices} />
 
       {/* S2: 검색 섹션 */}
       <section className="relative z-30 -mt-[60px]">
@@ -620,9 +623,6 @@ export default function HomeDefault(props: HomeDataProps) {
         </div>
       </section>
 
-      {/* S8.5: 최근 커뮤니티 활동 (X 풍 1줄 피드) */}
-      <HomeRecentSection items={recentActivity} />
-
       {/* S9: 커뮤니티 아이콘 바 */}
       <section className="py-16 md:py-20 bg-white border-t border-brand-border">
         <div className="container-custom">
@@ -638,44 +638,93 @@ export default function HomeDefault(props: HomeDataProps) {
         </div>
       </section>
 
-      {/* S10: NewsRoom + CTA */}
-      <section className="flex flex-col md:flex-row min-h-[500px] bg-brand-gray">
-        {sectionToggles.cta && (
-        <div className="flex-1 bg-[#1a1a2e] p-12 md:p-16 flex flex-col justify-center text-white">
-          <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-5">AI 시대,<br />지금 시작하세요</h2>
-          <p className="text-white/60 text-base leading-relaxed max-w-[400px] mb-8">
-            AISH와 함께라면 누구나 AI 전문가로 성장할 수 있습니다.
-            무료 정규 과정부터 실무 프로젝트까지, 단계별로 설계된 커리큘럼이 준비되어 있습니다.
-          </p>
-          <div>
-            <a href={ctaCfg.buttonUrl} target={isExternalHref(ctaCfg.buttonUrl) ? "_blank" : undefined} rel={isExternalHref(ctaCfg.buttonUrl) ? "noopener noreferrer" : undefined}
-              className="inline-flex items-center justify-center w-[60px] h-[60px] rounded-full bg-white text-brand-blue text-2xl font-bold hover:bg-brand-blue hover:text-white hover:-rotate-45 transition-all duration-300">
+      {/* S10: NewsRoom + 최근 커뮤니티 활동 — 2분할 통합 섹션 (앵커 #newsroom) */}
+      <section id="newsroom" className="py-16 md:py-20 bg-brand-gray border-t border-brand-border scroll-mt-20">
+        <div className="container-custom">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
+            {/* 좌: NewsRoom */}
+            <div className="bg-white rounded-xl p-6 md:p-8 shadow-sm">
+              <div className="flex items-end justify-between border-b-2 border-brand-blue pb-4 mb-6">
+                <h3 className="text-2xl md:text-[28px] font-bold text-gray-900">
+                  NewsRoom {showSampleBadge && isDemoNotices && <SampleBadge adminLink="/admin/posts?type=NOTICE" />}
+                </h3>
+                <Link href="/community?tab=notice" className="text-sm text-gray-500 hover:text-brand-blue transition-colors">
+                  전체보기 +
+                </Link>
+              </div>
+              <ul className="space-y-0">
+                {notices.map((notice, index) => (
+                  <li key={index}>
+                    <Link href={notice.id ? `/community?tab=notice&postId=${notice.id}` : "/community?tab=notice"}
+                      className="flex items-center justify-between py-4 border-b border-brand-border hover:pl-2 hover:text-brand-blue transition-all group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-sm font-medium text-brand-blue shrink-0">[{notice.tag}]</span>
+                        <span className="text-sm text-gray-700 group-hover:text-brand-blue truncate transition-colors">{notice.title}</span>
+                      </div>
+                      <span className="text-sm text-gray-400 shrink-0 ml-4">{notice.date}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* 우: 최근 커뮤니티 활동 */}
+            <div className="bg-white rounded-xl p-6 md:p-8 shadow-sm">
+              <div className="flex items-end justify-between border-b-2 border-brand-blue pb-4 mb-6">
+                <h3 className="text-2xl md:text-[28px] font-bold text-gray-900">최근 커뮤니티 활동</h3>
+                <Link href="/community?tab=free" className="text-sm text-gray-500 hover:text-brand-blue transition-colors">
+                  전체보기 +
+                </Link>
+              </div>
+              {recentActivity.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-400">아직 새 글이 없습니다.</p>
+              ) : (
+                <ul className="space-y-0">
+                  {recentActivity.slice(0, 5).map((c) => {
+                    const ts = typeof c.createdAt === "string" ? c.createdAt.slice(0, 10) : "";
+                    const tag = c.boardKey === "community-qna" ? "Q&A" : c.boardKey === "community-review" ? "후기" : "자유";
+                    return (
+                      <li key={c.id}>
+                        <Link href={`/community?postId=${c.id}`}
+                          className="flex items-center justify-between py-4 border-b border-brand-border hover:pl-2 hover:text-brand-blue transition-all group">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="text-sm font-medium text-emerald-600 shrink-0">[{tag}]</span>
+                            <span className="text-sm text-gray-700 group-hover:text-brand-blue truncate transition-colors">
+                              {c.title}
+                            </span>
+                          </div>
+                          <span className="text-sm text-gray-400 shrink-0 ml-4">{ts}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* S11: 최종 CTA — full-width 다크 배너 (단독 분리) */}
+      {sectionToggles.cta && (
+        <section className="bg-[#1a1a2e] py-16 md:py-24">
+          <div className="container-custom flex flex-col md:flex-row items-start md:items-center justify-between gap-8 text-white">
+            <div className="max-w-2xl">
+              <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-4">AI 시대,<br />지금 시작하세요</h2>
+              <p className="text-white/60 text-base leading-relaxed">
+                AISH와 함께라면 누구나 AI 전문가로 성장할 수 있습니다.
+                무료 정규 과정부터 실무 프로젝트까지, 단계별로 설계된 커리큘럼이 준비되어 있습니다.
+              </p>
+            </div>
+            <a href={ctaCfg.buttonUrl}
+              target={isExternalHref(ctaCfg.buttonUrl) ? "_blank" : undefined}
+              rel={isExternalHref(ctaCfg.buttonUrl) ? "noopener noreferrer" : undefined}
+              className="inline-flex items-center justify-center w-[72px] h-[72px] rounded-full bg-white text-brand-blue text-3xl font-bold hover:bg-brand-blue hover:text-white hover:-rotate-45 transition-all duration-300 shrink-0">
               &#10148;
             </a>
           </div>
-        </div>
-        )}
-        <div className="flex-1 bg-white p-12 md:p-16">
-          <div className="flex items-end justify-between border-b-2 border-brand-blue pb-5 mb-8">
-            <h3 className="text-[28px] font-bold text-gray-900">NewsRoom {showSampleBadge && isDemoNotices && <SampleBadge adminLink="/admin/posts?type=NOTICE" />}</h3>
-            <Link href="/community?tab=notice" className="text-sm text-gray-500 hover:text-brand-blue transition-colors">전체보기 +</Link>
-          </div>
-          <ul className="space-y-0">
-            {notices.map((notice, index) => (
-              <li key={index}>
-                <Link href={notice.id ? `/community?tab=notice&postId=${notice.id}` : "/community?tab=notice"}
-                  className="flex items-center justify-between py-5 border-b border-brand-border hover:pl-2.5 hover:text-brand-blue transition-all group">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-sm font-medium text-brand-blue shrink-0">[{notice.tag}]</span>
-                    <span className="text-sm text-gray-700 group-hover:text-brand-blue truncate transition-colors">{notice.title}</span>
-                  </div>
-                  <span className="text-sm text-gray-400 shrink-0 ml-4">{notice.date}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+        </section>
+      )}
     </>
   );
 }
