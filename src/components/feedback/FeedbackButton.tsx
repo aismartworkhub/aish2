@@ -7,14 +7,36 @@ import { installFeedbackHooks, submitFeedback } from "@/lib/feedback-engine";
 
 type Phase = "idle" | "submitting" | "done" | "error";
 
+/** 좌하단 핫존(px) — 이 영역에 마우스가 들어오면 버튼이 페이드 인 */
+const HOT_ZONE_PX = 140;
+
 export default function FeedbackButton() {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [touchDevice, setTouchDevice] = useState(false);
 
   // 글로벌 콘솔/네트워크 에러 후크 — 마운트 즉시 1회
   useEffect(() => { installFeedbackHooks(); }, []);
+
+  // 터치 기기 감지 (hover 미지원) — 항상 보이게
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setTouchDevice(window.matchMedia("(hover: none)").matches);
+  }, []);
+
+  // 마우스 좌하단 핫존 진입 감지 — 호버 가능 기기만
+  useEffect(() => {
+    if (touchDevice) return;
+    const onMove = (e: MouseEvent) => {
+      const inZone = e.clientX <= HOT_ZONE_PX && e.clientY >= window.innerHeight - HOT_ZONE_PX;
+      setRevealed(inZone);
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [touchDevice]);
 
   // ESC로 닫기
   useEffect(() => {
@@ -23,6 +45,9 @@ export default function FeedbackButton() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  // 버튼 노출 조건: 모달 열림 / 터치 기기 / 호버로 노출됨
+  const visible = open || touchDevice || revealed;
 
   const close = () => {
     setOpen(false);
@@ -58,7 +83,9 @@ export default function FeedbackButton() {
           "fixed left-4 bottom-24 lg:bottom-6 z-40",
           "h-12 w-12 rounded-full bg-rose-500 text-white shadow-lg",
           "flex items-center justify-center",
-          "hover:bg-rose-600 active:scale-95 transition",
+          "hover:bg-rose-600 active:scale-95 transition-all duration-200",
+          // 평상시 숨김 → 좌하단 호버 시 페이드 인 (터치 기기는 항상 보임)
+          visible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-2 pointer-events-none",
         )}
       >
         <Bug className="h-5 w-5" />

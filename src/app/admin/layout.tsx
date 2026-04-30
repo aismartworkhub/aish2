@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AuthGuard from "@/components/admin/AuthGuard";
+import FeedbackButton from "@/components/feedback/FeedbackButton";
 
 export default function AdminLayout({
   children,
@@ -22,6 +23,7 @@ export default function AdminLayout({
           <AdminHeader onMenuToggle={toggleMobile} />
           <main className="p-4 lg:p-6">{children}</main>
         </div>
+        <FeedbackButton />
       </div>
     </AuthGuard>
   );

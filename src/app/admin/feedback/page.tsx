@@ -159,7 +159,7 @@ export default function AdminFeedbackPage() {
         </div>
 
         {/* Detail */}
-        <div className="rounded-lg border bg-white p-4 lg:p-6 min-h-[400px]">
+        <div className="min-w-0 rounded-lg border bg-white p-4 lg:p-6 min-h-[400px]">
           {!selected ? (
             <div className="flex h-full items-center justify-center text-sm text-gray-400">
               왼쪽에서 신고를 선택하세요.
@@ -274,7 +274,7 @@ export default function AdminFeedbackPage() {
                     DOM 스냅샷 {showDom ? "숨기기" : "보기"} ({Math.round(selected.domSnapshot.length / 1024)}KB)
                   </button>
                   {showDom && (
-                    <pre className="mt-2 max-h-96 overflow-auto rounded-lg bg-gray-900 p-3 text-xs text-gray-100">
+                    <pre className="mt-2 max-h-96 max-w-full overflow-auto whitespace-pre-wrap break-all rounded-lg bg-gray-900 p-3 text-xs text-gray-100">
                       {selected.domSnapshot}
                     </pre>
                   )}
