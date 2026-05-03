@@ -505,7 +505,7 @@ function TimelineCard({ content, onClick, priority }: Omit<Props, "board" | "var
           )}
 
           {/* 미디어 임베드 — 영상/이미지/PDF/링크. 상세는 모달에서. */}
-          {content.mediaUrl && content.mediaType && content.mediaType !== "none" && (
+          {content.mediaUrl && content.mediaType && content.mediaType !== "none" ? (
             <button
               type="button"
               onClick={() => onClick?.(content)}
@@ -528,6 +528,20 @@ function TimelineCard({ content, onClick, priority }: Omit<Props, "board" | "var
                 )}
               </div>
             </button>
+          ) : (
+            // 미디어 없는 글 — 카테고리 색·아이콘 fallback 노출 (community-* 보드만 매핑됨)
+            getBoardVisual(content.boardKey) && (
+              <button
+                type="button"
+                onClick={() => onClick?.(content)}
+                className="mt-3 block w-full overflow-hidden rounded-lg border border-gray-200 text-left"
+                aria-label="상세 열기"
+              >
+                <div className="relative aspect-video w-full">
+                  <CategoryFallback boardKey={content.boardKey} />
+                </div>
+              </button>
+            )
           )}
 
           {/* 태그 */}
