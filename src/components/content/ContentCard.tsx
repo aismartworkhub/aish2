@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, MessageCircle, Eye, Pin, Bookmark, Share2, Play, BadgeCheck } from "lucide-react";
+import { Heart, MessageCircle, Eye, Pin, Bookmark, Share2, Play, BadgeCheck, Megaphone, HelpCircle, Star } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { contentDisplayTitle } from "@/lib/content-display";
 import type { Content, BoardConfig } from "@/types/content";
@@ -59,6 +60,46 @@ function UnansweredBadge() {
   );
 }
 
+/** 보드별 시각 식별자 — 텍스트 전용 글의 카드 fallback에 사용 */
+const BOARD_VISUAL: Record<
+  string,
+  { icon: LucideIcon; gradient: string; iconColor: string; chipBg: string; chipFg: string; label: string }
+> = {
+  "community-notice": { icon: Megaphone,    gradient: "from-rose-100 to-rose-200",    iconColor: "text-rose-500",   chipBg: "bg-rose-100",   chipFg: "text-rose-700",   label: "공지" },
+  "community-free":   { icon: MessageCircle, gradient: "from-blue-100 to-blue-200",   iconColor: "text-blue-500",   chipBg: "bg-blue-100",   chipFg: "text-blue-700",   label: "자유" },
+  "community-qna":    { icon: HelpCircle,   gradient: "from-emerald-100 to-emerald-200", iconColor: "text-emerald-500", chipBg: "bg-emerald-100", chipFg: "text-emerald-700", label: "Q&A" },
+  "community-review": { icon: Star,         gradient: "from-amber-100 to-amber-200",  iconColor: "text-amber-500",  chipBg: "bg-amber-100",  chipFg: "text-amber-700",  label: "후기" },
+  "community-faq":    { icon: HelpCircle,   gradient: "from-cyan-100 to-cyan-200",    iconColor: "text-cyan-500",   chipBg: "bg-cyan-100",   chipFg: "text-cyan-700",   label: "FAQ" },
+};
+
+function getBoardVisual(boardKey: string | undefined) {
+  return boardKey ? BOARD_VISUAL[boardKey] : undefined;
+}
+
+/** 미디어 없는 글의 카드 fallback — 카테고리 그라데이션 배경 + 큰 아이콘 + 라벨 */
+function CategoryFallback({ boardKey }: { boardKey?: string }) {
+  const v = getBoardVisual(boardKey);
+  if (!v) return null;
+  const Icon = v.icon;
+  return (
+    <div className={cn("flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br", v.gradient)}>
+      <Icon size={48} className={cn("opacity-80", v.iconColor)} strokeWidth={1.5} />
+      <span className={cn("text-xs font-bold", v.iconColor)}>{v.label}</span>
+    </div>
+  );
+}
+
+/** 작은 카테고리 칩 — timeline 헤더에 보드 식별 */
+function CategoryChip({ boardKey }: { boardKey?: string }) {
+  const v = getBoardVisual(boardKey);
+  if (!v) return null;
+  return (
+    <span className={cn("inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-bold", v.chipBg, v.chipFg)}>
+      {v.label}
+    </span>
+  );
+}
+
 type Props = {
   content: Content;
   board?: BoardConfig;
@@ -98,14 +139,18 @@ function GridCard({ content, onClick, priority }: Omit<Props, "board">) {
       )}
     >
       <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
-        <MediaPreview
-          mediaUrl={content.mediaUrl}
-          mediaType={content.mediaType}
-          thumbnailUrl={content.thumbnailUrl}
-          title={contentDisplayTitle(content)}
-          className="h-full w-full transition-transform duration-200 group-hover:scale-105"
-          priority={priority}
-        />
+        {!content.mediaUrl && !content.thumbnailUrl ? (
+          <CategoryFallback boardKey={content.boardKey} />
+        ) : (
+          <MediaPreview
+            mediaUrl={content.mediaUrl}
+            mediaType={content.mediaType}
+            thumbnailUrl={content.thumbnailUrl}
+            title={contentDisplayTitle(content)}
+            className="h-full w-full transition-transform duration-200 group-hover:scale-105"
+            priority={priority}
+          />
+        )}
         {content.isShort && (
           <span className={cn(
             "absolute bottom-2 right-2 rounded bg-red-600 px-1.5 py-0.5",
@@ -430,6 +475,7 @@ function TimelineCard({ content, onClick, priority }: Omit<Props, "board" | "var
               <BadgeCheck size={14} className="shrink-0 text-red-500 fill-red-50" aria-label="YouTube 채널" />
             )}
             {content.isPinned && <Pin size={12} className="shrink-0 text-primary-500" />}
+            <CategoryChip boardKey={content.boardKey} />
             {headerHandle && (
               <span className="hidden sm:inline text-gray-500 text-xs truncate">{headerHandle}</span>
             )}
@@ -622,9 +668,7 @@ function DispatchCard({ content, onClick, priority }: Omit<Props, "board" | "var
             referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-300">
-            no image
-          </div>
+          <CategoryFallback boardKey={content.boardKey} />
         )}
         {isYouTube && (
           <span className="absolute inset-0 flex items-center justify-center bg-black/20">
