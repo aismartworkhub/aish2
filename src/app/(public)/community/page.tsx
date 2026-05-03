@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X, Plus, Sparkles, MessageCircle, HelpCircle, Star, Megaphone, Mail, Award, Pin } from "lucide-react";
+import { Search, X, Plus, Sparkles, MessageCircle, HelpCircle, Star, Megaphone, Mail, Award, Pin, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBoardsByGroup, buildSearchTerms, getPopularTags } from "@/lib/content-engine";
 import { getBoardsByGroupDefault, mergeBoardsByKey, DEFAULT_BOARDS } from "@/lib/board-defaults";
@@ -40,7 +40,7 @@ type MediaTypeFilter = typeof ALL_KEY | "youtube" | "image" | "pdf" | "link";
 type PrimaryCategory = {
   key: string;
   label: string;
-  icon: typeof Sparkles;
+  icon: typeof MessageCircle;
   /** 활성 시 칩 색상 클래스 */
   activeClass: string;
   /** 비활성 시 칩 색상 클래스 (시각 구분) */
@@ -55,17 +55,20 @@ type PrimaryCategory = {
   legacyHref?: string;
 };
 
+// 칩 순서: 운영 정보(공지·자료) → 사용자 활동(자유·Q&A·후기·FAQ) → 부속(수료증·협력문의)
+// '전체' 칩 제거 — 칩 미선택 시 기본 ALL 통합 피드가 그대로 노출됨
 const PRIMARY_CATEGORIES: PrimaryCategory[] = [
-  { key: "all", label: "전체", icon: Sparkles, activeClass: "bg-gray-900 text-white", inactiveClass: "bg-gray-100 text-gray-700", boards: [] },
+  { key: "notice", label: "공지", icon: Megaphone, activeClass: "bg-rose-500 text-white", inactiveClass: "bg-rose-50 text-rose-700", boards: ["community-notice"] },
+  // 자료(media-resource) — /community에서 인라인 노출, 카드 클릭은 /media 본진으로 점프
+  { key: "material", label: "자료", icon: FileText, activeClass: "bg-violet-500 text-white", inactiveClass: "bg-violet-50 text-violet-700", boards: ["media-resource"] },
   { key: "free", label: "자유", icon: MessageCircle, activeClass: "bg-blue-500 text-white", inactiveClass: "bg-blue-50 text-blue-700", boards: ["community-free"] },
   { key: "qna", label: "Q&A", icon: HelpCircle, activeClass: "bg-emerald-500 text-white", inactiveClass: "bg-emerald-50 text-emerald-700", boards: ["community-qna"] },
   { key: "review", label: "후기", icon: Star, activeClass: "bg-amber-500 text-white", inactiveClass: "bg-amber-50 text-amber-700", boards: ["community-review"] },
-  { key: "notice", label: "공지", icon: Megaphone, activeClass: "bg-rose-500 text-white", inactiveClass: "bg-rose-50 text-rose-700", boards: ["community-notice"] },
-  // FAQ는 community-faq 보드를 인라인 필터로 노출
+  // FAQ는 community-faq 보드를 인라인 필터로 노출 (variant=faq 시 아코디언)
   { key: "faq", label: "FAQ", icon: HelpCircle, activeClass: "bg-cyan-500 text-white", inactiveClass: "bg-cyan-50 text-cyan-700", boards: ["community-faq"] },
   // 협력문의·수료증 — 인라인 도입창은 새 카드 스타일, 카드 클릭은 legacy 상세
-  { key: "inquiry", label: "협력문의", icon: Mail, activeClass: "bg-orange-500 text-white", inactiveClass: "bg-orange-50 text-orange-700", boards: [], inlineKey: "inquiry", legacyHref: "/community/legacy?tab=inquiry" },
   { key: "certificate", label: "수료증", icon: Award, activeClass: "bg-teal-500 text-white", inactiveClass: "bg-teal-50 text-teal-700", boards: [], inlineKey: "certificate", legacyHref: "/community/legacy?tab=certificate" },
+  { key: "inquiry", label: "협력문의", icon: Mail, activeClass: "bg-orange-500 text-white", inactiveClass: "bg-orange-50 text-orange-700", boards: [], inlineKey: "inquiry", legacyHref: "/community/legacy?tab=inquiry" },
 ];
 
 export default function CommunityPage() {
@@ -277,6 +280,11 @@ function CommunityPageInner() {
     }
     if (c.boardKey === "community-inquiry") {
       router.push("/community/legacy?tab=inquiry");
+      return;
+    }
+    // 자료(media-resource) — /media 본진으로 점프하여 동일 콘텐츠를 한 곳에서 소비
+    if (c.boardKey === "media-resource") {
+      router.push(`/media?id=${c.id}`);
       return;
     }
     setSelected(c);
