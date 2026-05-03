@@ -76,15 +76,55 @@ function getBoardVisual(boardKey: string | undefined) {
   return boardKey ? BOARD_VISUAL[boardKey] : undefined;
 }
 
-/** 미디어 없는 글의 카드 fallback — 카테고리 그라데이션 배경 + 큰 아이콘 + 라벨 */
-function CategoryFallback({ boardKey }: { boardKey?: string }) {
-  const v = getBoardVisual(boardKey);
+/**
+ * 미디어 없는 글의 카드 fallback — 카테고리 색 + 글 내용을 시각화.
+ * 좌상단 카테고리 칩, 가운데 큰 제목, 하단 본문 요약·태그로 카드별 차별화.
+ */
+function CategoryFallback({ content, compact }: { content: Content; compact?: boolean }) {
+  const v = getBoardVisual(content.boardKey);
   if (!v) return null;
   const Icon = v.icon;
+  const title = contentDisplayTitle(content);
+  const summary = (content.body ?? "").replace(/\s+/g, " ").trim();
+  const tags = content.tags?.slice(0, 3) ?? [];
   return (
-    <div className={cn("flex h-full w-full flex-col items-center justify-center gap-1 bg-gradient-to-br", v.gradient)}>
-      <Icon size={48} className={cn("opacity-80", v.iconColor)} strokeWidth={1.5} />
-      <span className={cn("text-xs font-bold", v.iconColor)}>{v.label}</span>
+    <div className={cn("relative h-full w-full overflow-hidden bg-gradient-to-br", v.gradient, compact ? "p-2" : "p-4")}>
+      {/* 큰 배경 아이콘 — 살짝 워터마크 */}
+      <Icon
+        size={compact ? 56 : 96}
+        strokeWidth={1.2}
+        className={cn("absolute -bottom-3 -right-3 opacity-15", v.iconColor)}
+      />
+      <div className="relative flex h-full flex-col">
+        {/* 카테고리 칩 */}
+        <div className="flex items-center gap-1">
+          <Icon size={compact ? 12 : 14} className={v.iconColor} />
+          <span className={cn("font-bold", v.iconColor, compact ? "text-[10px]" : "text-xs")}>{v.label}</span>
+        </div>
+        {/* 제목 */}
+        <h4 className={cn(
+          "mt-1 font-bold leading-tight text-gray-900",
+          compact ? "line-clamp-2 text-xs" : "line-clamp-3 text-base",
+        )}>
+          {title}
+        </h4>
+        {/* 본문 요약 */}
+        {summary && !compact && (
+          <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-gray-700/80">
+            {summary}
+          </p>
+        )}
+        {/* 태그 — compact에서는 생략 */}
+        {tags.length > 0 && !compact && (
+          <div className="mt-auto flex flex-wrap gap-1 pt-2">
+            {tags.map((t) => (
+              <span key={t} className="rounded-full bg-white/60 px-1.5 py-0.5 text-[10px] font-medium text-gray-700">
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -140,7 +180,7 @@ function GridCard({ content, onClick, priority }: Omit<Props, "board">) {
     >
       <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
         {!content.mediaUrl && !content.thumbnailUrl ? (
-          <CategoryFallback boardKey={content.boardKey} />
+          <CategoryFallback content={content} />
         ) : (
           <MediaPreview
             mediaUrl={content.mediaUrl}
@@ -538,7 +578,7 @@ function TimelineCard({ content, onClick, priority }: Omit<Props, "board" | "var
                 aria-label="상세 열기"
               >
                 <div className="relative aspect-video w-full">
-                  <CategoryFallback boardKey={content.boardKey} />
+                  <CategoryFallback content={content} />
                 </div>
               </button>
             )
@@ -682,7 +722,7 @@ function DispatchCard({ content, onClick, priority }: Omit<Props, "board" | "var
             referrerPolicy="no-referrer"
           />
         ) : (
-          <CategoryFallback boardKey={content.boardKey} />
+          <CategoryFallback content={content} />
         )}
         {isYouTube && (
           <span className="absolute inset-0 flex items-center justify-center bg-black/20">
