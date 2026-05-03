@@ -45,6 +45,20 @@ function sourceTimeAgo(iso: string | undefined): string {
 
 export type ContentCardVariant = "grid" | "list" | "faq" | "instagram" | "timeline" | "dispatch";
 
+/** Q&A 보드 + 댓글 0건 → 답변 필요 글로 시각 강조 */
+function isUnansweredQna(c: Content): boolean {
+  return c.boardKey === "community-qna" && (!c.commentCount || c.commentCount === 0);
+}
+
+/** 작은 라운드 칩 — '답변 필요' 표시 */
+function UnansweredBadge() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
+      답변 필요
+    </span>
+  );
+}
+
 type Props = {
   content: Content;
   board?: BoardConfig;
@@ -131,10 +145,13 @@ function GridCard({ content, onClick, priority }: Omit<Props, "board">) {
         })()}
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">
-          {content.isPinned && <Pin size={12} className="mr-1 inline text-primary-500" />}
-          {contentDisplayTitle(content)}
-        </h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="line-clamp-2 flex-1 text-sm font-semibold text-gray-900">
+            {content.isPinned && <Pin size={12} className="mr-1 inline text-primary-500" />}
+            {contentDisplayTitle(content)}
+          </h3>
+          {isUnansweredQna(content) && <UnansweredBadge />}
+        </div>
         <p className="text-xs text-gray-500">{content.authorName}</p>
         <div className="mt-auto flex items-center gap-3 text-xs text-gray-400">
           <span className="flex items-center gap-0.5">
@@ -169,6 +186,7 @@ function ListRow({ content, onClick }: Omit<Props, "board">) {
       <span className="flex-1 truncate text-sm font-medium text-gray-800">
         {contentDisplayTitle(content)}
       </span>
+      {isUnansweredQna(content) && <UnansweredBadge />}
       {content.commentCount > 0 && (
         <span className="text-xs text-primary-500">[{content.commentCount}]</span>
       )}
@@ -419,6 +437,7 @@ function TimelineCard({ content, onClick, priority }: Omit<Props, "board" | "var
             <span className="text-gray-500 text-xs" suppressHydrationWarning>
               {headerTime}
             </span>
+            {isUnansweredQna(content) && <UnansweredBadge />}
           </div>
 
           {/* 제목 — X.com에선 본문이라 평문 톤 다운 */}
@@ -626,10 +645,13 @@ function DispatchCard({ content, onClick, priority }: Omit<Props, "board" | "var
 
       {/* 본문 — 제목 + 요약 + 메타 */}
       <div className="min-w-0 flex-1 flex flex-col">
-        <h3 className="line-clamp-2 text-sm font-bold text-gray-900 leading-snug">
-          {content.isPinned && <Pin size={11} className="mr-1 inline text-primary-500" />}
-          {contentDisplayTitle(content)}
-        </h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="line-clamp-2 flex-1 text-sm font-bold text-gray-900 leading-snug">
+            {content.isPinned && <Pin size={11} className="mr-1 inline text-primary-500" />}
+            {contentDisplayTitle(content)}
+          </h3>
+          {isUnansweredQna(content) && <UnansweredBadge />}
+        </div>
         {summary && (
           <p className="mt-1 line-clamp-2 text-xs text-gray-600 leading-relaxed">
             {summary}
