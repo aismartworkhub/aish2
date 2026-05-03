@@ -557,13 +557,13 @@ function CommunityPageInner() {
           </div>
         )}
 
-        {/* 상단 고정 피드 — 관리자가 isPinned 한 콘텐츠. '전체' 탭이고 검색·태그 필터 없을 때만 노출 */}
+        {/* 상단 공지·고정 피드 — isPinned 글 + 부족분은 최신 공지 자동 보충. 검색·태그 필터 없을 때 노출 */}
         {!isFiltered && pinnedItems.length > 0 && (
           <section className="mb-8 rounded-xl border border-amber-200 bg-amber-50/40 p-4 md:p-5">
             <div className="mb-3 flex items-center gap-2">
               <Pin size={16} className="text-amber-600" />
-              <h3 className="text-sm font-bold text-amber-900">상단 고정</h3>
-              <span className="text-xs text-amber-700/70">관리자가 선정한 주요 게시글</span>
+              <h3 className="text-sm font-bold text-amber-900">공지·고정</h3>
+              <span className="text-xs text-amber-700/70">관리자 고정 + 최신 공지</span>
             </div>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
               {pinnedItems.map((c) => (

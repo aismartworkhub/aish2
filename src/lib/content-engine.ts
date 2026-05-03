@@ -322,17 +322,37 @@ export async function getContentById(id: string): Promise<Content | null> {
   return { id: snap.id, ...snap.data() } as Content;
 }
 
-/** 커뮤니티 허브 상단 고정 피드 — group=community AND isPinned=true */
+/**
+ * 커뮤니티 허브 상단 고정 피드.
+ * 1) 명시적으로 isPinned=true 인 글
+ * 2) 부족분은 community-notice 보드 최신 글로 자동 보충 (관리자가 토글 안 해도 공지 노출 보장)
+ */
 export async function getPinnedCommunityContents(maxItems = 6): Promise<Content[]> {
-  const q = query(
+  const pinnedQuery = query(
     collection(db, COLLECTIONS.CONTENTS),
     where("group", "==", "community"),
     where("isPinned", "==", true),
     orderBy("createdAt", "desc"),
     firestoreLimit(maxItems),
   );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Content));
+  const pinnedSnap = await getDocs(pinnedQuery);
+  const pinned = pinnedSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Content));
+  if (pinned.length >= maxItems) return pinned;
+
+  const fillCount = maxItems - pinned.length;
+  const noticeQuery = query(
+    collection(db, COLLECTIONS.CONTENTS),
+    where("boardKey", "==", "community-notice"),
+    orderBy("createdAt", "desc"),
+    firestoreLimit(maxItems),
+  );
+  const noticeSnap = await getDocs(noticeQuery);
+  const pinnedIds = new Set(pinned.map((c) => c.id));
+  const fillers = noticeSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as Content))
+    .filter((c) => !pinnedIds.has(c.id))
+    .slice(0, fillCount);
+  return [...pinned, ...fillers];
 }
 
 /**
