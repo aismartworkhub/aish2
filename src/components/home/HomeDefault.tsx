@@ -15,8 +15,10 @@ import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import RatingSummary from "@/components/community/RatingSummary";
 import HomeNewsTicker from "@/components/home/HomeNewsTicker";
+import { ContentCard } from "@/components/content";
 import { STAT_ICONS, COMMUNITY_SHORTCUTS } from "@/hooks/useHomeData";
 import type { HomeDataProps } from "@/hooks/useHomeData";
+import type { Content } from "@/types/content";
 
 export default function HomeDefault(props: HomeDataProps) {
   const {
@@ -668,7 +670,7 @@ export default function HomeDefault(props: HomeDataProps) {
               </ul>
             </div>
 
-            {/* 우: 최근 커뮤니티 활동 */}
+            {/* 우: 최근 커뮤니티 활동 — /media와 동일한 timeline 카드 스타일 */}
             <div className="bg-white rounded-xl p-6 md:p-8 shadow-sm">
               <div className="flex items-end justify-between border-b-2 border-brand-blue pb-4 mb-6">
                 <h3 className="text-2xl md:text-[28px] font-bold text-gray-900">최근 커뮤니티 활동</h3>
@@ -679,26 +681,16 @@ export default function HomeDefault(props: HomeDataProps) {
               {recentActivity.length === 0 ? (
                 <p className="py-8 text-center text-sm text-gray-400">아직 새 글이 없습니다.</p>
               ) : (
-                <ul className="space-y-0">
-                  {recentActivity.slice(0, 5).map((c) => {
-                    const ts = typeof c.createdAt === "string" ? c.createdAt.slice(0, 10) : "";
-                    const tag = c.boardKey === "community-qna" ? "Q&A" : c.boardKey === "community-review" ? "후기" : "자유";
-                    return (
-                      <li key={c.id}>
-                        <Link href={`/community?postId=${c.id}`}
-                          className="flex items-center justify-between py-4 border-b border-brand-border hover:pl-2 hover:text-brand-blue transition-all group">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span className="text-sm font-medium text-emerald-600 shrink-0">[{tag}]</span>
-                            <span className="text-sm text-gray-700 group-hover:text-brand-blue truncate transition-colors">
-                              {c.title}
-                            </span>
-                          </div>
-                          <span className="text-sm text-gray-400 shrink-0 ml-4">{ts}</span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <div className="border border-gray-100 rounded-lg overflow-hidden">
+                  {recentActivity.slice(0, 4).map((c: Content) => (
+                    <ContentCard
+                      key={c.id}
+                      content={c}
+                      variant="timeline"
+                      onClick={(content) => router.push(`/community?id=${content.id}`)}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           </div>
