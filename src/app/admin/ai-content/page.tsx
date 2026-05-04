@@ -15,10 +15,12 @@ import {
   setSingletonDoc,
   getCollection,
 } from "@/lib/firestore";
-import { collectAll } from "@/lib/ai-content-collector";
+import { collectByCategory } from "@/lib/ai-content-collector";
 import type { CollectResult, ContentSource } from "@/lib/ai-content-collector";
 import { curateItems } from "@/lib/ai-content-curator";
 import type { CuratedItem } from "@/lib/ai-content-curator";
+import { ALL_CATEGORIES, CATEGORY_BOARD_HINTS, CATEGORY_LABELS } from "@/lib/ai-content-categories";
+import type { AiCategory } from "@/lib/ai-content-categories";
 import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-content-dedup";
 import { createContentIfNew, deleteContent, getContents } from "@/lib/content-engine";
 import { extractOgImageWithAI } from "@/lib/og-image-ai";
@@ -240,118 +242,154 @@ export default function AdminAiContentPage() {
 
   // ── 즉시 수집 ──
 
+  /**
+   * 단일 카테고리 수집·큐레이션·저장 1 cycle.
+   * 카테고리에 매핑된 소스만 fetch하고, 그 카테고리의 boardHints만 Gemini에 전달 →
+   * 보드 분류 정확도 ↑. 결과는 카테고리별 history run 1건으로 저장됨.
+   */
+  const runCategory = async (category: AiCategory): Promise<{ inserted: number; skipped: number }> => {
+    const startTime = Date.now();
+    const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? "";
+    const hints = CATEGORY_BOARD_HINTS[category];
+    const categoryBoardKeys = new Set(hints.map((h) => h.boardKey));
+
+    setCollectProgress(`[${CATEGORY_LABELS[category]}] 소스에서 수집 중...`);
+    const result: CollectResult = await collectByCategory(category, {
+      youtubeApiKey: config.youtubeApiKey,
+      maxPerSource: Math.ceil(config.maxItemsPerRun / 2),
+    });
+
+    setCollectProgress(`[${CATEGORY_LABELS[category]}] ${result.items.length}건. 중복 확인 중...`);
+    const existingUrls = await getExistingUrls();
+    const unique = filterDuplicates(result.items, existingUrls);
+
+    setCollectProgress(`[${CATEGORY_LABELS[category]}] ${unique.length}건 고유. Gemini 큐레이션 중...`);
+    let curated: CuratedItem[];
+    if (geminiKey && unique.length > 0) {
+      curated = await curateItems(unique, geminiKey, config.minQualityScore, hints);
+    } else {
+      curated = unique.map((item) => ({
+        title: item.title,
+        body: item.description || item.title,
+        boardKey: hints[0]?.boardKey ?? "media-resource",
+        mediaType: (item.source === "youtube" ? "youtube" : "link") as "youtube" | "link",
+        mediaUrl: item.url,
+        thumbnailUrl: item.thumbnailUrl,
+        tags: ["AI"],
+        qualityScore: 5,
+        source: item.source,
+        publishedAt: item.publishedAt,
+      }));
+    }
+
+    // 안전망 — 큐레이터가 hints 외 보드를 반환했을 경우 카테고리 보드만 통과
+    curated = curated.filter((c) => categoryBoardKeys.has(c.boardKey));
+    curated.sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
+
+    const boardBreakdown: Record<string, number> = {};
+    const enabledBoards = new Set(config.boardConfigs.filter((b) => b.enabled).map((b) => b.boardKey));
+    const toInsert = curated
+      .filter((c) => enabledBoards.has(c.boardKey))
+      .slice(0, config.maxItemsPerRun);
+
+    setCollectProgress(`[${CATEGORY_LABELS[category]}] ${toInsert.length}건 저장 중...`);
+    let inserted = 0;
+    let skipped = 0;
+    for (const item of toInsert) {
+      const bc = config.boardConfigs.find((b) => b.boardKey === item.boardKey);
+      const boardMax = bc?.maxItems ?? 5;
+      const currentCount = boardBreakdown[item.boardKey] ?? 0;
+      if (currentCount >= boardMax) { skipped++; continue; }
+
+      const shouldReview = bc?.requireReview ?? config.defaultRequireReview;
+      // 썸네일 보충 — 비어있고 외부 링크면 Gemini URL Context로 og:image 시도 (실패해도 graceful)
+      let thumbnailUrl = item.thumbnailUrl;
+      if (!thumbnailUrl && item.mediaUrl && /^https?:\/\//.test(item.mediaUrl)) {
+        try {
+          const og = await extractOgImageWithAI(item.mediaUrl);
+          if (og.ok) thumbnailUrl = og.ogImage;
+        } catch { /* graceful — 카테고리 fallback이 채워줌 */ }
+      }
+      const docId = await createContentIfNew({
+        boardKey: item.boardKey,
+        title: item.title,
+        titleKo: item.titleKo,
+        body: item.body,
+        bodyKo: item.bodyKo,
+        mediaType: item.mediaType,
+        mediaUrl: item.mediaUrl,
+        thumbnailUrl,
+        tags: item.tags,
+        authorUid: "ai-collector",
+        authorName: "AI 큐레이터",
+        isPinned: false,
+        isApproved: !shouldReview,
+      });
+      if (docId) {
+        inserted++;
+        boardBreakdown[item.boardKey] = (boardBreakdown[item.boardKey] ?? 0) + 1;
+      } else {
+        skipped++;
+      }
+    }
+
+    const runResult = {
+      collected: result.items.length,
+      unique: unique.length,
+      curated: curated.length,
+      inserted,
+      failed: toInsert.length - inserted - skipped,
+    };
+
+    const { createDoc } = await import("@/lib/firestore");
+    await createDoc(COLLECTIONS.AI_COLLECTOR_HISTORY, {
+      runAt: new Date().toISOString(),
+      trigger: "manual" as const,
+      category, // Phase 2 통계·검토 필터링 기반
+      result: runResult,
+      boardBreakdown,
+      duration: Date.now() - startTime,
+    });
+
+    return { inserted, skipped };
+  };
+
+  /**
+   * "전체 수집" — 3 카테고리 순차 실행. Phase 2 UI에서 카테고리 단독 실행 버튼은
+   * runCategory 직접 호출, 이 handler는 호환을 위해 단일 진입점으로 유지.
+   */
   const handleCollect = async () => {
     if (!user) return;
     setCollecting(true);
     setCollectProgress("소스에서 수집 중...");
-    const startTime = Date.now();
 
     try {
-      const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? "";
-      const result: CollectResult = await collectAll({
-        youtubeApiKey: config.youtubeApiKey,
-        maxPerSource: Math.ceil(config.maxItemsPerRun / 3),
-      });
-      setCollectProgress(`${result.items.length}건 수집 완료. 중복 확인 중...`);
-
-      const existingUrls = await getExistingUrls();
-      const unique = filterDuplicates(result.items, existingUrls);
-      setCollectProgress(`${unique.length}건 고유. Gemini 큐레이션 중...`);
-
-      let curated: CuratedItem[];
-      if (geminiKey) {
-        curated = await curateItems(unique, geminiKey, config.minQualityScore);
-      } else {
-        curated = unique.map((item) => ({
-          title: item.title,
-          body: item.description || item.title,
-          boardKey: item.source === "youtube" ? "media-lecture" : "media-resource",
-          mediaType: (item.source === "youtube" ? "youtube" : "link") as "youtube" | "link",
-          mediaUrl: item.url,
-          thumbnailUrl: item.thumbnailUrl,
-          tags: ["AI"],
-          qualityScore: 5,
-          source: item.source,
-          publishedAt: item.publishedAt,
-        }));
-      }
-
-      curated = curated.filter((c) => c.boardKey !== "community-free");
-      curated.sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
-
-      const boardBreakdown: Record<string, number> = {};
-      const enabledBoards = new Set(config.boardConfigs.filter((b) => b.enabled).map((b) => b.boardKey));
-      const toInsert = curated
-        .filter((c) => enabledBoards.has(c.boardKey))
-        .slice(0, config.maxItemsPerRun);
-      setCollectProgress(`${toInsert.length}건 큐레이션 완료. 저장 중...`);
-
-      let inserted = 0;
-      let skipped = 0;
-      for (const item of toInsert) {
-        const bc = config.boardConfigs.find((b) => b.boardKey === item.boardKey);
-        const boardMax = bc?.maxItems ?? 5;
-        const currentCount = boardBreakdown[item.boardKey] ?? 0;
-        if (currentCount >= boardMax) { skipped++; continue; }
-
-        const shouldReview = bc?.requireReview ?? config.defaultRequireReview;
-        // 썸네일 보충 — 비어있고 외부 링크면 Gemini URL Context로 og:image 시도 (실패해도 graceful)
-        let thumbnailUrl = item.thumbnailUrl;
-        if (!thumbnailUrl && item.mediaUrl && /^https?:\/\//.test(item.mediaUrl)) {
-          try {
-            const og = await extractOgImageWithAI(item.mediaUrl);
-            if (og.ok) thumbnailUrl = og.ogImage;
-          } catch { /* graceful — 카테고리 fallback이 채워줌 */ }
-        }
-        const docId = await createContentIfNew({
-          boardKey: item.boardKey,
-          title: item.title,
-          titleKo: item.titleKo,
-          body: item.body,
-          bodyKo: item.bodyKo,
-          mediaType: item.mediaType,
-          mediaUrl: item.mediaUrl,
-          thumbnailUrl,
-          tags: item.tags,
-          authorUid: "ai-collector",
-          authorName: "AI 큐레이터",
-          isPinned: false,
-          isApproved: !shouldReview,
-        });
-        if (docId) {
-          inserted++;
-          boardBreakdown[item.boardKey] = (boardBreakdown[item.boardKey] ?? 0) + 1;
-        } else {
-          skipped++;
+      let totalInserted = 0;
+      let totalSkipped = 0;
+      for (const cat of ALL_CATEGORIES) {
+        try {
+          const { inserted, skipped } = await runCategory(cat);
+          totalInserted += inserted;
+          totalSkipped += skipped;
+        } catch (e) {
+          toast(`[${CATEGORY_LABELS[cat]}] 수집 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
         }
       }
 
-      const runResult = {
-        collected: result.items.length,
-        unique: unique.length,
-        curated: curated.length,
-        inserted,
-        failed: toInsert.length - inserted - skipped,
+      // 마지막 실행 메타 — 합산 결과 기록 (개별 카테고리 ron은 history에 별도 저장됨)
+      const aggregateResult = {
+        collected: 0, unique: 0, curated: 0,
+        inserted: totalInserted,
+        failed: 0,
       };
-
       await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-collector", {
         ...config,
         lastRunAt: new Date().toISOString(),
-        lastRunResult: runResult,
+        lastRunResult: aggregateResult,
       });
-
-      const { createDoc } = await import("@/lib/firestore");
-      await createDoc(COLLECTIONS.AI_COLLECTOR_HISTORY, {
-        runAt: new Date().toISOString(),
-        trigger: "manual" as const,
-        result: runResult,
-        boardBreakdown,
-        duration: Date.now() - startTime,
-      });
-
-      setConfig((prev) => ({ ...prev, lastRunAt: new Date().toISOString(), lastRunResult: runResult }));
+      setConfig((prev) => ({ ...prev, lastRunAt: new Date().toISOString(), lastRunResult: aggregateResult }));
       setCollectProgress("");
-      toast(`수집 완료: ${inserted}건 삽입, ${skipped}건 스킵`, "success");
+      toast(`수집 완료: ${totalInserted}건 삽입, ${totalSkipped}건 스킵`, "success");
       loadBoardCounts();
     } catch (e) {
       toast(`수집 실패: ${e instanceof Error ? e.message : "오류"}`, "error");

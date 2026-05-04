@@ -321,3 +321,62 @@ export async function collectAll(
 
   return { items: all, sourceResults };
 }
+
+// ── 카테고리별 수집 (B 안: 영상·게시판글·교육자료 분리) ──
+
+/**
+ * 카테고리에 매핑된 소스만 fetch. CATEGORY_SOURCES에 정의된 소스 외에는 실행 안 함.
+ * - video    → youtube
+ * - article  → reddit, xcom
+ * - resource → github
+ *
+ * 결과의 sourceResults는 5소스 키를 모두 포함하지만 비활성 소스는 count=0으로 표시.
+ */
+export async function collectByCategory(
+  category: import("./ai-content-categories").AiCategory,
+  options: CollectOptions = {},
+): Promise<CollectResult> {
+  const { CATEGORY_SOURCES } = await import("./ai-content-categories");
+  const enabledSources = new Set<ContentSource>(CATEGORY_SOURCES[category]);
+  const max = options.maxPerSource ?? 5;
+
+  const sourceResults: CollectResult["sourceResults"] = {
+    youtube: { count: 0 },
+    github: { count: 0 },
+    reddit: { count: 0 },
+    xcom: { count: 0 },
+    instagram: { count: 0 },
+  };
+
+  const fetchers: [ContentSource, () => Promise<RawCollectedItem[]>][] = [
+    ["youtube", () => fetchYouTubeAI(options.youtubeApiKey ?? "", max, options.youtubeKeywords)],
+    ["github", () => fetchGitHubAI(max, options.githubKeywords)],
+    ["reddit", () => fetchRedditAI(max, options.redditSubreddits)],
+    ["xcom", () => fetchXcomAI(max)],
+    ["instagram", () => fetchInstagramAI(max)],
+  ];
+
+  const activeFetchers = fetchers.filter(([source]) => enabledSources.has(source));
+  const results = await Promise.allSettled(activeFetchers.map(([, fn]) => fn()));
+  const all: RawCollectedItem[] = [];
+
+  results.forEach((r, i) => {
+    const [source] = activeFetchers[i];
+    if (r.status === "fulfilled") {
+      sourceResults[source] = { count: r.value.length };
+      all.push(...r.value);
+    } else {
+      sourceResults[source] = {
+        count: 0,
+        error: (r.reason as { message?: string })?.message ?? "Unknown error",
+      };
+    }
+  });
+
+  all.sort(
+    (a, b) =>
+      new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime(),
+  );
+
+  return { items: all, sourceResults };
+}
