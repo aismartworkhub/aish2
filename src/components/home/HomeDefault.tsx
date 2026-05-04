@@ -670,11 +670,14 @@ export default function HomeDefault(props: HomeDataProps) {
               </ul>
             </div>
 
-            {/* 우: 최근 커뮤니티 활동 — /media와 동일한 timeline 카드 스타일 */}
+            {/* 우: 최근 활동 — /community 자유·Q&A·후기 + /media 자료 통합 최신순 */}
             <div className="bg-white rounded-xl p-6 md:p-8 shadow-sm">
               <div className="flex items-end justify-between border-b-2 border-brand-blue pb-4 mb-6">
-                <h3 className="text-2xl md:text-[28px] font-bold text-gray-900">최근 커뮤니티 활동</h3>
-                <Link href="/community?tab=free" className="text-sm text-gray-500 hover:text-brand-blue transition-colors">
+                <div>
+                  <h3 className="text-2xl md:text-[28px] font-bold text-gray-900">최근 활동</h3>
+                  <p className="mt-1 text-xs text-gray-500">커뮤니티·자료 최신순 통합</p>
+                </div>
+                <Link href="/community" className="text-sm text-gray-500 hover:text-brand-blue transition-colors">
                   전체보기 +
                 </Link>
               </div>

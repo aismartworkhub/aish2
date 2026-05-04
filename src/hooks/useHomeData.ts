@@ -165,14 +165,15 @@ export function useHomeData() {
           setIsDemoInstructors(false);
         }
         try {
-          const [runmoaRes, eventsData, lectureContents, resourceContents, freeContents, qnaContents, noticeContents] = await Promise.all([
+          const [runmoaRes, eventsData, lectureContents, resourceContents, freeContents, qnaContents, noticeContents, reviewContents] = await Promise.all([
             getRunmoaContents({ status: "publish", limit: 8 }),
             getCollection<AdminEvent & { id: string }>(COLLECTIONS.ADMIN_EVENTS),
             getContents("media-lecture", { maxItems: 4 }),
-            getContents("media-resource", { maxItems: 4 }),
+            getContents("media-resource", { maxItems: 5 }),
             getContents("community-free", { maxItems: 5 }).catch(() => [] as Content[]),
             getContents("community-qna", { maxItems: 5 }).catch(() => [] as Content[]),
             getContents("community-notice", { maxItems: 4 }).catch(() => [] as Content[]),
+            getContents("community-review", { maxItems: 5 }).catch(() => [] as Content[]),
           ]);
           if (runmoaRes.data.length > 0) setRunmoaPrograms(runmoaRes.data);
           if (eventsData.length > 0) setAdminEvents(eventsData.filter((e) => e.status !== "COMPLETED" && e.status !== "CANCELLED"));
@@ -185,15 +186,16 @@ export function useHomeData() {
             })
             .slice(0, 4);
           if (merged.length > 0) setLatestContents(merged);
-          // 최근 커뮤니티 활동 (자유 + Q&A) — 시간순 머지, 5건
-          const activity = [...freeContents, ...qnaContents]
+          // 최근 커뮤니티 활동 (자유 + Q&A + 후기 + 자료) — 시간순 머지, 6건
+          // /media와 /community 양쪽에서 신규 콘텐츠를 한 곳에 통합 표시 (S10 우측)
+          const activity = [...freeContents, ...qnaContents, ...reviewContents, ...resourceContents]
             .filter((c) => c.isApproved !== false)
             .sort((a, b) => {
               const ta = typeof a.createdAt === "string" ? new Date(a.createdAt).getTime() : 0;
               const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() : 0;
               return tb - ta;
             })
-            .slice(0, 5);
+            .slice(0, 6);
           if (activity.length > 0) setRecentActivity(activity);
 
           // NewsRoom — 레거시 posts(NOTICE) + 신규 contents(community-notice) 통합 정렬
