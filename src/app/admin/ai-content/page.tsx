@@ -21,6 +21,7 @@ import { curateItems } from "@/lib/ai-content-curator";
 import type { CuratedItem } from "@/lib/ai-content-curator";
 import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-content-dedup";
 import { createContentIfNew, deleteContent, getContents } from "@/lib/content-engine";
+import { extractOgImageWithAI } from "@/lib/og-image-ai";
 import type { Content } from "@/types/content";
 import YoutubeAdvancedSearch from "@/components/admin/YoutubeAdvancedSearch";
 import YoutubeSearchHistoryChips from "@/components/admin/YoutubeSearchHistoryChips";
@@ -294,13 +295,23 @@ export default function AdminAiContentPage() {
         if (currentCount >= boardMax) { skipped++; continue; }
 
         const shouldReview = bc?.requireReview ?? config.defaultRequireReview;
+        // 썸네일 보충 — 비어있고 외부 링크면 Gemini URL Context로 og:image 시도 (실패해도 graceful)
+        let thumbnailUrl = item.thumbnailUrl;
+        if (!thumbnailUrl && item.mediaUrl && /^https?:\/\//.test(item.mediaUrl)) {
+          try {
+            const og = await extractOgImageWithAI(item.mediaUrl);
+            if (og.ok) thumbnailUrl = og.ogImage;
+          } catch { /* graceful — 카테고리 fallback이 채워줌 */ }
+        }
         const docId = await createContentIfNew({
           boardKey: item.boardKey,
           title: item.title,
+          titleKo: item.titleKo,
           body: item.body,
+          bodyKo: item.bodyKo,
           mediaType: item.mediaType,
           mediaUrl: item.mediaUrl,
-          thumbnailUrl: item.thumbnailUrl,
+          thumbnailUrl,
           tags: item.tags,
           authorUid: "ai-collector",
           authorName: "AI 큐레이터",

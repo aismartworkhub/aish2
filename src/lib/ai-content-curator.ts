@@ -7,8 +7,14 @@ import type { RawCollectedItem, ContentSource } from "./ai-content-collector";
 import type { MediaType } from "@/types/content";
 
 export interface CuratedItem {
+  /** 원본 제목(영문 등) */
   title: string;
+  /** 원본 본문/설명 */
   body: string;
+  /** 한국어 표시 제목 (Gemini 번역) — Content.titleKo로 저장 */
+  titleKo?: string;
+  /** 한국어 요약 본문 (Gemini 요약) — Content.bodyKo로 저장 */
+  bodyKo?: string;
   boardKey: string;
   mediaType: MediaType;
   mediaUrl: string;
@@ -143,8 +149,11 @@ function parseGeminiResponse(
       .map((p) => {
         const orig = items[p.index];
         return {
-          title: p.titleKo || orig.title,
-          body: p.bodyKo || orig.description,
+          // 원본 보존 + 한국어 번역은 별도 필드 → 카드 표시는 titleKo 우선
+          title: orig.title,
+          body: orig.description || orig.title,
+          titleKo: p.titleKo?.trim() || undefined,
+          bodyKo: p.bodyKo?.trim() || undefined,
           boardKey: validKeys.has(p.boardKey)
             ? p.boardKey
             : inferBoardKey(orig),
