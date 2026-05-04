@@ -19,7 +19,7 @@ import { collectByCategory } from "@/lib/ai-content-collector";
 import type { CollectResult, ContentSource } from "@/lib/ai-content-collector";
 import { curateItems } from "@/lib/ai-content-curator";
 import type { CuratedItem } from "@/lib/ai-content-curator";
-import { ALL_CATEGORIES, CATEGORY_BOARD_HINTS, CATEGORY_LABELS } from "@/lib/ai-content-categories";
+import { ALL_CATEGORIES, CATEGORY_BOARD_HINTS, CATEGORY_LABELS, categoryOfBoard } from "@/lib/ai-content-categories";
 import type { AiCategory } from "@/lib/ai-content-categories";
 import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-content-dedup";
 import { createContentIfNew, deleteContent, getContents } from "@/lib/content-engine";
@@ -62,6 +62,8 @@ interface CollectionRun {
   id: string;
   runAt: string;
   trigger: "cron" | "manual";
+  /** Phase 1+에서 추가됨. 옛 데이터는 undefined → "기타"로 분류 */
+  category?: AiCategory;
   result: { collected: number; unique: number; curated: number; inserted: number; failed: number };
   boardBreakdown: Record<string, number>;
   duration: number;
@@ -961,6 +963,42 @@ function ReviewTab({
   const [editBody, setEditBody] = useState("");
   const [editTags, setEditTags] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<AiCategory | "all">("all");
+  const [bulking, setBulking] = useState(false);
+
+  // boardKey → 카테고리 매핑으로 클라이언트 필터링
+  const filtered = items.filter((it) => {
+    if (categoryFilter === "all") return true;
+    return categoryOfBoard(it.boardKey) === categoryFilter;
+  });
+
+  const bulkApprove = async () => {
+    if (filtered.length === 0 || bulking) return;
+    if (!confirm(`현재 필터 ${filtered.length}건을 모두 승인합니까?`)) return;
+    setBulking(true);
+    try {
+      const { updateDocFields } = await import("@/lib/firestore");
+      for (const it of filtered) {
+        await updateDocFields(COLLECTIONS.CONTENTS, it.id, { isApproved: true });
+        onApprove(it.id);
+      }
+      toast(`${filtered.length}건 승인 완료`, "success");
+    } catch { toast("일괄 승인 중 오류", "error"); }
+    setBulking(false);
+  };
+
+  const bulkReject = async () => {
+    if (filtered.length === 0 || bulking) return;
+    if (!confirm(`현재 필터 ${filtered.length}건을 모두 반려(삭제)합니까?`)) return;
+    setBulking(true);
+    try {
+      for (const it of filtered) {
+        await onReject(it.id);
+      }
+      toast(`${filtered.length}건 반려 완료`, "success");
+    } catch { toast("일괄 반려 중 오류", "error"); }
+    setBulking(false);
+  };
 
   const startEdit = (item: Content) => {
     setEditingId(item.id);
@@ -994,7 +1032,47 @@ function ReviewTab({
 
   return (
     <div className="space-y-3">
-      {items.map((item) => (
+      {/* 필터 + 일괄 액션 */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-100 bg-white p-3">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500">카테고리</label>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as AiCategory | "all")}
+            className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+          >
+            <option value="all">전체</option>
+            {ALL_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+            ))}
+          </select>
+          <span className="text-xs text-gray-400">{filtered.length}건</span>
+        </div>
+        <div className="ml-auto flex gap-2">
+          <button
+            type="button"
+            onClick={bulkApprove}
+            disabled={bulking || filtered.length === 0}
+            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
+          >
+            전체 승인
+          </button>
+          <button
+            type="button"
+            onClick={bulkReject}
+            disabled={bulking || filtered.length === 0}
+            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+          >
+            전체 반려
+          </button>
+        </div>
+      </div>
+      {filtered.length === 0 && (
+        <div className="rounded-lg border border-dashed bg-white p-8 text-center text-sm text-gray-400">
+          이 카테고리에 검토 대기 콘텐츠가 없습니다.
+        </div>
+      )}
+      {filtered.map((item) => (
         <div key={item.id} className="bg-white rounded-xl border border-amber-100 shadow-sm p-5">
           {editingId === item.id ? (
             <div className="space-y-3">
@@ -1084,10 +1162,13 @@ type StatPeriod = "week" | "month" | "all";
 
 function StatsTab({ runs, runsLoaded, onLoadRuns }: { runs: CollectionRun[]; runsLoaded: boolean; onLoadRuns: () => void }) {
   const [period, setPeriod] = useState<StatPeriod>("month");
+  const [categoryFilter, setCategoryFilter] = useState<AiCategory | "all">("all");
 
+  // 탭 진입 시마다 자동 갱신 — stale 데이터 방지
   useEffect(() => {
-    if (!runsLoaded) onLoadRuns();
-  }, [runsLoaded, onLoadRuns]);
+    onLoadRuns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const now = Date.now();
   const periodMs: Record<StatPeriod, number> = {
@@ -1096,7 +1177,11 @@ function StatsTab({ runs, runsLoaded, onLoadRuns }: { runs: CollectionRun[]; run
     all: Infinity,
   };
 
-  const filtered = runs.filter((r) => now - new Date(r.runAt).getTime() < periodMs[period]);
+  const filtered = runs.filter((r) => {
+    if (now - new Date(r.runAt).getTime() >= periodMs[period]) return false;
+    if (categoryFilter !== "all" && r.category !== categoryFilter) return false;
+    return true;
+  });
 
   const totals = filtered.reduce(
     (acc, r) => ({
@@ -1129,20 +1214,35 @@ function StatsTab({ runs, runsLoaded, onLoadRuns }: { runs: CollectionRun[]; run
 
   return (
     <div className="space-y-6">
-      {/* 기간 선택 */}
-      <div className="flex gap-2">
-        {([["week", "최근 1주"], ["month", "최근 1개월"], ["all", "전체"]] as [StatPeriod, string][]).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setPeriod(key)}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
-              period === key ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50",
-            )}
+      {/* 기간 + 카테고리 필터 */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex gap-2">
+          {([["week", "최근 1주"], ["month", "최근 1개월"], ["all", "전체"]] as [StatPeriod, string][]).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setPeriod(key)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                period === key ? "bg-purple-50 border-purple-200 text-purple-700" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <label className="text-xs text-gray-500">카테고리</label>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as AiCategory | "all")}
+            className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
           >
-            {label}
-          </button>
-        ))}
+            <option value="all">전체</option>
+            {ALL_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* 요약 카드 */}
