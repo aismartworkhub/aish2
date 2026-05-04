@@ -29,8 +29,6 @@ function doPost(e) {
         return handleAdminNotify(payload);
       case "business-card":
         return handleBusinessCard(payload);
-      case "fetch-og-image":
-        return handleFetchOgImage(payload);
       default:
         return jsonResponse({ success: false, error: "Unknown type: " + type });
     }
@@ -98,53 +96,6 @@ function handleBusinessCard(payload) {
     fileUrl: file.getUrl(),
     fileId: file.getId(),
   });
-}
-
-// ─── og:image 추출 (외부 URL → 메타 이미지) ───
-// CORS 회피용. 클라이언트(/admin/contents)에서 외부 기사 URL을 등록할 때 호출됨.
-function handleFetchOgImage(payload) {
-  var url = payload.url;
-  if (!url || !/^https?:\/\//.test(url)) {
-    return jsonResponse({ ok: false, error: "Invalid URL" });
-  }
-  try {
-    var res = UrlFetchApp.fetch(url, {
-      muteHttpExceptions: true,
-      followRedirects: true,
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; AISH-bot/1.0)" },
-    });
-    var code = res.getResponseCode();
-    if (code >= 400) {
-      return jsonResponse({ ok: false, error: "Fetch failed: HTTP " + code });
-    }
-    var html = res.getContentText().slice(0, 200000); // 200KB cap — 대부분의 사이트 head는 이 안에 들어감
-    var headMatch = html.match(/<head[\s\S]*?<\/head>/i);
-    var head = headMatch ? headMatch[0] : html;
-    // og:image (property 순서 양방향) + twitter:image (name 순서 양방향) 4종 패턴
-    var patterns = [
-      /<meta\s+[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i,
-      /<meta\s+[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i,
-      /<meta\s+[^>]*name\s*=\s*["']twitter:image["'][^>]*content\s*=\s*["']([^"']+)["']/i,
-      /<meta\s+[^>]*content\s*=\s*["']([^"']+)["'][^>]*name\s*=\s*["']twitter:image["']/i,
-    ];
-    for (var i = 0; i < patterns.length; i++) {
-      var m = head.match(patterns[i]);
-      if (m && m[1]) {
-        var img = m[1].trim();
-        // 상대 URL → 절대 URL
-        if (img.indexOf("//") === 0) {
-          img = "https:" + img;
-        } else if (img.charAt(0) === "/") {
-          var origin = url.match(/^(https?:\/\/[^/]+)/);
-          if (origin) img = origin[1] + img;
-        }
-        return jsonResponse({ ok: true, ogImage: img });
-      }
-    }
-    return jsonResponse({ ok: false, error: "No og:image found" });
-  } catch (err) {
-    return jsonResponse({ ok: false, error: String(err) });
-  }
 }
 
 // ─── 유틸 ───

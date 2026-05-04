@@ -2,12 +2,10 @@
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye, Sparkles, Loader2, ImageIcon } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import { getGeminiApiKey, recommendTagsForContent } from "@/lib/gemini";
-import { fetchOgImage } from "@/lib/og-image";
-import { extractYouTubeVideoId } from "@/lib/youtube";
 import { DEFAULT_BOARDS, mergeBoardsByKey } from "@/lib/board-defaults";
 import {
   getBoards,
@@ -68,7 +66,6 @@ function AdminContentsInner() {
   const [saving, setSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [tagRecLoading, setTagRecLoading] = useState(false);
-  const [ogExtracting, setOgExtracting] = useState(false);
 
   useEffect(() => {
     getBoards()
@@ -580,36 +577,6 @@ function AdminContentsInner() {
                             자동 감지: {editing.mediaType}
                             {editing.thumbnailUrl && " · 썸네일 자동 생성됨"}
                           </p>
-                        )}
-                        {/* og:image 추출 버튼 — http(s) 외부 링크 + YouTube 아님 + 썸네일 미설정 시 노출 */}
-                        {editing.mediaUrl
-                          && /^https?:\/\//.test(editing.mediaUrl)
-                          && !extractYouTubeVideoId(editing.mediaUrl) && (
-                          <button
-                            type="button"
-                            disabled={ogExtracting}
-                            onClick={async () => {
-                              const url = editing.mediaUrl;
-                              if (!url) return;
-                              setOgExtracting(true);
-                              const r = await fetchOgImage(url);
-                              setOgExtracting(false);
-                              if (r.ok) {
-                                setEditing({ ...editing, thumbnailUrl: r.ogImage });
-                                toast("메타 이미지를 가져왔습니다", "success");
-                              } else {
-                                toast(`추출 실패: ${r.error}`, "error");
-                              }
-                            }}
-                            className={cn(
-                              "mt-2 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition",
-                              "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100",
-                              "disabled:cursor-not-allowed disabled:opacity-50",
-                            )}
-                          >
-                            {ogExtracting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
-                            {ogExtracting ? "추출 중..." : "메타 이미지 추출 (og:image)"}
-                          </button>
                         )}
                         {editing.mediaUrl && /drive\.google\.com|googleusercontent\.com|docs\.google\.com/.test(editing.mediaUrl) && (
                           <div className="mt-1 space-y-1 rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
