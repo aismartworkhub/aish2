@@ -35,11 +35,12 @@ const firestore = admin.firestore();
 // ── 수집 함수 재사용 (fetch 기반이라 서버에서도 동작) ──
 
 import {
-  collectAll,
+  collectByCategory,
   type RawCollectedItem,
   type ContentSource,
 } from "../src/lib/ai-content-collector";
 import { curateItems, type CuratedItem } from "../src/lib/ai-content-curator";
+import { ALL_CATEGORIES, CATEGORY_BOARD_HINTS, CATEGORY_LABELS, type AiCategory } from "../src/lib/ai-content-categories";
 
 // ── 보드별 설정 타입 ──
 
@@ -127,55 +128,61 @@ function normalizeUrl(url: string): string {
 
 // ── 메인 ──
 
-async function main() {
+/**
+ * 단일 카테고리 수집 1 cycle.
+ * collectByCategory + curateItems(boardHints) → Firestore 삽입 → 카테고리 단위
+ * aiCollectorHistory 기록.
+ */
+async function runCategory(
+  category: AiCategory,
+  ctx: {
+    youtubeKey: string;
+    minScore: number;
+    boardConfigs: BoardCollectionConfig[];
+    enabledBoards: BoardCollectionConfig[];
+    enabledBoardKeys: Set<string>;
+    defaultRequireReview: boolean;
+    existingUrls: Set<string>;
+  },
+): Promise<{ collected: number; unique: number; curated: number; inserted: number; skipped: number; boardBreakdown: Record<string, number> }> {
+  const catLabel = CATEGORY_LABELS[category];
   const startTime = Date.now();
-  const settings = await loadSettings();
-  const { maxItems, minScore, boardConfigs, defaultRequireReview, youtubeKey } = settings;
+  const hints = CATEGORY_BOARD_HINTS[category];
+  const categoryBoardKeys = new Set(hints.map((h) => h.boardKey));
 
-  const enabledBoards = boardConfigs.filter((b) => b.enabled);
-  const enabledBoardKeys = new Set(enabledBoards.map((b) => b.boardKey));
-
-  console.log(`[AI Collector] Starting — max=${maxItems}, minScore=${minScore}, boards=${enabledBoards.map((b) => b.boardKey).join(",")}`);
-
-  // 1. 수집
-  const perSource = Math.ceil(maxItems / 3);
-  const { items, sourceResults } = await collectAll({
-    youtubeApiKey: youtubeKey,
-    maxPerSource: perSource,
+  console.log(`\n[${catLabel}] 수집 시작`);
+  const { items, sourceResults } = await collectByCategory(category, {
+    youtubeApiKey: ctx.youtubeKey,
+    maxPerSource: 5,
   });
-  console.log(`[Collect] ${items.length} items from sources:`);
-  for (const [src, r] of Object.entries(sourceResults)) {
-    console.log(`  ${src}: ${r.count}건${r.error ? ` (오류: ${r.error})` : ""}`);
-  }
+  console.log(`[${catLabel}] ${items.length}건 수집:`, Object.fromEntries(
+    Object.entries(sourceResults).filter(([, r]) => r.count > 0).map(([s, r]) => [s, r.count]),
+  ));
 
-  // 2. 중복 제거
-  const existingUrls = await getExistingUrlsAdmin();
   const seen = new Set<string>();
   const unique = items.filter((item) => {
     const url = normalizeUrl(item.url);
-    if (!url || existingUrls.has(url) || seen.has(url)) return false;
+    if (!url || ctx.existingUrls.has(url) || seen.has(url)) return false;
     seen.add(url);
     return true;
   });
-  console.log(`[Dedup] ${unique.length} unique items (${items.length - unique.length} duplicates removed)`);
-
   if (unique.length === 0) {
-    console.log("[Done] No new items to insert.");
-    await saveRunResult(startTime, items.length, 0, 0, 0, 0, {});
-    return;
+    console.log(`[${catLabel}] 신규 0건 — skip`);
+    await saveCategoryRun(category, startTime, items.length, 0, 0, 0, 0, {});
+    return { collected: items.length, unique: 0, curated: 0, inserted: 0, skipped: 0, boardBreakdown: {} };
   }
+  console.log(`[${catLabel}] 신규 ${unique.length}건. Gemini 큐레이션...`);
 
-  // 3. Gemini 큐레이션
+  // Gemini 큐레이션 — 카테고리별 boardHints 전달 (Phase 1 합의)
   let curated: CuratedItem[];
   if (GEMINI_KEY) {
-    curated = await curateItems(unique, GEMINI_KEY, minScore);
-    console.log(`[Curate] ${curated.length} items passed quality threshold`);
+    curated = await curateItems(unique, GEMINI_KEY, ctx.minScore, hints);
   } else {
-    console.log("[Curate] No Gemini key, using fallback curation");
+    console.log(`[${catLabel}] Gemini 키 없음 — fallback`);
     curated = unique.map((item: RawCollectedItem) => ({
       title: item.title,
       body: item.description || item.title,
-      boardKey: item.source === "youtube" ? "media-lecture" : "media-resource",
+      boardKey: hints[0]?.boardKey ?? "media-resource",
       mediaType: (item.source === "youtube" ? "youtube" : "link") as "youtube" | "link",
       mediaUrl: item.url,
       thumbnailUrl: item.thumbnailUrl,
@@ -186,45 +193,36 @@ async function main() {
     }));
   }
 
-  // 4. 보드별 삽입 (설정 반영)
-  curated
-    .filter((c) => c.boardKey !== "community-free")
-    .sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
+  // 안전망 — 카테고리 보드만 통과
+  curated = curated.filter((c) => categoryBoardKeys.has(c.boardKey));
+  curated.sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
 
   const boardBreakdown: Record<string, number> = {};
   let inserted = 0;
   let skipped = 0;
 
   for (const item of curated) {
-    if (item.boardKey === "community-free") { skipped++; continue; }
-    if (!enabledBoardKeys.has(item.boardKey)) { skipped++; continue; }
-
-    const bc = enabledBoards.find((b) => b.boardKey === item.boardKey);
+    if (!ctx.enabledBoardKeys.has(item.boardKey)) { skipped++; continue; }
+    const bc = ctx.enabledBoards.find((b) => b.boardKey === item.boardKey);
     if (!bc) { skipped++; continue; }
-
     const boardMax = bc.maxItems;
     const currentBoardCount = boardBreakdown[item.boardKey] ?? 0;
     if (currentBoardCount >= boardMax) { skipped++; continue; }
-
-    const boardMinScore = bc.minQualityScore;
-    if (item.qualityScore < boardMinScore) { skipped++; continue; }
+    if (item.qualityScore < bc.minQualityScore) { skipped++; continue; }
 
     try {
       if (item.mediaUrl) {
-        const dup = await firestore
-          .collection("contents")
-          .where("mediaUrl", "==", item.mediaUrl)
-          .limit(1)
-          .get();
+        const dup = await firestore.collection("contents").where("mediaUrl", "==", item.mediaUrl).limit(1).get();
         if (!dup.empty) { skipped++; continue; }
       }
 
-      const shouldReview = bc.requireReview || defaultRequireReview;
-
+      const shouldReview = bc.requireReview || ctx.defaultRequireReview;
       await firestore.collection("contents").add({
         boardKey: item.boardKey,
         title: item.title,
+        titleKo: item.titleKo ?? null,
         body: item.body,
+        bodyKo: item.bodyKo ?? null,
         mediaType: item.mediaType,
         mediaUrl: item.mediaUrl,
         thumbnailUrl: item.thumbnailUrl || null,
@@ -243,16 +241,55 @@ async function main() {
       boardBreakdown[item.boardKey] = (boardBreakdown[item.boardKey] ?? 0) + 1;
       await new Promise((r) => setTimeout(r, 300));
     } catch (e) {
-      console.error(`[Insert] Failed: ${item.title}`, e);
+      console.error(`[${catLabel}] Insert 실패: ${item.title}`, e);
     }
   }
-  if (skipped > 0) console.log(`[Insert] ${skipped} items skipped`);
 
-  console.log(`[Done] Inserted ${inserted} items`, boardBreakdown);
-  await saveRunResult(startTime, items.length, unique.length, curated.length, inserted, curated.length - inserted - skipped, boardBreakdown);
+  console.log(`[${catLabel}] 완료 — inserted=${inserted}, skipped=${skipped}`);
+  await saveCategoryRun(
+    category, startTime, items.length, unique.length, curated.length,
+    inserted, curated.length - inserted - skipped, boardBreakdown,
+  );
+  return { collected: items.length, unique: unique.length, curated: curated.length, inserted, skipped, boardBreakdown };
 }
 
-async function saveRunResult(
+async function main() {
+  const startTime = Date.now();
+  const settings = await loadSettings();
+  const { minScore, boardConfigs, defaultRequireReview, youtubeKey } = settings;
+
+  const enabledBoards = boardConfigs.filter((b) => b.enabled);
+  const enabledBoardKeys = new Set(enabledBoards.map((b) => b.boardKey));
+
+  console.log(`[AI Collector] 카테고리별 수집 시작 — minScore=${minScore}, boards=${enabledBoards.map((b) => b.boardKey).join(",")}`);
+
+  const existingUrls = await getExistingUrlsAdmin();
+  const ctx = { youtubeKey, minScore, boardConfigs, enabledBoards, enabledBoardKeys, defaultRequireReview, existingUrls };
+
+  let totalInserted = 0;
+  for (const cat of ALL_CATEGORIES) {
+    try {
+      const r = await runCategory(cat, ctx);
+      totalInserted += r.inserted;
+    } catch (e) {
+      console.error(`[${CATEGORY_LABELS[cat]}] 실행 실패`, e);
+    }
+  }
+
+  // 통합 lastRunResult 갱신 (카테고리별 history는 saveCategoryRun이 별도 기록)
+  await firestore.doc("siteSettings/ai-collector").set(
+    {
+      lastRunAt: new Date().toISOString(),
+      lastRunResult: { collected: 0, unique: 0, curated: 0, inserted: totalInserted, failed: 0 },
+    },
+    { merge: true },
+  );
+
+  console.log(`\n[Done] 전체 ${totalInserted}건 삽입, 총 소요 ${Math.round((Date.now() - startTime) / 1000)}초`);
+}
+
+async function saveCategoryRun(
+  category: AiCategory,
   startTime: number,
   collected: number,
   unique: number,
@@ -261,17 +298,11 @@ async function saveRunResult(
   failed: number,
   boardBreakdown: Record<string, number>,
 ) {
-  const runResult = { collected, unique, curated, inserted, failed };
-
-  await firestore.doc("siteSettings/ai-collector").set(
-    { lastRunAt: new Date().toISOString(), lastRunResult: runResult },
-    { merge: true },
-  );
-
   await firestore.collection("aiCollectorHistory").add({
     runAt: new Date().toISOString(),
     trigger: "cron" as const,
-    result: runResult,
+    category,
+    result: { collected, unique, curated, inserted, failed },
     boardBreakdown,
     duration: Date.now() - startTime,
   });
