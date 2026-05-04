@@ -275,7 +275,19 @@ async function runCategory(
             tags: item.tags,
             category: CATEGORY_LABELS[category],
           });
-          if (gen.ok) thumbnailUrl = gen.dataUrl;
+          if (gen.ok) {
+            // Drive 업로드 시도 — 실패 시 data URL 그대로 사용 (Firestore doc 부피 ↑)
+            try {
+              const { uploadImageToDrive } = await import("./drive-upload");
+              const safeTitle = (item.titleKo || item.title).slice(0, 40).replace(/[^\w가-힣]+/g, "-");
+              const fileName = `${category}-${Date.now()}-${safeTitle}.png`;
+              const upload = await uploadImageToDrive({ dataUrl: gen.dataUrl, fileName });
+              thumbnailUrl = upload.ok ? upload.url : gen.dataUrl;
+              if (!upload.ok) console.log(`[Drive] 업로드 실패(${upload.error}) — data URL 폴백`);
+            } catch {
+              thumbnailUrl = gen.dataUrl;
+            }
+          }
         } catch { /* graceful */ }
       }
 
