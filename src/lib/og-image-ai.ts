@@ -1,5 +1,3 @@
-import { getGeminiApiKey } from "@/lib/gemini";
-
 export type OgImageResult =
   | { ok: true; ogImage: string }
   | { ok: false; error: string };
@@ -26,6 +24,8 @@ export async function extractOgImageWithAI(url: string): Promise<OgImageResult> 
   if (!url || !/^https?:\/\//.test(url)) {
     return { ok: false, error: "유효한 URL이 아닙니다" };
   }
+  // 동적 import — Gemini SDK 모듈을 호출 시점에만 로드 (chunk 분리, 페이지 초기 로드 부담 ↓)
+  const { getGeminiApiKey } = await import("@/lib/gemini");
   const apiKey = await getGeminiApiKey();
   if (!apiKey) {
     return { ok: false, error: "Gemini API 키가 설정되지 않았습니다 (관리자 설정 → 외부 연동)" };
