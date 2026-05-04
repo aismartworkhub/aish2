@@ -20,19 +20,28 @@ const PROMPT = (url: string) =>
 
 웹페이지 URL: ${url}`;
 
-export async function extractOgImageWithAI(url: string): Promise<OgImageResult> {
+/**
+ * @param url 추출 대상 외부 URL
+ * @param apiKey 명시 키. 미지정 시 클라이언트 환경에서만 동작 (Firestore에서 로드).
+ *               cron(Node) 환경에서는 process.env.GEMINI_API_KEY를 직접 전달.
+ */
+export async function extractOgImageWithAI(url: string, apiKey?: string): Promise<OgImageResult> {
   if (!url || !/^https?:\/\//.test(url)) {
     return { ok: false, error: "유효한 URL이 아닙니다" };
   }
-  // 동적 import — Gemini SDK 모듈을 호출 시점에만 로드 (chunk 분리, 페이지 초기 로드 부담 ↓)
-  const { getGeminiApiKey } = await import("@/lib/gemini");
-  const apiKey = await getGeminiApiKey();
-  if (!apiKey) {
+  let key = apiKey;
+  if (!key) {
+    // 클라이언트 환경 — Firestore에서 키 조회 (gemini.ts는 client SDK 사용하므로 cron에서는 unsafe)
+    const { getGeminiApiKey } = await import("@/lib/gemini");
+    key = (await getGeminiApiKey()) ?? "";
+  }
+  if (!key) {
     return { ok: false, error: "Gemini API 키가 설정되지 않았습니다 (관리자 설정 → 외부 연동)" };
   }
+  const apiKeyResolved = key;
 
   try {
-    const res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
+    const res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(apiKeyResolved)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

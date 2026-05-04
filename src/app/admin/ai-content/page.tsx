@@ -332,12 +332,28 @@ export default function AdminAiContentPage() {
 
       // 카테고리 autoPublish가 true면 검토 우회. 그 외는 보드 requireReview > 글로벌 default 순.
       const shouldReview = cs.autoPublish ? false : (bc?.requireReview ?? config.defaultRequireReview);
-      // 썸네일 보충 — 비어있고 외부 링크면 Gemini URL Context로 og:image 시도 (실패해도 graceful)
+      // 썸네일 fallback 체인 — Phase 4-A
+      // 1) 원본 thumbnailUrl 우선
+      // 2) 외부 링크면 og:image (Gemini URL Context)
+      // 3) 그래도 없으면 AI 이미지 생성 (Gemini 2.5 Flash Image, base64 data URL)
       let thumbnailUrl = item.thumbnailUrl;
       if (!thumbnailUrl && item.mediaUrl && /^https?:\/\//.test(item.mediaUrl)) {
         try {
           const og = await extractOgImageWithAI(item.mediaUrl);
           if (og.ok) thumbnailUrl = og.ogImage;
+        } catch { /* graceful */ }
+      }
+      if (!thumbnailUrl && geminiKey) {
+        try {
+          const { generateThumbnailImage } = await import("@/lib/gemini-image");
+          const gen = await generateThumbnailImage({
+            apiKey: geminiKey,
+            title: item.titleKo || item.title,
+            body: item.bodyKo || item.body,
+            tags: item.tags,
+            category: CATEGORY_LABELS[category],
+          });
+          if (gen.ok) thumbnailUrl = gen.dataUrl;
         } catch { /* graceful — 카테고리 fallback이 채워줌 */ }
       }
       const docId = await createContentIfNew({

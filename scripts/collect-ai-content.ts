@@ -255,6 +255,30 @@ async function runCategory(
       }
 
       const shouldReview = cs.autoPublish ? false : (bc.requireReview || ctx.defaultRequireReview);
+
+      // 썸네일 fallback 체인 (Phase 4-A) — 1) 원본 → 2) og:image → 3) AI 생성
+      let thumbnailUrl: string | null = item.thumbnailUrl ?? null;
+      if (!thumbnailUrl && item.mediaUrl && /^https?:\/\//.test(item.mediaUrl) && GEMINI_KEY) {
+        try {
+          const { extractOgImageWithAI } = await import("../src/lib/og-image-ai");
+          const og = await extractOgImageWithAI(item.mediaUrl, GEMINI_KEY);
+          if (og.ok) thumbnailUrl = og.ogImage;
+        } catch { /* graceful */ }
+      }
+      if (!thumbnailUrl && GEMINI_KEY) {
+        try {
+          const { generateThumbnailImage } = await import("../src/lib/gemini-image");
+          const gen = await generateThumbnailImage({
+            apiKey: GEMINI_KEY,
+            title: item.titleKo || item.title,
+            body: item.bodyKo || item.body,
+            tags: item.tags,
+            category: CATEGORY_LABELS[category],
+          });
+          if (gen.ok) thumbnailUrl = gen.dataUrl;
+        } catch { /* graceful */ }
+      }
+
       await firestore.collection("contents").add({
         boardKey: item.boardKey,
         title: item.title,
@@ -263,7 +287,7 @@ async function runCategory(
         bodyKo: item.bodyKo ?? null,
         mediaType: item.mediaType,
         mediaUrl: item.mediaUrl,
-        thumbnailUrl: item.thumbnailUrl || null,
+        thumbnailUrl,
         tags: item.tags,
         authorUid: "ai-collector",
         authorName: "AI 큐레이터",
