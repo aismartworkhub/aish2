@@ -93,7 +93,8 @@ const DEFAULT_CONFIG: AiCollectorConfig = {
   maxItemsPerRun: 10,
   minQualityScore: 7,
   boardConfigs: DEFAULT_BOARD_CONFIGS,
-  defaultRequireReview: false,
+  // 안전 우선: 기본값 true → AI 수집 콘텐츠가 검토 후 공개. 운영자는 admin UI에서 끌 수 있음.
+  defaultRequireReview: true,
 };
 
 const ALL_SOURCES: { value: ContentSource; label: string }[] = [
@@ -398,6 +399,29 @@ export default function AdminAiContentPage() {
     setCollecting(false);
   };
 
+  /** 단일 카테고리 수집 (대시보드 카드의 "지금 수집" 버튼) */
+  const handleCollectCategory = async (cat: AiCategory) => {
+    if (!user) return;
+    setCollecting(true);
+    setCollectProgress("");
+    try {
+      const { inserted, skipped } = await runCategory(cat);
+      const aggregateResult = { collected: 0, unique: 0, curated: 0, inserted, failed: 0 };
+      await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-collector", {
+        ...config,
+        lastRunAt: new Date().toISOString(),
+        lastRunResult: aggregateResult,
+      });
+      setConfig((prev) => ({ ...prev, lastRunAt: new Date().toISOString(), lastRunResult: aggregateResult }));
+      setCollectProgress("");
+      toast(`[${CATEGORY_LABELS[cat]}] ${inserted}건 삽입, ${skipped}건 스킵`, "success");
+      loadBoardCounts();
+    } catch (e) {
+      toast(`[${CATEGORY_LABELS[cat]}] 수집 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
+    }
+    setCollecting(false);
+  };
+
   // ── 검토: 승인/반려 ──
 
   const handleApprove = async (id: string) => {
@@ -503,6 +527,7 @@ export default function AdminAiContentPage() {
           collecting={collecting}
           collectProgress={collectProgress}
           onCollect={handleCollect}
+          onCollectCategory={handleCollectCategory}
           onCleanup={async () => {
             try {
               const result = await cleanupDuplicates();
@@ -545,10 +570,50 @@ export default function AdminAiContentPage() {
   );
 }
 
+// ── 카테고리별 수집 카드 ──
+
+const CATEGORY_ICONS: Record<AiCategory, string> = {
+  video: "▶",
+  article: "📰",
+  resource: "📚",
+};
+
+function CategoryCollectCard({
+  category, collecting, onCollect,
+}: {
+  category: AiCategory;
+  collecting: boolean;
+  onCollect: () => void;
+}) {
+  const icon = CATEGORY_ICONS[category];
+  const label = CATEGORY_LABELS[category];
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4 hover:border-purple-300 transition">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-xl" aria-hidden>{icon}</span>
+        <span className="text-sm font-bold text-gray-900">{label}</span>
+      </div>
+      <button
+        type="button"
+        onClick={onCollect}
+        disabled={collecting}
+        className={cn(
+          "w-full flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition",
+          "bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+        )}
+      >
+        {collecting ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
+        {collecting ? "수집 중..." : "지금 수집"}
+      </button>
+    </div>
+  );
+}
+
 // ── 대시보드 탭 ──
 
 function DashboardTab({
-  config, setConfig, boardCounts, collecting, collectProgress, onCollect, onCleanup,
+  config, setConfig, boardCounts, collecting, collectProgress, onCollect, onCollectCategory, onCleanup,
 }: {
   config: AiCollectorConfig;
   setConfig: React.Dispatch<React.SetStateAction<AiCollectorConfig>>;
@@ -556,6 +621,7 @@ function DashboardTab({
   collecting: boolean;
   collectProgress: string;
   onCollect: () => void;
+  onCollectCategory: (cat: AiCategory) => void;
   onCleanup: () => void;
 }) {
   return (
@@ -600,28 +666,38 @@ function DashboardTab({
         </div>
       </div>
 
-      {/* 즉시 수집 */}
+      {/* 카테고리별 수집 — 영상·게시판글·교육자료 의도별 실행 */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-        <h3 className="text-base font-bold text-gray-900 mb-2">즉시 수집</h3>
-        <p className="text-sm text-gray-500 mb-4">브라우저에서 YouTube, GitHub 수집이 가능합니다. Reddit/X.com/Instagram은 CORS 제한으로 건너뛸 수 있습니다.</p>
-        <div className="flex flex-wrap items-center gap-3">
+        <h3 className="text-base font-bold text-gray-900 mb-2">카테고리별 수집</h3>
+        <p className="text-sm text-gray-500 mb-4">의도별로 분리 실행하면 카테고리에 맞는 큐레이션 정책(boardHints)이 적용되어 보드 분류가 정확해집니다.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {ALL_CATEGORIES.map((cat) => (
+            <CategoryCollectCard
+              key={cat}
+              category={cat}
+              collecting={collecting}
+              onCollect={() => onCollectCategory(cat)}
+            />
+          ))}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
           <button
             type="button"
             onClick={onCollect}
             disabled={collecting}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white",
+              "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white",
               "bg-purple-500 hover:bg-purple-600 disabled:opacity-50",
             )}
           >
             {collecting ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-            {collecting ? "수집중..." : "즉시 수집 실행"}
+            {collecting ? "수집중..." : "전체 수집(3 카테고리 순차)"}
           </button>
           <button
             type="button"
             onClick={onCleanup}
             disabled={collecting}
-            className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
           >
             <Trash2 size={16} />
             중복 정리
