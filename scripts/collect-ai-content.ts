@@ -54,12 +54,20 @@ interface BoardCollectionConfig {
   requireReview: boolean;
 }
 
+interface CategorySettings {
+  enabled: boolean;
+  autoPublish: boolean;
+  maxPerRun: number;
+  lastRunAt?: string;
+}
+
 interface AiCollectorSettings {
   youtubeApiKey?: string;
   maxItemsPerRun?: number;
   minQualityScore?: number;
   boardConfigs?: BoardCollectionConfig[];
   defaultRequireReview?: boolean;
+  categorySettings?: Partial<Record<AiCategory, CategorySettings>>;
 }
 
 const DEFAULT_BOARD_CONFIGS: BoardCollectionConfig[] = [
@@ -67,9 +75,22 @@ const DEFAULT_BOARD_CONFIGS: BoardCollectionConfig[] = [
   { boardKey: "media-resource", label: "자료실", enabled: true, maxItems: 5, minQualityScore: 7, sources: ["github", "reddit"], requireReview: false },
 ];
 
+const DEFAULT_CATEGORY_SETTINGS: Record<AiCategory, CategorySettings> = {
+  video: { enabled: true, autoPublish: false, maxPerRun: 5 },
+  article: { enabled: true, autoPublish: false, maxPerRun: 5 },
+  resource: { enabled: true, autoPublish: false, maxPerRun: 5 },
+};
+
 // ── Firestore에서 설정 로드 ──
 
-async function loadSettings(): Promise<{ maxItems: number; minScore: number; boardConfigs: BoardCollectionConfig[]; defaultRequireReview: boolean; youtubeKey: string }> {
+async function loadSettings(): Promise<{
+  maxItems: number;
+  minScore: number;
+  boardConfigs: BoardCollectionConfig[];
+  defaultRequireReview: boolean;
+  youtubeKey: string;
+  categorySettings: Partial<Record<AiCategory, CategorySettings>>;
+}> {
   try {
     const doc = await firestore.doc("siteSettings/ai-collector").get();
     const data = doc.data() as AiCollectorSettings | undefined;
@@ -80,12 +101,27 @@ async function loadSettings(): Promise<{ maxItems: number; minScore: number; boa
         boardConfigs: data.boardConfigs?.length ? data.boardConfigs : DEFAULT_BOARD_CONFIGS,
         defaultRequireReview: data.defaultRequireReview ?? false,
         youtubeKey: data.youtubeApiKey || YOUTUBE_KEY,
+        categorySettings: data.categorySettings ?? {},
       };
     }
   } catch (e) {
     console.warn("[Settings] Failed to load, using defaults:", e);
   }
-  return { maxItems: ENV_MAX_ITEMS, minScore: ENV_MIN_SCORE, boardConfigs: DEFAULT_BOARD_CONFIGS, defaultRequireReview: false, youtubeKey: YOUTUBE_KEY };
+  return {
+    maxItems: ENV_MAX_ITEMS,
+    minScore: ENV_MIN_SCORE,
+    boardConfigs: DEFAULT_BOARD_CONFIGS,
+    defaultRequireReview: false,
+    youtubeKey: YOUTUBE_KEY,
+    categorySettings: {},
+  };
+}
+
+function resolveCategorySettings(
+  fromConfig: Partial<Record<AiCategory, CategorySettings>>,
+  cat: AiCategory,
+): CategorySettings {
+  return fromConfig[cat] ?? DEFAULT_CATEGORY_SETTINGS[cat];
 }
 
 // ── 중복 확인 (Admin SDK 버전) ──
@@ -143,17 +179,19 @@ async function runCategory(
     enabledBoardKeys: Set<string>;
     defaultRequireReview: boolean;
     existingUrls: Set<string>;
+    categorySettings: Partial<Record<AiCategory, CategorySettings>>;
   },
 ): Promise<{ collected: number; unique: number; curated: number; inserted: number; skipped: number; boardBreakdown: Record<string, number> }> {
   const catLabel = CATEGORY_LABELS[category];
+  const cs = resolveCategorySettings(ctx.categorySettings, category);
   const startTime = Date.now();
   const hints = CATEGORY_BOARD_HINTS[category];
   const categoryBoardKeys = new Set(hints.map((h) => h.boardKey));
 
-  console.log(`\n[${catLabel}] 수집 시작`);
+  console.log(`\n[${catLabel}] 수집 시작 (maxPerRun=${cs.maxPerRun}, autoPublish=${cs.autoPublish})`);
   const { items, sourceResults } = await collectByCategory(category, {
     youtubeApiKey: ctx.youtubeKey,
-    maxPerSource: 5,
+    maxPerSource: cs.maxPerRun,
   });
   console.log(`[${catLabel}] ${items.length}건 수집:`, Object.fromEntries(
     Object.entries(sourceResults).filter(([, r]) => r.count > 0).map(([s, r]) => [s, r.count]),
@@ -216,7 +254,7 @@ async function runCategory(
         if (!dup.empty) { skipped++; continue; }
       }
 
-      const shouldReview = bc.requireReview || ctx.defaultRequireReview;
+      const shouldReview = cs.autoPublish ? false : (bc.requireReview || ctx.defaultRequireReview);
       await firestore.collection("contents").add({
         boardKey: item.boardKey,
         title: item.title,
@@ -256,7 +294,7 @@ async function runCategory(
 async function main() {
   const startTime = Date.now();
   const settings = await loadSettings();
-  const { minScore, boardConfigs, defaultRequireReview, youtubeKey } = settings;
+  const { minScore, boardConfigs, defaultRequireReview, youtubeKey, categorySettings } = settings;
 
   const enabledBoards = boardConfigs.filter((b) => b.enabled);
   const enabledBoardKeys = new Set(enabledBoards.map((b) => b.boardKey));
@@ -264,23 +302,31 @@ async function main() {
   console.log(`[AI Collector] 카테고리별 수집 시작 — minScore=${minScore}, boards=${enabledBoards.map((b) => b.boardKey).join(",")}`);
 
   const existingUrls = await getExistingUrlsAdmin();
-  const ctx = { youtubeKey, minScore, boardConfigs, enabledBoards, enabledBoardKeys, defaultRequireReview, existingUrls };
+  const ctx = { youtubeKey, minScore, boardConfigs, enabledBoards, enabledBoardKeys, defaultRequireReview, existingUrls, categorySettings };
 
   let totalInserted = 0;
+  const updatedCategorySettings: Partial<Record<AiCategory, CategorySettings>> = { ...categorySettings };
   for (const cat of ALL_CATEGORIES) {
+    const cs = resolveCategorySettings(categorySettings, cat);
+    if (!cs.enabled) {
+      console.log(`[${CATEGORY_LABELS[cat]}] 비활성 — skip`);
+      continue;
+    }
     try {
       const r = await runCategory(cat, ctx);
       totalInserted += r.inserted;
+      updatedCategorySettings[cat] = { ...cs, lastRunAt: new Date().toISOString() };
     } catch (e) {
       console.error(`[${CATEGORY_LABELS[cat]}] 실행 실패`, e);
     }
   }
 
-  // 통합 lastRunResult 갱신 (카테고리별 history는 saveCategoryRun이 별도 기록)
+  // 통합 lastRunResult + 카테고리별 lastRunAt 갱신
   await firestore.doc("siteSettings/ai-collector").set(
     {
       lastRunAt: new Date().toISOString(),
       lastRunResult: { collected: 0, unique: 0, curated: 0, inserted: totalInserted, failed: 0 },
+      categorySettings: updatedCategorySettings,
     },
     { merge: true },
   );

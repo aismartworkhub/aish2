@@ -42,12 +42,23 @@ interface BoardCollectionConfig {
   requireReview: boolean;
 }
 
+/** 카테고리별 운영 설정 — Phase 3.5 */
+interface CategorySettings {
+  enabled: boolean;
+  /** true면 isApproved=true로 즉시 공개 (defaultRequireReview 우선 적용) */
+  autoPublish: boolean;
+  maxPerRun: number;
+  lastRunAt?: string;
+}
+
 interface AiCollectorConfig {
   youtubeApiKey: string;
   maxItemsPerRun: number;
   minQualityScore: number;
   boardConfigs: BoardCollectionConfig[];
   defaultRequireReview: boolean;
+  /** 카테고리별 ON/OFF·자동공개·1회 최대 건수. Map 형태(객체)로 보관. */
+  categorySettings?: Partial<Record<AiCategory, CategorySettings>>;
   lastRunAt?: string;
   lastRunResult?: {
     collected: number;
@@ -56,6 +67,16 @@ interface AiCollectorConfig {
     inserted: number;
     failed: number;
   };
+}
+
+const DEFAULT_CATEGORY_SETTINGS: Record<AiCategory, CategorySettings> = {
+  video: { enabled: true, autoPublish: false, maxPerRun: 5 },
+  article: { enabled: true, autoPublish: false, maxPerRun: 5 },
+  resource: { enabled: true, autoPublish: false, maxPerRun: 5 },
+};
+
+function resolveCategorySettings(config: AiCollectorConfig, cat: AiCategory): CategorySettings {
+  return config.categorySettings?.[cat] ?? DEFAULT_CATEGORY_SETTINGS[cat];
 }
 
 interface CollectionRun {
@@ -250,7 +271,12 @@ export default function AdminAiContentPage() {
    * 카테고리에 매핑된 소스만 fetch하고, 그 카테고리의 boardHints만 Gemini에 전달 →
    * 보드 분류 정확도 ↑. 결과는 카테고리별 history run 1건으로 저장됨.
    */
-  const runCategory = async (category: AiCategory): Promise<{ inserted: number; skipped: number }> => {
+  const runCategory = async (category: AiCategory): Promise<{ inserted: number; skipped: number; disabled?: boolean }> => {
+    const cs = resolveCategorySettings(config, category);
+    if (!cs.enabled) {
+      return { inserted: 0, skipped: 0, disabled: true };
+    }
+
     const startTime = Date.now();
     const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY ?? "";
     const hints = CATEGORY_BOARD_HINTS[category];
@@ -259,7 +285,7 @@ export default function AdminAiContentPage() {
     setCollectProgress(`[${CATEGORY_LABELS[category]}] 소스에서 수집 중...`);
     const result: CollectResult = await collectByCategory(category, {
       youtubeApiKey: config.youtubeApiKey,
-      maxPerSource: Math.ceil(config.maxItemsPerRun / 2),
+      maxPerSource: cs.maxPerRun,
     });
 
     setCollectProgress(`[${CATEGORY_LABELS[category]}] ${result.items.length}건. 중복 확인 중...`);
@@ -293,7 +319,7 @@ export default function AdminAiContentPage() {
     const enabledBoards = new Set(config.boardConfigs.filter((b) => b.enabled).map((b) => b.boardKey));
     const toInsert = curated
       .filter((c) => enabledBoards.has(c.boardKey))
-      .slice(0, config.maxItemsPerRun);
+      .slice(0, cs.maxPerRun);
 
     setCollectProgress(`[${CATEGORY_LABELS[category]}] ${toInsert.length}건 저장 중...`);
     let inserted = 0;
@@ -304,7 +330,8 @@ export default function AdminAiContentPage() {
       const currentCount = boardBreakdown[item.boardKey] ?? 0;
       if (currentCount >= boardMax) { skipped++; continue; }
 
-      const shouldReview = bc?.requireReview ?? config.defaultRequireReview;
+      // 카테고리 autoPublish가 true면 검토 우회. 그 외는 보드 requireReview > 글로벌 default 순.
+      const shouldReview = cs.autoPublish ? false : (bc?.requireReview ?? config.defaultRequireReview);
       // 썸네일 보충 — 비어있고 외부 링크면 Gemini URL Context로 og:image 시도 (실패해도 graceful)
       let thumbnailUrl = item.thumbnailUrl;
       if (!thumbnailUrl && item.mediaUrl && /^https?:\/\//.test(item.mediaUrl)) {
@@ -404,17 +431,34 @@ export default function AdminAiContentPage() {
   /** 단일 카테고리 수집 (대시보드 카드의 "지금 수집" 버튼) */
   const handleCollectCategory = async (cat: AiCategory) => {
     if (!user) return;
+    const cs = resolveCategorySettings(config, cat);
+    if (!cs.enabled) {
+      toast(`[${CATEGORY_LABELS[cat]}] 카테고리 비활성 상태 — 카드의 토글로 켜고 다시 시도하세요.`, "info");
+      return;
+    }
     setCollecting(true);
     setCollectProgress("");
     try {
-      const { inserted, skipped } = await runCategory(cat);
+      const { inserted, skipped, disabled } = await runCategory(cat);
+      if (disabled) {
+        toast(`[${CATEGORY_LABELS[cat]}] 비활성`, "info");
+        setCollecting(false);
+        return;
+      }
+      const nowIso = new Date().toISOString();
+      const newCategorySettings = {
+        ...(config.categorySettings ?? {}),
+        [cat]: { ...cs, lastRunAt: nowIso },
+      };
       const aggregateResult = { collected: 0, unique: 0, curated: 0, inserted, failed: 0 };
-      await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-collector", {
+      const next: AiCollectorConfig = {
         ...config,
-        lastRunAt: new Date().toISOString(),
+        lastRunAt: nowIso,
         lastRunResult: aggregateResult,
-      });
-      setConfig((prev) => ({ ...prev, lastRunAt: new Date().toISOString(), lastRunResult: aggregateResult }));
+        categorySettings: newCategorySettings,
+      };
+      await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-collector", next);
+      setConfig(next);
       setCollectProgress("");
       toast(`[${CATEGORY_LABELS[cat]}] ${inserted}건 삽입, ${skipped}건 스킵`, "success");
       loadBoardCounts();
@@ -581,26 +625,46 @@ const CATEGORY_ICONS: Record<AiCategory, string> = {
 };
 
 function CategoryCollectCard({
-  category, collecting, onCollect,
+  category, collecting, onCollect, settings, onUpdateSettings,
 }: {
   category: AiCategory;
   collecting: boolean;
   onCollect: () => void;
+  settings: CategorySettings;
+  onUpdateSettings: (patch: Partial<CategorySettings>) => void;
 }) {
   const icon = CATEGORY_ICONS[category];
   const label = CATEGORY_LABELS[category];
+  const lastRun = settings.lastRunAt
+    ? new Date(settings.lastRunAt).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })
+    : "—";
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 hover:border-purple-300 transition">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="text-xl" aria-hidden>{icon}</span>
-        <span className="text-sm font-bold text-gray-900">{label}</span>
+    <div className={cn(
+      "rounded-lg border p-4 transition bg-white",
+      settings.enabled ? "border-gray-200 hover:border-purple-300" : "border-gray-200 bg-gray-50 opacity-75",
+    )}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xl" aria-hidden>{icon}</span>
+          <span className="text-sm font-bold text-gray-900">{label}</span>
+        </div>
+        <label className="inline-flex items-center gap-1 cursor-pointer text-xs text-gray-500">
+          <input
+            type="checkbox"
+            checked={settings.enabled}
+            onChange={(e) => onUpdateSettings({ enabled: e.target.checked })}
+            className="rounded border-gray-300"
+          />
+          활성
+        </label>
       </div>
+      <p className="text-[10px] text-gray-400 mb-2">마지막 실행: {lastRun}</p>
       <button
         type="button"
         onClick={onCollect}
-        disabled={collecting}
+        disabled={collecting || !settings.enabled}
         className={cn(
-          "w-full flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition",
+          "w-full flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition mb-2",
           "bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100",
           "disabled:cursor-not-allowed disabled:opacity-50",
         )}
@@ -608,6 +672,29 @@ function CategoryCollectCard({
         {collecting ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
         {collecting ? "수집 중..." : "지금 수집"}
       </button>
+      <div className="grid grid-cols-2 gap-2 text-[11px]">
+        <label className="flex items-center gap-1 text-gray-600">
+          <input
+            type="checkbox"
+            checked={settings.autoPublish}
+            onChange={(e) => onUpdateSettings({ autoPublish: e.target.checked })}
+            className="rounded border-gray-300"
+          />
+          자동공개
+        </label>
+        <label className="flex items-center gap-1 text-gray-600">
+          1회
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={settings.maxPerRun}
+            onChange={(e) => onUpdateSettings({ maxPerRun: Number(e.target.value) || 5 })}
+            className="w-12 rounded border border-gray-200 px-1 py-0.5 text-center text-[11px]"
+          />
+          건
+        </label>
+      </div>
     </div>
   );
 }
@@ -679,6 +766,14 @@ function DashboardTab({
               category={cat}
               collecting={collecting}
               onCollect={() => onCollectCategory(cat)}
+              settings={config.categorySettings?.[cat] ?? DEFAULT_CATEGORY_SETTINGS[cat]}
+              onUpdateSettings={(patch) => setConfig((prev) => ({
+                ...prev,
+                categorySettings: {
+                  ...(prev.categorySettings ?? {}),
+                  [cat]: { ...(prev.categorySettings?.[cat] ?? DEFAULT_CATEGORY_SETTINGS[cat]), ...patch },
+                },
+              }))}
             />
           ))}
         </div>
