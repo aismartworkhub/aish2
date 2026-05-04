@@ -256,13 +256,38 @@ async function runCategory(
 
       const shouldReview = cs.autoPublish ? false : (bc.requireReview || ctx.defaultRequireReview);
 
-      // 썸네일 fallback 체인 (Phase 4-A) — 1) 원본 → 2) og:image → 3) AI 생성
+      // 썸네일 fallback 체인:
+      //  1) 원본 thumbnailUrl
+      //  2) og:image (Gemini URL Context, Phase 4-A)
+      //  3) (article 카테고리만) 화면 캡처 (Puppeteer, Phase 4-C) → Drive 업로드
+      //  4) AI 이미지 생성 (Gemini Image, Phase 4-A) → Drive 업로드 → data URL 폴백
       let thumbnailUrl: string | null = item.thumbnailUrl ?? null;
       if (!thumbnailUrl && item.mediaUrl && /^https?:\/\//.test(item.mediaUrl) && GEMINI_KEY) {
         try {
           const { extractOgImageWithAI } = await import("../src/lib/og-image-ai");
           const og = await extractOgImageWithAI(item.mediaUrl, GEMINI_KEY);
           if (og.ok) thumbnailUrl = og.ogImage;
+        } catch { /* graceful */ }
+      }
+      // Phase 4-C — article 카테고리(뉴스·블로그)일 때 화면 캡처 시도
+      if (!thumbnailUrl && category === "article" && item.mediaUrl && /^https?:\/\//.test(item.mediaUrl)) {
+        try {
+          const { captureUrl } = await import("./screenshot");
+          const shot = await captureUrl(item.mediaUrl);
+          if (shot.ok) {
+            try {
+              const { uploadImageToDrive } = await import("./drive-upload");
+              const safeTitle = (item.titleKo || item.title).slice(0, 40).replace(/[^\w가-힣]+/g, "-");
+              const fileName = `screenshot-${Date.now()}-${safeTitle}.jpg`;
+              const upload = await uploadImageToDrive({
+                buffer: shot.buffer,
+                mimeType: shot.mimeType,
+                fileName,
+              });
+              if (upload.ok) thumbnailUrl = upload.url;
+              // Drive 미설정이면 캡처 결과는 버림 (data URL로 base64 인코딩하면 너무 큼)
+            } catch { /* graceful */ }
+          }
         } catch { /* graceful */ }
       }
       if (!thumbnailUrl && GEMINI_KEY) {
