@@ -181,8 +181,10 @@ service cloud.firestore {
     }
 
     // 사이트 설정
+    // 'integrations' 와 'ai-collector'는 민감 정보(API 키) 포함 → 관리자만 읽기.
+    // 나머지(theme/cta/banner/hero/stats 등)는 공개 페이지 렌더링용이라 공개 읽기 유지.
     match /siteSettings/{docId} {
-      allow read: if docId != 'integrations' || isAdmin();
+      allow read: if (docId != 'integrations' && docId != 'ai-collector') || isAdmin();
       allow write: if isAdmin();
     }
 

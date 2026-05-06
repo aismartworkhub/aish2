@@ -13,6 +13,7 @@ import {
   COLLECTIONS,
   getSingletonDoc,
   setSingletonDoc,
+  upsertDoc,
   getCollection,
 } from "@/lib/firestore";
 import { collectByCategory } from "@/lib/ai-content-collector";
@@ -89,6 +90,9 @@ interface CollectionRun {
   boardBreakdown: Record<string, number>;
   duration: number;
 }
+
+/** 마스킹 — UI에 노출되는 placeholder (실제 키는 Firestore에만 존재) */
+const MASKED_API_KEY = "••••••••";
 
 const DEFAULT_BOARD_CONFIGS: BoardCollectionConfig[] = [
   {
@@ -180,6 +184,8 @@ export default function AdminAiContentPage() {
             ...DEFAULT_CONFIG,
             ...doc,
             boardConfigs: doc.boardConfigs?.length ? doc.boardConfigs : DEFAULT_BOARD_CONFIGS,
+            // 보안 — 화면에선 마스킹 표시, 저장 시 마스킹 그대로면 기존 값 유지 (handleSave 분기)
+            youtubeApiKey: doc.youtubeApiKey ? MASKED_API_KEY : "",
           });
         }
       } catch { /* ignore */ }
@@ -247,16 +253,30 @@ export default function AdminAiContentPage() {
 
   // ── 설정 저장 ──
 
+  /**
+   * 마스킹 보호 — youtubeApiKey가 마스킹 placeholder이면 필드 자체를 제외하여
+   * upsertDoc(merge) 시 Firestore의 기존 키 값이 보존됨.
+   */
+  const stripMaskedApiKey = <T extends { youtubeApiKey?: string }>(data: T): T => {
+    if (data.youtubeApiKey === MASKED_API_KEY) {
+      const { youtubeApiKey: _omit, ...rest } = data;
+      void _omit;
+      return rest as T;
+    }
+    return data;
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-collector", {
+      const payload = stripMaskedApiKey({
         youtubeApiKey: config.youtubeApiKey,
         maxItemsPerRun: config.maxItemsPerRun,
         minQualityScore: config.minQualityScore,
         boardConfigs: config.boardConfigs,
         defaultRequireReview: config.defaultRequireReview,
       });
+      await upsertDoc(COLLECTIONS.SETTINGS, "ai-collector", payload);
       toast("설정 저장 완료", "success");
     } catch (e) {
       toast(`저장 실패: ${e instanceof Error ? e.message : "오류"}`, "error");
@@ -428,11 +448,12 @@ export default function AdminAiContentPage() {
         inserted: totalInserted,
         failed: 0,
       };
-      await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-collector", {
+      // upsertDoc(merge) + 마스킹 보호 → 기존 youtubeApiKey 보존
+      await upsertDoc(COLLECTIONS.SETTINGS, "ai-collector", stripMaskedApiKey({
         ...config,
         lastRunAt: new Date().toISOString(),
         lastRunResult: aggregateResult,
-      });
+      }));
       setConfig((prev) => ({ ...prev, lastRunAt: new Date().toISOString(), lastRunResult: aggregateResult }));
       setCollectProgress("");
       toast(`수집 완료: ${totalInserted}건 삽입, ${totalSkipped}건 스킵`, "success");
@@ -473,7 +494,7 @@ export default function AdminAiContentPage() {
         lastRunResult: aggregateResult,
         categorySettings: newCategorySettings,
       };
-      await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-collector", next);
+      await upsertDoc(COLLECTIONS.SETTINGS, "ai-collector", stripMaskedApiKey(next));
       setConfig(next);
       setCollectProgress("");
       toast(`[${CATEGORY_LABELS[cat]}] ${inserted}건 삽입, ${skipped}건 스킵`, "success");
@@ -740,10 +761,17 @@ function DashboardTab({
             <input
               type="password"
               value={config.youtubeApiKey}
+              onFocus={(e) => {
+                // 마스킹 placeholder는 클릭 시 자동 클리어 — 새 키 입력 깔끔하게
+                if (e.target.value === "••••••••") setConfig((p) => ({ ...p, youtubeApiKey: "" }));
+              }}
               onChange={(e) => setConfig((p) => ({ ...p, youtubeApiKey: e.target.value }))}
-              placeholder="AIza..."
+              placeholder={config.youtubeApiKey === "••••••••" ? "기존 키 저장됨 (변경하려면 클릭)" : "AIza..."}
               className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             />
+            {config.youtubeApiKey === "••••••••" && (
+              <p className="mt-1 text-[10px] text-emerald-600">🔒 키가 저장되어 있습니다. 입력 필드 클릭 시 새로 입력 가능.</p>
+            )}
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1.5 block">회차당 최대 건수</label>
