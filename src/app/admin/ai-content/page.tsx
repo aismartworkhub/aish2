@@ -815,8 +815,41 @@ function DashboardTab({
             <Trash2 size={16} />
             중복 정리
           </button>
-          {collectProgress && <span className="text-sm text-purple-600 animate-pulse">{collectProgress}</span>}
         </div>
+        {collectProgress && (
+          <div className="mt-3 rounded-lg border border-purple-100 bg-purple-50/60 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <RefreshCw size={14} className="animate-spin text-purple-600" />
+              <span className="text-sm font-medium text-purple-700">{collectProgress}</span>
+            </div>
+            {/* 단계 stepper — collectProgress 문자열에서 키워드 매칭으로 active 추론 */}
+            <div className="flex items-center gap-1 text-[10px]">
+              {[
+                { key: "수집", label: "1.수집" },
+                { key: "중복", label: "2.중복제거" },
+                { key: "큐레이션", label: "3.큐레이션" },
+                { key: "저장", label: "4.저장" },
+              ].map((s, i, arr) => {
+                const idx = arr.findIndex((x) => collectProgress.includes(x.key));
+                const active = idx === i;
+                const done = idx > i;
+                return (
+                  <span
+                    key={s.key}
+                    className={cn(
+                      "rounded-full px-2 py-0.5 font-medium border",
+                      active && "bg-purple-500 text-white border-purple-500",
+                      done && "bg-emerald-100 text-emerald-700 border-emerald-200",
+                      !active && !done && "bg-white text-gray-400 border-gray-200",
+                    )}
+                  >
+                    {done ? "✓ " : ""}{s.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 보드별 현황 */}
@@ -980,33 +1013,40 @@ function HistoryTab({
 }) {
   return (
     <div className="space-y-6">
-      {/* YouTube 검색 결과 회차 — 발견된 영상 목록 영구 보관 */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-          <Eye size={14} className="text-gray-400" />
-          YouTube 검색 결과 회차
-        </h2>
-        <p className="text-xs text-gray-500">
-          최근 검색에서 발견된 영상 목록을 회차별로 보관합니다. 펼치면 썸네일·제목·채널·조회수를 확인할 수 있습니다.
-        </p>
-        <YoutubeSearchSnapshotsList onApplyOpts={onApplySearchHistory} />
-      </section>
+      {/* ① YouTube 검색 영역 — 빨간 톤 박스로 자동 수집 이력과 시각 구분 */}
+      <div className="rounded-2xl border-2 border-red-100 bg-red-50/30 p-5 space-y-5">
+        <div className="flex items-center gap-2 pb-2 border-b border-red-100">
+          <span className="text-base">🔍</span>
+          <h2 className="text-sm font-bold text-red-700">YouTube 검색 (수동 탐색)</h2>
+          <span className="text-[11px] text-red-500/80">관리자가 수동으로 검색해 발견한 영상 기록</span>
+        </div>
 
-      {/* YouTube 검색 조건 히스토리 — 칩 클릭 시 고급 검색 탭으로 전환·복원 */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-          <Search size={14} className="text-gray-400" />
-          YouTube 검색 조건
-        </h2>
-        <YoutubeSearchHistoryChips onApply={onApplySearchHistory} variant="full" />
-      </section>
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+            <Eye size={12} className="text-gray-400" />
+            검색 결과 회차
+          </h3>
+          <p className="text-[11px] text-gray-500">최근 검색에서 발견된 영상 목록 보관 — 펼치면 썸네일·제목·채널 확인.</p>
+          <YoutubeSearchSnapshotsList onApplyOpts={onApplySearchHistory} />
+        </section>
 
-      {/* 자동/수동 수집 실행 이력 */}
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-          <Clock size={14} className="text-gray-400" />
-          자동·수동 수집 실행
-        </h2>
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+            <Search size={12} className="text-gray-400" />
+            검색 조건 히스토리
+          </h3>
+          <p className="text-[11px] text-gray-500">칩 클릭 시 고급 검색 탭으로 전환 + 옵션 복원.</p>
+          <YoutubeSearchHistoryChips onApply={onApplySearchHistory} variant="full" />
+        </section>
+      </div>
+
+      {/* ② 자동/수동 수집 실행 이력 — 보라 톤 박스로 별도 컨텍스트 강조 */}
+      <div className="rounded-2xl border-2 border-purple-100 bg-purple-50/30 p-5 space-y-3">
+        <div className="flex items-center gap-2 pb-2 border-b border-purple-100">
+          <span className="text-base">🤖</span>
+          <h2 className="text-sm font-bold text-purple-700">자동·수동 수집 실행 로그</h2>
+          <span className="text-[11px] text-purple-500/80">cron + 대시보드 실행 1회씩 1 row</span>
+        </div>
         {loading ? (
           <div className="flex justify-center py-12"><RefreshCw size={24} className="animate-spin text-gray-400" /></div>
         ) : runs.length === 0 ? (
@@ -1014,7 +1054,7 @@ function HistoryTab({
         ) : (
           <RunsList runs={runs} />
         )}
-      </section>
+      </div>
     </div>
   );
 }
@@ -1317,9 +1357,11 @@ function StatsTab({ runs, runsLoaded, onLoadRuns }: { runs: CollectionRun[]; run
     ? (filtered.reduce((sum, r) => sum + (r.duration ?? 0), 0) / filtered.length / 1000).toFixed(1)
     : "0";
 
-  const successRate = totals.collected > 0
-    ? ((totals.inserted / totals.collected) * 100).toFixed(1)
-    : "0";
+  // 단계별 변환율 — 직전 단계 대비 통과율 (이전 single rate는 misleading)
+  const dedupRate = totals.collected > 0 ? (totals.unique / totals.collected) * 100 : 0;
+  const curationRate = totals.unique > 0 ? (totals.curated / totals.unique) * 100 : 0;
+  const insertRate = totals.curated > 0 ? (totals.inserted / totals.curated) * 100 : 0;
+  const overallRate = totals.collected > 0 ? (totals.inserted / totals.collected) * 100 : 0;
 
   if (!runsLoaded) return <div className="flex justify-center py-12"><RefreshCw size={24} className="animate-spin text-gray-400" /></div>;
 
@@ -1366,9 +1408,9 @@ function StatsTab({ runs, runsLoaded, onLoadRuns }: { runs: CollectionRun[]; run
           <p className="text-3xl font-bold text-green-600">{totals.inserted}</p>
           <p className="text-xs text-gray-500 mt-1">삽입된 콘텐츠</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
-          <p className="text-3xl font-bold text-purple-600">{successRate}%</p>
-          <p className="text-xs text-gray-500 mt-1">수집→삽입 비율</p>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center" title="원본 수집 대비 최종 삽입 비율 (전체 파이프라인 통과율)">
+          <p className="text-3xl font-bold text-purple-600">{overallRate.toFixed(1)}%</p>
+          <p className="text-xs text-gray-500 mt-1">전체 통과율</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
           <p className="text-3xl font-bold text-blue-600">{avgDuration}초</p>
@@ -1376,41 +1418,48 @@ function StatsTab({ runs, runsLoaded, onLoadRuns }: { runs: CollectionRun[]; run
         </div>
       </div>
 
-      {/* 누적 통계 */}
+      {/* 누적 파이프라인 — 단계별 funnel + 단계간 변환율 */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-        <h3 className="text-base font-bold text-gray-900 mb-4">수집 파이프라인 통계</h3>
-        <div className="grid grid-cols-5 gap-4">
-          {STAT_CARDS.map((s) => (
-            <div key={s.key} className="text-center">
-              <p className={cn("text-2xl font-bold", s.color)}>{totals[s.key]}</p>
-              <p className="text-xs text-gray-500 mt-1">{s.label}</p>
-            </div>
-          ))}
-        </div>
-        {totals.collected > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-50">
-            <div className="flex items-center gap-2 h-6">
-              {STAT_CARDS.map((s) => {
-                const val = totals[s.key];
-                const pct = (val / totals.collected) * 100;
-                if (pct <= 0) return null;
-                return (
+        <h3 className="text-base font-bold text-gray-900 mb-1">수집 파이프라인 변환율</h3>
+        <p className="text-xs text-gray-500 mb-4">각 단계의 감소를 시각화 — 어디서 가장 많이 빠지는지 한눈에.</p>
+        <div className="space-y-2">
+          {[
+            { key: "collected" as const, label: "수집", color: "bg-gray-400", barColor: "bg-gray-200" },
+            { key: "unique" as const, label: "고유 (중복 제거 후)", color: "bg-blue-500", barColor: "bg-blue-100", prevRate: dedupRate, prevLabel: "중복 제거 후 통과" },
+            { key: "curated" as const, label: "큐레이션 통과", color: "bg-purple-500", barColor: "bg-purple-100", prevRate: curationRate, prevLabel: "Gemini 품질 통과" },
+            { key: "inserted" as const, label: "삽입", color: "bg-green-500", barColor: "bg-green-100", prevRate: insertRate, prevLabel: "보드 cap 통과" },
+          ].map((stage) => {
+            const val = totals[stage.key];
+            const pct = totals.collected > 0 ? (val / totals.collected) * 100 : 0;
+            return (
+              <div key={stage.key} className="flex items-center gap-3">
+                <div className="w-32 shrink-0 text-xs text-gray-600">{stage.label}</div>
+                <div className="flex-1 h-6 rounded-full bg-gray-50 relative overflow-hidden">
                   <div
-                    key={s.key}
-                    className={cn("h-full rounded-full", {
-                      "bg-gray-300": s.key === "collected",
-                      "bg-blue-400": s.key === "unique",
-                      "bg-purple-400": s.key === "curated",
-                      "bg-green-400": s.key === "inserted",
-                      "bg-red-400": s.key === "failed",
-                    })}
-                    style={{ width: `${pct}%`, minWidth: pct > 0 ? 8 : 0 }}
-                    title={`${s.label}: ${val} (${pct.toFixed(0)}%)`}
+                    className={cn("absolute left-0 top-0 h-full rounded-full transition-all", stage.color)}
+                    style={{ width: `${Math.max(pct, val > 0 ? 1 : 0)}%` }}
                   />
-                );
-              })}
-            </div>
-          </div>
+                  <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-bold text-gray-700">
+                    {val} ({pct.toFixed(0)}%)
+                  </span>
+                </div>
+                <div className="w-32 shrink-0 text-right text-[11px] text-gray-400">
+                  {"prevRate" in stage && stage.prevRate !== undefined && (
+                    <>
+                      <span className={cn("font-semibold", stage.prevRate >= 70 ? "text-emerald-600" : stage.prevRate >= 30 ? "text-amber-600" : "text-rose-600")}>
+                        ↓ {stage.prevRate.toFixed(0)}%
+                      </span>
+                      <br />
+                      <span>{stage.prevLabel}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {totals.failed > 0 && (
+          <p className="mt-4 text-xs text-rose-600">❌ 삽입 실패: {totals.failed}건 (네트워크·권한·Firestore 오류)</p>
         )}
       </div>
 
