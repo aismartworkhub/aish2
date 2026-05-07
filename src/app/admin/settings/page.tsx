@@ -918,6 +918,7 @@ function AdminSettingsInner() {
               { key: "stats" as const, label: "실적 수치", desc: "홈 통계 블록" },
               { key: "cta" as const, label: "CTA 영역", desc: "홈 본문 및 플로팅 CTA 버튼" },
               { key: "banner" as const, label: "D-day 배너", desc: "홈 상단 D-day 카운트다운 배너" },
+              { key: "insight" as const, label: "Insight 섹션", desc: "AI 콘텐츠·강의 영상 가로 캐러셀 (홈 중간)" },
             ].map((row) => (
               <div key={row.key} className="flex items-center justify-between border border-gray-200 rounded-xl p-4">
                 <div>

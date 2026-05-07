@@ -180,6 +180,7 @@ export interface SectionToggles {
   stats: boolean;
   cta: boolean;
   banner: boolean;
+  insight: boolean;
 }
 
 export const DEFAULT_SECTION_TOGGLES: SectionToggles = {
@@ -187,6 +188,7 @@ export const DEFAULT_SECTION_TOGGLES: SectionToggles = {
   stats: true,
   cta: true,
   banner: true,
+  insight: true,
 };
 
 let stCache: SectionToggles | null = null;

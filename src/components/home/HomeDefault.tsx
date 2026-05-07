@@ -542,8 +542,8 @@ export default function HomeDefault(props: HomeDataProps) {
         </section>
       )}
 
-      {/* S7.5: Insight (콘텐츠 우선, 없으면 비디오 폴백) */}
-      {(latestContents.length > 0 || featuredVideos.length > 0) && (
+      {/* S7.5: Insight (콘텐츠 우선, 없으면 비디오 폴백) — admin/settings → 섹션 표시에서 OFF 가능 */}
+      {sectionToggles.insight !== false && (latestContents.length > 0 || featuredVideos.length > 0) && (
         <section className="py-24 md:py-28">
           <div className="container-custom">
             <div className="flex items-end justify-between mb-12">

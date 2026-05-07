@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { Play, Image as ImageIcon, FileText, Link2, File } from "lucide-react";
+import { Play, Image as ImageIcon, FileText, Link2, File, ExternalLink } from "lucide-react";
 import {
   cn,
   extractGoogleDriveFileId,
@@ -150,20 +150,77 @@ function DocumentThumbnail({ title, mediaType, mediaUrl, className }: {
   );
 }
 
-/** 이미지 실패 시 제목 오버레이 폴백 */
-function TitleFallback({ title, mediaType, className }: {
-  title: string; mediaType: MediaType; className?: string;
+/** 제목 해시 기반 결정형 그라데이션 — 같은 글은 항상 같은 색 (Slack/Notion 패턴) */
+const LINK_PALETTES = [
+  "from-indigo-500 to-violet-700",
+  "from-emerald-500 to-teal-700",
+  "from-rose-500 to-orange-600",
+  "from-sky-500 to-blue-700",
+  "from-amber-500 to-yellow-600",
+  "from-slate-600 to-gray-800",
+] as const;
+
+function paletteByHash(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  return LINK_PALETTES[Math.abs(h) % LINK_PALETTES.length];
+}
+
+function extractHost(url?: string): string {
+  if (!url) return "";
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * 이미지 없는 콘텐츠의 시각 폴백 — 회색 빈 박스 대신 브랜디드 링크 프리뷰 카드.
+ * 결정형 그라데이션 + 큰 제목 오버레이 + 도메인 배지 (링크일 때).
+ */
+function TitleFallback({ title, mediaType, mediaUrl, className }: {
+  title: string; mediaType: MediaType; mediaUrl?: string; className?: string;
 }) {
   const Icon = FALLBACK_ICON[mediaType];
+  const palette = paletteByHash(title || mediaUrl || "x");
+  const host = mediaType === "link" ? extractHost(mediaUrl) : "";
+  const showHostChip = Boolean(host);
+
   return (
     <div className={cn(
-      "flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-gray-200 to-gray-300 p-4",
+      "relative flex h-full w-full flex-col justify-between overflow-hidden bg-gradient-to-br p-3",
+      palette,
       className,
     )}>
-      <Icon size={28} className="text-gray-400" />
-      <p className="line-clamp-2 text-center text-xs font-medium leading-snug text-gray-500">
+      <Icon
+        size={120}
+        strokeWidth={1.2}
+        className="pointer-events-none absolute -bottom-4 -right-4 text-white/10"
+        aria-hidden
+      />
+      {showHostChip && (
+        <ExternalLink size={14} className="absolute top-2 right-2 text-white/70" aria-hidden />
+      )}
+
+      <p className="relative line-clamp-3 text-sm font-bold leading-tight text-white drop-shadow-sm sm:text-base">
         {title}
       </p>
+
+      {showHostChip && (
+        <div className="relative mt-2 flex items-center gap-1.5">
+          <img
+            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=32`}
+            alt=""
+            className="h-3.5 w-3.5 shrink-0 rounded-sm"
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
+          <span className="truncate text-[10px] font-semibold text-white/90">
+            {host}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -301,6 +358,6 @@ export default function MediaPreview({
     return <ImageGalleryFallback title={title} mediaUrl={mediaUrl} className={className} />;
   }
 
-  // 최종 폴백: 제목 + 아이콘 오버레이
-  return <TitleFallback title={title} mediaType={mediaType} className={className} />;
+  // 최종 폴백: 결정형 그라데이션 + 제목 오버레이 + 도메인 배지
+  return <TitleFallback title={title} mediaType={mediaType} mediaUrl={mediaUrl} className={className} />;
 }
