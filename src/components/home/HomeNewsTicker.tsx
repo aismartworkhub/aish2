@@ -23,6 +23,8 @@ export default function HomeNewsTicker({ items }: { items: Notice[] }) {
     return () => window.clearInterval(id);
   }, [items.length]);
 
+  // 데이터 0건이면 띠 자체를 숨김 — 메인 콘텐츠와 시각 충돌 방지 (Phase 4-4)
+  // (안내 메시지 노출 시 마케팅 톤 흐림. 띠는 정보가 있을 때만 가치 있음)
   if (items.length === 0) return null;
 
   const current = items[idx] ?? items[0];

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import {
   ArrowRight, Search, SlidersHorizontal, ChevronRight,
-  Star, Play, BookOpen, Trophy,
+  Star, Play, BookOpen, Trophy, Users, MessageSquare, Megaphone,
 } from "lucide-react";
 import { PROGRAM_CATEGORY_LABELS, EVENT_STATUS_LABELS, EVENT_STATUS_COLORS, RUNMOA_CONTENT_TYPE_LABELS } from "@/lib/constants";
 import { calculateDDay, cn, isExternalHref } from "@/lib/utils";
@@ -15,6 +15,7 @@ import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import RatingSummary from "@/components/community/RatingSummary";
 import HomeNewsTicker from "@/components/home/HomeNewsTicker";
+import EmptyState from "@/components/ui/EmptyState";
 import { ContentCard } from "@/components/content";
 import { STAT_ICONS, COMMUNITY_SHORTCUTS } from "@/hooks/useHomeData";
 import type { HomeDataProps } from "@/hooks/useHomeData";
@@ -203,6 +204,15 @@ export default function HomeDefault(props: HomeDataProps) {
           </p>
         </div>
 
+        {instructors.length === 0 ? (
+          <div className="max-w-2xl mx-auto px-4">
+            <EmptyState
+              icon={Users}
+              title="강사 정보를 준비하고 있습니다"
+              description="곧 다양한 분야의 전문가들이 등록될 예정입니다."
+            />
+          </div>
+        ) : (
         <div className={cn("max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6")}>
           {instructors.map((ins) => (
             <Link
@@ -270,6 +280,7 @@ export default function HomeDefault(props: HomeDataProps) {
             </Link>
           ))}
         </div>
+        )}
 
         <div className="text-center mt-10">
           <Link
@@ -621,6 +632,15 @@ export default function HomeDefault(props: HomeDataProps) {
               <RatingSummary items={reviews} />
             </div>
           )}
+          {reviews.length === 0 ? (
+            <div className="max-w-xl mx-auto">
+              <EmptyState
+                icon={Star}
+                title="아직 후기가 없습니다"
+                description="첫 후기를 기다리고 있어요. 수강 후 의견을 남겨주세요."
+              />
+            </div>
+          ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
             {reviews.map((review, index) => (
               <div key={index} ref={addRevealRef} className="bg-white rounded-sm p-6 border border-brand-border hover:shadow-md transition-shadow">
@@ -642,6 +662,7 @@ export default function HomeDefault(props: HomeDataProps) {
               </div>
             ))}
           </div>
+          )}
         </div>
       </section>
 
@@ -674,6 +695,14 @@ export default function HomeDefault(props: HomeDataProps) {
                   전체보기 +
                 </Link>
               </div>
+              {notices.length === 0 ? (
+                <EmptyState
+                  icon={Megaphone}
+                  title="아직 공지가 없습니다"
+                  description="새 소식이 등록되면 여기에 표시됩니다."
+                  className="border-0 bg-transparent p-4"
+                />
+              ) : (
               <ul className="space-y-0">
                 {notices.map((notice, index) => (
                   <li key={index}>
@@ -688,6 +717,7 @@ export default function HomeDefault(props: HomeDataProps) {
                   </li>
                 ))}
               </ul>
+              )}
             </div>
 
             {/* 우: 최근 활동 — /community 자유·Q&A·후기 + /media 자료 통합 최신순 */}
@@ -702,7 +732,12 @@ export default function HomeDefault(props: HomeDataProps) {
                 </Link>
               </div>
               {recentActivity.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">아직 새 글이 없습니다.</p>
+                <EmptyState
+                  icon={MessageSquare}
+                  title="아직 새 글이 없습니다"
+                  description="첫 활동의 주인공이 되어 보세요."
+                  className="border-0 bg-transparent p-4"
+                />
               ) : (
                 <div className="border border-gray-100 rounded-lg overflow-hidden">
                   {recentActivity.slice(0, 4).map((c: Content) => (
