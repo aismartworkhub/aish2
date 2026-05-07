@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Heart, MessageCircle, Eye, Pin, Bookmark, Share2, Play, BadgeCheck, Megaphone, HelpCircle, Star, Video, BookOpen, User as UserIcon, Trophy, Image as ImageIconLucide } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { contentDisplayTitle } from "@/lib/content-display";
+import { contentDisplayTitle, contentDisplayBody } from "@/lib/content-display";
 import type { Content, BoardConfig } from "@/types/content";
 import MediaPreview from "./MediaPreview";
 import { toggleReaction } from "@/lib/content-engine";
@@ -93,7 +93,7 @@ function CategoryFallback({ content, compact }: { content: Content; compact?: bo
   if (!v) return null;
   const Icon = v.icon;
   const title = contentDisplayTitle(content);
-  const summary = (content.body ?? "").replace(/\s+/g, " ").trim();
+  const summary = contentDisplayBody(content).replace(/\s+/g, " ").trim();
   const tags = content.tags?.slice(0, 3) ?? [];
   return (
     <div className={cn("relative h-full w-full overflow-hidden bg-gradient-to-br", v.gradient, compact ? "p-2" : "p-4")}>
@@ -545,10 +545,10 @@ function TimelineCard({ content, onClick, priority }: Omit<Props, "board" | "var
             </button>
           )}
 
-          {/* 본문 — line-clamp 6줄 */}
-          {content.body && (
+          {/* 본문 — line-clamp 6줄. bodyKo 있으면 한글, 없으면 원본 표시 */}
+          {contentDisplayBody(content) && (
             <p className="mt-1.5 line-clamp-6 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-              {content.body}
+              {contentDisplayBody(content)}
             </p>
           )}
 
@@ -671,10 +671,10 @@ function FaqRow({ content }: Omit<Props, "board" | "onClick">) {
         "text-sm font-medium text-gray-800 hover:bg-gray-50",
       )}>
         <span className="font-bold text-primary-500">Q.</span>
-        <span className="flex-1">{content.question ?? content.title}</span>
+        <span className="flex-1">{content.question ?? contentDisplayTitle(content)}</span>
       </summary>
       <div className="px-4 pb-4 pl-9 text-sm leading-relaxed text-gray-600">
-        {content.answer ?? content.body}
+        {content.answer ?? contentDisplayBody(content)}
       </div>
     </details>
   );
@@ -706,7 +706,8 @@ function DispatchCard({ content, onClick, priority }: Omit<Props, "board" | "var
       ? timeAgo(content.createdAt)
       : "";
   const durationLabel = formatDurationBadge(content.durationSeconds);
-  const summary = content.body?.trim();
+  // bodyKo 있으면 한글 요약 우선 (Phase 7 — 한글 표시 통일)
+  const summary = contentDisplayBody(content).trim();
 
   return (
     <button

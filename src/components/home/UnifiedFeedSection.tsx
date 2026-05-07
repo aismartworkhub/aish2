@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import type { Content } from "@/types/content";
 import { useUniversalFeed } from "@/hooks/useUniversalFeed";
 import { useFeedCategory } from "@/hooks/useFeedCategory";
@@ -67,8 +68,13 @@ export default function UnifiedFeedSection({ phase6 }: UnifiedFeedSectionProps) 
         <FeedCategoryChips active={category} onChange={setCategory} className="mb-3" />
 
         {/* 피드 본문 */}
+        {/* /media·/community와 동일한 wrapper 스타일 — Phase 7 */}
+        {/* x-feed: max-w-2xl (단일 컬럼 timeline), board-list/card-feed: max-w-3xl */}
         {feed.loading ? (
-          <div className="border border-brand-border bg-white rounded-xl overflow-hidden">
+          <div className={cn(
+            "mx-auto border-x border-gray-100 bg-white",
+            viewMode === "x-feed" ? "max-w-2xl" : "max-w-3xl",
+          )}>
             <ContentCardSkeleton variant={cardVariant} count={6} />
           </div>
         ) : feed.error ? (
@@ -78,7 +84,10 @@ export default function UnifiedFeedSection({ phase6 }: UnifiedFeedSectionProps) 
             표시할 항목이 없습니다.
           </div>
         ) : (
-          <div className="border border-brand-border bg-white rounded-xl overflow-hidden">
+          <div className={cn(
+            "mx-auto border-x border-gray-100 bg-white",
+            viewMode === "x-feed" ? "max-w-2xl" : "max-w-3xl",
+          )}>
             {feed.items.map((item, i) => (
               <UniversalCard
                 key={`${item.kind}-${item.id}`}
