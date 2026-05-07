@@ -10,13 +10,34 @@ const inter = Inter({
  display: "swap",
 });
 
+const SITE_URL = "https://aish-web-v2.web.app";
+const OG_IMAGE = `${SITE_URL}/images/logo-aish-transparent.png`;
+
 export const metadata: Metadata = {
+ metadataBase: new URL(SITE_URL),
  title: {
    default: `${SITE_NAME} - ${SITE_FULL_NAME}`,
    template: `%s | ${SITE_NAME}`,
  },
  description: SITE_DESCRIPTION,
  keywords: ["AI 교육", "인공지능", "AISH", "스마트워크톤", "바이브 코딩", "데이터 분석"],
+ // Phase 6 — Open Graph (KakaoTalk·Slack·Facebook 링크 미리보기)
+ openGraph: {
+   type: "website",
+   locale: "ko_KR",
+   url: SITE_URL,
+   siteName: SITE_NAME,
+   title: `${SITE_NAME} - ${SITE_FULL_NAME}`,
+   description: SITE_DESCRIPTION,
+   images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: SITE_NAME }],
+ },
+ // Phase 6 — Twitter Card (X.com 링크 미리보기)
+ twitter: {
+   card: "summary_large_image",
+   title: `${SITE_NAME} - ${SITE_FULL_NAME}`,
+   description: SITE_DESCRIPTION,
+   images: [OG_IMAGE],
+ },
 };
 
 export default function RootLayout({
