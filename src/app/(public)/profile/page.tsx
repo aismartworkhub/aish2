@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Save, ArrowLeft, CheckCircle, AlertTriangle, GraduationCap, Camera, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import LoginModal from "@/components/public/LoginModal";
 import MyDashboard from "@/components/profile/MyDashboard";
 import { doc, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -72,11 +73,13 @@ export default function ProfilePage() {
 
   useEffect(() => setMounted(true), []);
 
+  // 미로그인 — 강제 리다이렉트 대신 LoginModal 노출 (Phase 4-1)
+  // 모달 닫기 시 홈으로 이동, 로그인 성공 시 자동 모달 닫힘 → 프로필 화면 표시
+  const [showLoginModal, setShowLoginModal] = useState(false);
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/");
-    }
-  }, [user, loading, router]);
+    if (!loading && !user) setShowLoginModal(true);
+    if (user) setShowLoginModal(false);
+  }, [user, loading]);
 
   useEffect(() => {
     if (!user) {
@@ -185,11 +188,29 @@ export default function ProfilePage() {
     }
   };
 
-  if (!mounted || loading || !user) {
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 border-3 border-brand-blue border-t-transparent rounded-full animate-spin" />
       </div>
+    );
+  }
+  if (!user) {
+    // 미로그인 — 모달 안내 후 사용자가 모달 닫으면 홈으로 (Phase 4-1)
+    return (
+      <>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center max-w-sm px-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">로그인이 필요합니다</h2>
+            <p className="text-sm text-gray-500">프로필을 보려면 로그인하세요.</p>
+          </div>
+        </div>
+        <LoginModal
+          isOpen={showLoginModal}
+          onClose={() => { setShowLoginModal(false); router.replace("/"); }}
+          message="프로필을 보려면 로그인이 필요합니다."
+        />
+      </>
     );
   }
 

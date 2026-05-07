@@ -8,18 +8,33 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SITE_NAME } from "@/lib/constants";
 
 export default function LoginPage() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  /**
+   * 로그인 후 redirect 대상 결정 (Phase 4-2):
+   * - admin/superadmin → /admin (관리자 도구)
+   * - 그 외 일반 사용자 → / (메인) — 관리자 페이지에 이상 접근 금지
+   */
+  const redirectAfterLogin = () => {
+    const role = profile?.role;
+    if (role === "admin" || role === "superadmin") {
+      router.replace("/admin");
+    } else {
+      router.replace("/");
+    }
+  };
+
   useEffect(() => {
     if (!loading && user) {
-      router.replace("/admin");
+      redirectAfterLogin();
     }
-  }, [user, loading, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, profile, loading]);
 
   const handleGoogleLogin = async () => {
     setError("");
@@ -27,7 +42,7 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      router.replace("/admin");
+      // useEffect가 user/profile 변경 감지 후 적절한 곳으로 redirect
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "구글 로그인에 실패했습니다.";
       setError(msg);
@@ -43,7 +58,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.replace("/admin");
+      // useEffect가 redirect 처리
     } catch (e: unknown) {
       const code = (e as { code?: string }).code;
       if (code === "auth/user-not-found" || code === "auth/wrong-password" || code === "auth/invalid-credential") {
