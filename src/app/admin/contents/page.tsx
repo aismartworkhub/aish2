@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye, Sparkles, Loader2, ImageIcon } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye, Sparkles, Loader2, ImageIcon, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import { getGeminiApiKey, recommendTagsForContent } from "@/lib/gemini";
@@ -69,6 +69,13 @@ function AdminContentsInner() {
   const [tagInput, setTagInput] = useState("");
   const [tagRecLoading, setTagRecLoading] = useState(false);
   const [ogExtracting, setOgExtracting] = useState(false);
+  // 썸네일 일괄 백필 — 누락 og:image를 Gemini URL Context로 추출 (현재 보드만)
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<{
+    total: number; done: number; success: number; failed: number;
+    current?: string;
+    errors: { title: string; error: string }[];
+  } | null>(null);
 
   useEffect(() => {
     getBoards()
@@ -268,6 +275,56 @@ function AdminContentsInner() {
     }
   };
 
+  // 현재 보드의 외부 링크 글 중 thumbnailUrl 누락분 — 백필 후보
+  const backfillCandidates = useMemo(
+    () => contents.filter((c) => !c.thumbnailUrl && c.mediaUrl && c.mediaType === "link"),
+    [contents],
+  );
+
+  /**
+   * 누락 썸네일 일괄 백필 — Gemini URL Context로 og:image 재추출 후 Firestore 업데이트.
+   * 순차 처리(0.4초 간격)로 burst 방지. 실패는 모아서 상세 표시.
+   */
+  const runBackfill = async () => {
+    if (backfilling || backfillCandidates.length === 0) return;
+    if (!confirm(
+      `현재 보드의 ${backfillCandidates.length}건에 og:image 추출을 시도합니다.\n` +
+      `Gemini API 호출 ${backfillCandidates.length}회 (일 한도 1500회). 계속할까요?`
+    )) return;
+
+    let success = 0;
+    let failed = 0;
+    const errors: { title: string; error: string }[] = [];
+
+    setBackfilling(true);
+    setBackfillResult({ total: backfillCandidates.length, done: 0, success: 0, failed: 0, errors: [] });
+
+    for (let i = 0; i < backfillCandidates.length; i++) {
+      const c = backfillCandidates[i];
+      setBackfillResult({ total: backfillCandidates.length, done: i, success, failed, errors: [...errors], current: c.title });
+      try {
+        const r = await extractOgImageWithAI(c.mediaUrl!);
+        if (r.ok) {
+          await updateContent(c.id, { thumbnailUrl: r.ogImage });
+          success++;
+        } else {
+          failed++;
+          errors.push({ title: c.title, error: r.error });
+        }
+      } catch (e) {
+        failed++;
+        errors.push({ title: c.title, error: e instanceof Error ? e.message : "unknown" });
+      }
+      // burst 방지 — Gemini RPM 한도 보호
+      await new Promise((res) => setTimeout(res, 400));
+    }
+
+    setBackfillResult({ total: backfillCandidates.length, done: backfillCandidates.length, success, failed, errors });
+    setBackfilling(false);
+    await loadContents();
+    toast(`백필 완료 — 성공 ${success} / 실패 ${failed}`, success > 0 ? "success" : "info");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -332,6 +389,67 @@ function AdminContentsInner() {
               <>⚠ 공개 미연결 — group을 media/community로 설정해야 노출됩니다</>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 썸네일 일괄 백필 — og:image 누락 외부 링크 재추출 */}
+      {!backfilling && !backfillResult && backfillCandidates.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-800">
+            이 보드에 <strong>썸네일 누락 외부 링크 {backfillCandidates.length}건</strong> 발견. og:image 일괄 추출을 시도할 수 있습니다.
+          </p>
+          <button
+            onClick={runBackfill}
+            className="flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+          >
+            <RefreshCw size={13} /> 일괄 백필
+          </button>
+        </div>
+      )}
+
+      {/* 백필 진행 — 진행 중 */}
+      {backfilling && backfillResult && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-blue-800">
+            <Loader2 size={14} className="animate-spin shrink-0" />
+            <span className="font-medium">{backfillResult.done}/{backfillResult.total} 처리 중</span>
+            {backfillResult.current && (
+              <span className="truncate text-xs text-blue-600">— {backfillResult.current}</span>
+            )}
+          </div>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
+            <div
+              className="h-full bg-blue-500 transition-all"
+              style={{ width: `${(backfillResult.done / Math.max(1, backfillResult.total)) * 100}%` }}
+            />
+          </div>
+          <p className="mt-1 text-[11px] text-blue-600">
+            성공 {backfillResult.success} · 실패 {backfillResult.failed}
+          </p>
+        </div>
+      )}
+
+      {/* 백필 결과 — 완료 후 */}
+      {!backfilling && backfillResult && backfillResult.done === backfillResult.total && backfillResult.total > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-700">
+              백필 완료 — 성공 <span className="text-emerald-600">{backfillResult.success}</span> · 실패 <span className="text-rose-500">{backfillResult.failed}</span>
+            </p>
+            <button onClick={() => setBackfillResult(null)} className="text-gray-400 transition-colors hover:text-gray-600" aria-label="닫기">
+              <X size={14} />
+            </button>
+          </div>
+          {backfillResult.errors.length > 0 && (
+            <details className="mt-2 text-xs">
+              <summary className="cursor-pointer text-gray-500">실패 상세 ({backfillResult.errors.length})</summary>
+              <ul className="mt-1.5 space-y-1 text-gray-600">
+                {backfillResult.errors.slice(0, 20).map((e, i) => (
+                  <li key={i} className="truncate">• {e.title}: <span className="text-rose-500">{e.error}</span></li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
       )}
 
