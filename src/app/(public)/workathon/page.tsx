@@ -38,7 +38,8 @@ export default function WorkathonPage() {
       .catch(() => {});
   }, []);
 
-  const progress = Math.round((w.currentParticipantCount / w.maxParticipants) * 100);
+  // maxParticipants=0이면 NaN/Infinity → 0으로 안전 처리, 100% 캡 (Phase 1-2)
+  const progress = Math.min(100, Math.round((w.currentParticipantCount / Math.max(1, w.maxParticipants)) * 100));
 
   return (
     <div>

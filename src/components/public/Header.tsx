@@ -100,13 +100,19 @@ export default function Header() {
         )}
       >
         <div className="w-[90%] max-w-[1440px] mx-auto flex items-center justify-between">
-          {/* 로고 */}
+          {/* 로고 — 이미지 실패 시 텍스트 폴백 (Phase 1-3) */}
           <Link href="/" className="shrink-0 flex items-center gap-2">
             <img
               src="/images/logo-aish-transparent.png"
               alt="AISH - AI Smart Work Hub"
               className="h-12 md:h-14 w-auto"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                const sibling = e.currentTarget.nextElementSibling as HTMLElement | null;
+                if (sibling) sibling.style.display = "inline";
+              }}
             />
+            <span className="hidden text-lg font-bold text-brand-blue tracking-wide">AISH</span>
           </Link>
 
           {/* 데스크톱 내비게이션 */}

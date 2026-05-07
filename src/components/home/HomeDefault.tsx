@@ -73,11 +73,20 @@ export default function HomeDefault(props: HomeDataProps) {
 
       {/* S1: 히어로 */}
       {sectionToggles.hero && (
-      <section className="relative h-[85vh] min-h-[600px] overflow-hidden">
+      <section className="relative h-[85vh] min-h-[600px] overflow-hidden bg-gradient-to-br from-brand-blue to-brand-dark">
         <img
           src={currentHero?.imageUrl || "/images/defaults/hero-main.jpg"}
-          alt=""
+          alt={currentHero?.title?.replace(/\n/g, " ") ?? ""}
           className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
+          onError={(e) => {
+            // 1차: 기본 이미지로. 2차 실패 시 그라데이션 배경(섹션 bg-gradient)이 노출됨
+            const fallback = "/images/defaults/hero-main.jpg";
+            if (e.currentTarget.src.includes(fallback)) {
+              e.currentTarget.style.display = "none";
+            } else {
+              e.currentTarget.src = fallback;
+            }
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[rgba(0,75,147,0.85)] to-transparent" />
 
@@ -334,14 +343,19 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
       )}
 
-      {/* S6: 워크톤 + 쇼룸 */}
+      {/* S6: 워크톤 + 쇼룸 — 이미지 실패 시 brand-blue 배경(아래 overlay)이 안전망 (Phase 1-3) */}
       <section className="flex flex-col md:flex-row min-h-[550px]">
-        <div className="flex-1 relative flex items-center px-[6%] md:px-[8%] py-16 text-white overflow-hidden">
+        <div className="flex-1 relative flex items-center px-[6%] md:px-[8%] py-16 text-white overflow-hidden bg-brand-blue">
           <img
             src={workathon.posterUrl || "/images/defaults/workathon-bg.jpg"}
             alt="Smart Workathon"
             className="absolute inset-0 w-full h-full object-cover"
             referrerPolicy="no-referrer"
+            onError={(e) => {
+              const fb = "/images/defaults/workathon-bg.jpg";
+              if (e.currentTarget.src.includes(fb)) e.currentTarget.style.display = "none";
+              else e.currentTarget.src = fb;
+            }}
           />
           <div className="absolute inset-0 bg-brand-blue/60" />
           <div className="relative z-10">
@@ -378,7 +392,7 @@ export default function HomeDefault(props: HomeDataProps) {
               <span className="font-bold text-brand-blue">{workathon.currentParticipantCount}/{workathon.maxParticipants}명</span>
             </div>
             <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full bg-brand-blue rounded-full transition-all duration-1000" style={{ width: `${(workathon.currentParticipantCount / workathon.maxParticipants) * 100}%` }} />
+              <div className="h-full bg-brand-blue rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (workathon.currentParticipantCount / Math.max(1, workathon.maxParticipants)) * 100)}%` }} />
             </div>
           </div>
           <div className="space-y-4">
@@ -418,11 +432,17 @@ export default function HomeDefault(props: HomeDataProps) {
               ? runmoaPrograms.slice(0, 8).map((c) => (
                   <a key={c.content_id} href={`https://aish.runmoa.com/classes/${c.content_id}`} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
                     className="group bg-white rounded overflow-hidden border border-brand-border hover-lift">
-                    <div className="aspect-[16/9] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden">
-                      {c.featured_image ? (
-                        <img src={c.featured_image} alt={c.title} className="w-full h-full object-cover object-top" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center"><BookOpen size={36} className="text-gray-300" /></div>
+                    <div className="aspect-[16/9] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden flex items-center justify-center">
+                      {/* 이미지 깨짐 시 BookOpen 아이콘으로 폴백 (Phase 1-3) */}
+                      <BookOpen size={36} className="text-gray-300 absolute" aria-hidden />
+                      {c.featured_image && (
+                        <img
+                          src={c.featured_image}
+                          alt={c.title}
+                          className="relative w-full h-full object-cover object-top"
+                          loading="lazy"
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
                       )}
                       <div className="absolute top-3 left-3">
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-800">
