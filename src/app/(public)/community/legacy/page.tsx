@@ -334,7 +334,8 @@ function CommunityContent() {
   // 탭별 스크롤 위치 복원 — 탭 전환 후 복귀 시 같은 스크롤 위치
   useScrollRestoration({ key: `community-${activeTab}` });
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
-  const [inquiryForm, setInquiryForm] = useState({ name: "", email: "", phone: "", company: "", subject: "", message: "" });
+  const INITIAL_INQUIRY_FORM = { name: "", email: "", phone: "", company: "", subject: "", message: "" };
+  const [inquiryForm, setInquiryForm] = useState(INITIAL_INQUIRY_FORM);
   const [inquirySubmitted, setInquirySubmitted] = useState(false);
   const [certEmail, setCertEmail] = useState("");
   const [certName, setCertName] = useState("");
@@ -706,6 +707,8 @@ function CommunityContent() {
           content: message.trim(),
         });
         setInquirySubmitted(true);
+        // 제출 성공 후 폼 리셋 — 탭 이동 후 복귀 시 데이터 잔류 방지 (Phase 2-3)
+        setInquiryForm(INITIAL_INQUIRY_FORM);
       } catch {
         setInquiryError("문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.");
       }
@@ -1386,7 +1389,7 @@ function CommunityContent() {
                   <h3 className="text-lg font-bold text-brand-dark mb-2">문의가 접수되었습니다</h3>
                   <p className="text-sm text-gray-500">담당자 확인 후 입력하신 이메일로 답변드리겠습니다.</p>
                   <button
-                    onClick={() => { setInquirySubmitted(false); setInquiryForm({ name: "", email: "", phone: "", company: "", subject: "", message: "" }); }}
+                    onClick={() => { setInquirySubmitted(false); setInquiryForm(INITIAL_INQUIRY_FORM); }}
                     className="mt-6 px-6 py-2.5 rounded-sm border border-brand-border text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
                   >
                     새 문의 작성

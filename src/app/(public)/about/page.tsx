@@ -37,7 +37,10 @@ export default function AboutPage() {
       getCollection<typeof DEMO_HISTORY[0]>(COLLECTIONS.HISTORY),
       getCollection<typeof DEMO_PARTNERS[0]>(COLLECTIONS.PARTNERS),
     ]).then(([h, p]) => {
-      if (h.length > 0) setHistory(h.sort((a, b) => `${b.year}${b.month}`.localeCompare(`${a.year}${a.month}`)));
+      // 연혁 정렬 — year/month를 숫자로 비교 (Phase 2-2)
+      // 이전 문자열 비교는 month가 단일 자릿수("1")일 때 두 자릿수("10")보다 늦은 것으로 잘못 정렬됨.
+      // 예: 2025-9 vs 2025-10 → "20259" > "202510" (잘못)
+      if (h.length > 0) setHistory(h.sort((a, b) => (Number(b.year) - Number(a.year)) || (Number(b.month) - Number(a.month))));
       if (p.length > 0) setPartners(
         p.filter((partner) => (partner as { isActive?: boolean }).isActive !== false)
          .sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 999) - ((b as { displayOrder?: number }).displayOrder ?? 999))
