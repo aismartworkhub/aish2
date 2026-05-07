@@ -9,20 +9,21 @@ const DISMISS_KEY = "profile-banner-dismissed";
 
 export default function ProfileCompletionBanner() {
   const { user, isProfileComplete, loading } = useAuth();
-  const [dismissed, setDismissed] = useState(true); // 기본 숨김 → 체크 후 표시
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setDismissed(sessionStorage.getItem(DISMISS_KEY) === "true");
-    }
-  }, []);
+  // Phase 5-20 — 초기값을 sessionStorage 동기 읽기로 → 마운트 직후 깜빡임 제거
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true; // SSR/정적 export 시 기본 숨김 → 깜빡임 차단
+    return sessionStorage.getItem(DISMISS_KEY) === "true";
+  });
+  // SSR ↔ 클라이언트 hydration 불일치 방지 — mounted 이후만 표시
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const handleDismiss = () => {
     setDismissed(true);
     sessionStorage.setItem(DISMISS_KEY, "true");
   };
 
-  if (loading || !user || isProfileComplete || dismissed) return null;
+  if (!mounted || loading || !user || isProfileComplete || dismissed) return null;
 
   return (
     <div className="bg-amber-50 border-b border-amber-200">

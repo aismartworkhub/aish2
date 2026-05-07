@@ -40,6 +40,7 @@ export default function QuickBannerDisplay() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [banners, setBanners] = useState<QuickBannerDemo[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [rotationIdx, setRotationIdx] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -47,6 +48,12 @@ export default function QuickBannerDisplay() {
     getCollection<QuickBannerDemo>(COLLECTIONS.BANNERS)
       .then((data) => setBanners(data.length > 0 ? data : DEMO_QUICK_BANNERS))
       .catch(() => setBanners(DEMO_QUICK_BANNERS));
+  }, []);
+
+  // 다중 활성 배너 5초 간격 자동 회전 (Phase 5-19)
+  useEffect(() => {
+    const id = window.setInterval(() => setRotationIdx((i) => i + 1), 5000);
+    return () => window.clearInterval(id);
   }, []);
 
   if (!mounted) return null;
@@ -63,7 +70,10 @@ export default function QuickBannerDisplay() {
 
   if (activeBanners.length === 0) return null;
 
-  const visibleBanners = activeBanners.slice(0, 1);
+  // 다중 활성 배너는 5초 간격 회전 (Phase 5-19)
+  const visibleBanners = activeBanners.length > 1
+    ? [activeBanners[rotationIdx % activeBanners.length]]
+    : activeBanners.slice(0, 1);
 
   const handleDismiss = (id: string) => {
     const next = new Set(dismissed).add(id);
