@@ -69,8 +69,9 @@ export default function AiCounselor() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        // 모바일: BottomTabNav + FloatingCta 위로 충분히 올림. 데스크톱(lg+): 원래 위치.
-        className="fixed bottom-44 right-4 z-[45] flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue text-white shadow-lg transition-transform hover:scale-105 md:bottom-44 lg:bottom-6 lg:right-6"
+        // 모바일: BottomTabNav(z-50) + FloatingCta(z-[51]) 위로 (z-[52]). 데스크톱(lg+): 원래 위치.
+        // z-index 표준 (Phase 3-3): BottomTab=50, FloatingCta=51, AiCounselor=52, FeedbackButton=52(좌측), 모든 모달=60+
+        className="fixed bottom-44 right-4 z-[52] flex h-14 w-14 items-center justify-center rounded-full bg-brand-blue text-white shadow-lg transition-transform hover:scale-105 md:bottom-44 lg:bottom-6 lg:right-6"
         aria-label="AI 상담 열기"
       >
         <MessageCircle size={26} />

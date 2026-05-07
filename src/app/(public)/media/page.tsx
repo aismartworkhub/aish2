@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X, Plus, Sparkles, Play, Image as ImageIcon, FileText, Star } from "lucide-react";
+import { Search, X, Plus, Sparkles, Play, Image as ImageIcon, FileText, Star, Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBoardsByGroup, buildSearchTerms, getPopularTags } from "@/lib/content-engine";
 import { getBoardsByGroupDefault, mergeBoardsByKey, DEFAULT_BOARDS } from "@/lib/board-defaults";
@@ -83,6 +83,17 @@ function MediaPageInner() {
   const [pageContent, setPageContent] = useState<PageContentBase>(DEFAULT_MEDIA);
   const [selected, setSelected] = useState<Content | null>(null);
   const [popularTags, setPopularTags] = useState<{ tag: string; count: number }[]>([]);
+
+  // 콘텐츠 허브 상단 고정 피드 — isPinned + media-lecture 자동 보충 (Phase 3-1)
+  const [pinnedItems, setPinnedItems] = useState<Content[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    import("@/lib/content-engine")
+      .then(({ getPinnedMediaContents }) => getPinnedMediaContents(6))
+      .then((items) => { if (!cancelled) setPinnedItems(items); })
+      .catch(() => { if (!cancelled) setPinnedItems([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   // URL ?tag=AI deep-link 지원
   const tagParam = searchParams.get("tag")?.trim() || "";
@@ -410,6 +421,28 @@ function MediaPageInner() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* 상단 고정 피드 — isPinned + media-lecture 자동 보충. 검색·태그 필터 없을 때만 노출 (Phase 3-1) */}
+        {!isFiltered && pinnedItems.length > 0 && (
+          <section className="mb-8 rounded-xl border border-amber-200 bg-amber-50/40 p-4 md:p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Pin size={16} className="text-amber-600" />
+              <h3 className="text-sm font-bold text-amber-900">추천·고정</h3>
+              <span className="text-xs text-amber-700/70">관리자 고정 + 최신 강의</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+              {pinnedItems.map((c) => (
+                <ContentCard
+                  key={`pin-${c.id}`}
+                  content={c}
+                  board={boardForContent(c)}
+                  onClick={selectContent}
+                  variant="grid"
+                />
+              ))}
+            </div>
+          </section>
         )}
 
         {/* 메인 그리드 — CSS columns 마소닉 */}

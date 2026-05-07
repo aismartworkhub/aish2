@@ -80,7 +80,9 @@ export default function FeedbackButton() {
         aria-label="버그 신고·의견 보내기"
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed left-4 bottom-24 lg:bottom-6 z-40",
+          // z-index 표준(Phase 3-3): BottomTab=50, FloatingCta=51, AiCounselor·FeedbackButton=52, 모달=60+
+          // 좌측 배치라 우측 위젯과 충돌 없음. 모바일 BottomTab(z-50) 위로 z-[52].
+          "fixed left-4 bottom-24 lg:bottom-6 z-[52]",
           "h-12 w-12 rounded-full bg-rose-500 text-white shadow-lg",
           "flex items-center justify-center",
           "hover:bg-rose-600 active:scale-95 transition-all duration-200",

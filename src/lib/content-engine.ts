@@ -356,6 +356,39 @@ export async function getPinnedCommunityContents(maxItems = 6): Promise<Content[
 }
 
 /**
+ * 콘텐츠 허브 상단 고정 피드.
+ * 1) group=media AND isPinned=true 인 글
+ * 2) 부족분은 media-lecture 최신 글로 자동 보충 — /community 패턴과 동일.
+ */
+export async function getPinnedMediaContents(maxItems = 6): Promise<Content[]> {
+  const pinnedQuery = query(
+    collection(db, COLLECTIONS.CONTENTS),
+    where("group", "==", "media"),
+    where("isPinned", "==", true),
+    orderBy("createdAt", "desc"),
+    firestoreLimit(maxItems),
+  );
+  const pinnedSnap = await getDocs(pinnedQuery);
+  const pinned = pinnedSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Content));
+  if (pinned.length >= maxItems) return pinned;
+
+  const fillCount = maxItems - pinned.length;
+  const lectureQuery = query(
+    collection(db, COLLECTIONS.CONTENTS),
+    where("boardKey", "==", "media-lecture"),
+    orderBy("createdAt", "desc"),
+    firestoreLimit(maxItems),
+  );
+  const lectureSnap = await getDocs(lectureQuery);
+  const pinnedIds = new Set(pinned.map((c) => c.id));
+  const fillers = lectureSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as Content))
+    .filter((c) => !pinnedIds.has(c.id))
+    .slice(0, fillCount);
+  return [...pinned, ...fillers];
+}
+
+/**
  * 콘텐츠 ID 배열을 받아 일괄 조회. Firestore "in" 쿼리는 30개까지만 가능하므로
  * 청크 분할 후 Promise.all로 병렬 조회. 결과는 입력 순서대로 정렬.
  */

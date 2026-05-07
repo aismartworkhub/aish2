@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, MessageCircle, Eye, Pin, Bookmark, Share2, Play, BadgeCheck, Megaphone, HelpCircle, Star } from "lucide-react";
+import { Heart, MessageCircle, Eye, Pin, Bookmark, Share2, Play, BadgeCheck, Megaphone, HelpCircle, Star, Video, BookOpen, User as UserIcon, Trophy, Image as ImageIconLucide } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { contentDisplayTitle } from "@/lib/content-display";
@@ -65,11 +65,19 @@ const BOARD_VISUAL: Record<
   string,
   { icon: LucideIcon; gradient: string; iconColor: string; chipBg: string; chipFg: string; label: string }
 > = {
+  // 커뮤니티 보드
   "community-notice": { icon: Megaphone,    gradient: "from-rose-100 to-rose-200",    iconColor: "text-rose-500",   chipBg: "bg-rose-100",   chipFg: "text-rose-700",   label: "공지" },
   "community-free":   { icon: MessageCircle, gradient: "from-blue-100 to-blue-200",   iconColor: "text-blue-500",   chipBg: "bg-blue-100",   chipFg: "text-blue-700",   label: "자유" },
   "community-qna":    { icon: HelpCircle,   gradient: "from-emerald-100 to-emerald-200", iconColor: "text-emerald-500", chipBg: "bg-emerald-100", chipFg: "text-emerald-700", label: "Q&A" },
   "community-review": { icon: Star,         gradient: "from-amber-100 to-amber-200",  iconColor: "text-amber-500",  chipBg: "bg-amber-100",  chipFg: "text-amber-700",  label: "후기" },
   "community-faq":    { icon: HelpCircle,   gradient: "from-cyan-100 to-cyan-200",    iconColor: "text-cyan-500",   chipBg: "bg-cyan-100",   chipFg: "text-cyan-700",   label: "FAQ" },
+  // 미디어 보드 (Phase 3-2)
+  "media-lecture":    { icon: Video,        gradient: "from-red-100 to-red-200",      iconColor: "text-red-500",    chipBg: "bg-red-100",    chipFg: "text-red-700",    label: "강의" },
+  "media-resource":   { icon: BookOpen,     gradient: "from-violet-100 to-violet-200", iconColor: "text-violet-500", chipBg: "bg-violet-100", chipFg: "text-violet-700", label: "자료" },
+  "media-promo":      { icon: Megaphone,    gradient: "from-pink-100 to-pink-200",    iconColor: "text-pink-500",   chipBg: "bg-pink-100",   chipFg: "text-pink-700",   label: "홍보" },
+  "media-interview":  { icon: UserIcon,     gradient: "from-indigo-100 to-indigo-200", iconColor: "text-indigo-500", chipBg: "bg-indigo-100", chipFg: "text-indigo-700", label: "인터뷰" },
+  "media-workathon":  { icon: Trophy,       gradient: "from-yellow-100 to-yellow-200", iconColor: "text-yellow-600", chipBg: "bg-yellow-100", chipFg: "text-yellow-700", label: "워크톤" },
+  "media-gallery":    { icon: ImageIconLucide, gradient: "from-fuchsia-100 to-fuchsia-200", iconColor: "text-fuchsia-500", chipBg: "bg-fuchsia-100", chipFg: "text-fuchsia-700", label: "갤러리" },
 };
 
 function getBoardVisual(boardKey: string | undefined) {
