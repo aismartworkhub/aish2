@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { contentDisplayTitle, contentDisplayBody } from "@/lib/content-display";
 import type { Content, BoardConfig } from "@/types/content";
 import MediaPreview from "./MediaPreview";
+import SmartThumbnail from "@/components/ui/SmartThumbnail";
 import { toggleReaction } from "@/lib/content-engine";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoginGuard } from "@/hooks/useLoginGuard";
@@ -708,6 +709,9 @@ function DispatchCard({ content, onClick, priority }: Omit<Props, "board" | "var
   const durationLabel = formatDurationBadge(content.durationSeconds);
   // bodyKo 있으면 한글 요약 우선 (Phase 7 — 한글 표시 통일)
   const summary = contentDisplayBody(content).trim();
+  // 적응형 — 썸네일도 없고 보드 시각 fallback도 없으면 썸네일 영역 자체 숨김
+  const boardVisual = getBoardVisual(content.boardKey);
+  const showThumb = Boolean(content.thumbnailUrl) || Boolean(boardVisual);
 
   return (
     <button
@@ -718,37 +722,32 @@ function DispatchCard({ content, onClick, priority }: Omit<Props, "board" | "var
         content.isPinned && "bg-primary-50/40",
       )}
     >
-      {/* 썸네일 — 모바일 96px, sm+ 144px */}
-      <div className="relative shrink-0 w-24 sm:w-36 aspect-video overflow-hidden rounded-md bg-gray-100">
-        {content.thumbnailUrl ? (
-          <img
+      {/* 썸네일 — 모바일 96px, sm+ 144px. 표시할 게 없으면 영역 자체를 숨겨 텍스트 전폭 사용 */}
+      {showThumb && (
+        <div className="relative shrink-0 w-24 sm:w-36 aspect-video overflow-hidden rounded-md bg-gray-100">
+          <SmartThumbnail
             src={content.thumbnailUrl}
             alt=""
-            className="h-full w-full object-cover"
-            loading={priority ? "eager" : "lazy"}
-            fetchPriority={priority ? "high" : "auto"}
-            decoding="async"
-            referrerPolicy="no-referrer"
+            priority={priority}
+            fallback={boardVisual ? <CategoryFallback content={content} /> : null}
           />
-        ) : (
-          <CategoryFallback content={content} />
-        )}
-        {isYouTube && (
-          <span className="absolute inset-0 flex items-center justify-center bg-black/20">
-            <Play size={20} className="text-white fill-white drop-shadow" />
-          </span>
-        )}
-        {durationLabel && (
-          <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-bold text-white">
-            {durationLabel}
-          </span>
-        )}
-        {ms > 0 && Date.now() - ms < 7 * 24 * 60 * 60 * 1000 && (
-          <span className="absolute top-1 left-1 rounded bg-rose-500 px-1 py-0.5 text-[9px] font-bold text-white">
-            NEW
-          </span>
-        )}
-      </div>
+          {isYouTube && (
+            <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <Play size={20} className="text-white fill-white drop-shadow" />
+            </span>
+          )}
+          {durationLabel && (
+            <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-[9px] font-bold text-white">
+              {durationLabel}
+            </span>
+          )}
+          {ms > 0 && Date.now() - ms < 7 * 24 * 60 * 60 * 1000 && (
+            <span className="absolute top-1 left-1 rounded bg-rose-500 px-1 py-0.5 text-[9px] font-bold text-white">
+              NEW
+            </span>
+          )}
+        </div>
+      )}
 
       {/* 본문 — 제목 + 요약 + 메타 */}
       <div className="min-w-0 flex-1 flex flex-col">

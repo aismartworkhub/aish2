@@ -5,6 +5,7 @@ import { GraduationCap, Calendar, User, MapPin, ChevronRight, Pin } from "lucide
 import type { FeedItem } from "@/types/feed";
 import type { Content } from "@/types/content";
 import { ContentCard, type ContentCardVariant } from "@/components/content";
+import SmartThumbnail from "@/components/ui/SmartThumbnail";
 
 interface UniversalCardProps {
   item: FeedItem;
@@ -38,15 +39,17 @@ function ProgramFeedCard({ data, pinned }: { data: FeedItem extends { kind: "pro
   return (
     <CardLink href={href} external={isExternal}>
       <div className="flex w-full gap-3 border-b border-gray-100 bg-white p-3 transition-colors hover:bg-emerald-50/40">
-        {/* 썸네일 */}
+        {/* 썸네일 — onError 시 GraduationCap fallback (회색 박스 방지) */}
         <div className="relative shrink-0 w-24 sm:w-36 aspect-video overflow-hidden rounded-md bg-emerald-50">
-          {data.thumbnailUrl ? (
-            <img src={data.thumbnailUrl} alt={data.title} className="h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <GraduationCap size={24} className="text-emerald-400" />
-            </div>
-          )}
+          <SmartThumbnail
+            src={data.thumbnailUrl}
+            alt={data.title}
+            fallback={
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-50 to-emerald-100">
+                <GraduationCap size={24} className="text-emerald-400" />
+              </div>
+            }
+          />
           <span className="absolute top-1 left-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
             🎓 프로그램
           </span>
@@ -130,19 +133,15 @@ function InstructorFeedCard({ data }: { data: FeedItem extends { kind: "instruct
     <CardLink href="/instructors">
       <div className="flex w-full gap-3 border-b border-gray-100 bg-white p-3 transition-colors hover:bg-violet-50/40">
         <div className="relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 overflow-hidden rounded-full bg-violet-100">
-          {data.profileImageUrl || data.imageUrl ? (
-            <img
-              src={data.profileImageUrl || data.imageUrl}
-              alt={data.name}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <User size={28} className="text-violet-400" />
-            </div>
-          )}
+          <SmartThumbnail
+            src={data.profileImageUrl || data.imageUrl}
+            alt={data.name}
+            fallback={
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-50 to-violet-200">
+                <User size={28} className="text-violet-400" />
+              </div>
+            }
+          />
         </div>
         <div className="min-w-0 flex-1 flex flex-col justify-center">
           <div className="flex items-center gap-1.5">

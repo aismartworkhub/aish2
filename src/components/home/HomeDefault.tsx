@@ -16,6 +16,7 @@ import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import RatingSummary from "@/components/community/RatingSummary";
 import HomeNewsTicker from "@/components/home/HomeNewsTicker";
 import EmptyState from "@/components/ui/EmptyState";
+import SmartThumbnail from "@/components/ui/SmartThumbnail";
 import { ContentCard } from "@/components/content";
 import { STAT_ICONS, COMMUNITY_SHORTCUTS } from "@/hooks/useHomeData";
 import type { HomeDataProps } from "@/hooks/useHomeData";
@@ -507,15 +508,17 @@ export default function HomeDefault(props: HomeDataProps) {
               {adminEvents.slice(0, 6).map((evt) => (
                 <div key={evt.id} ref={addRevealRef}
                   className="bg-white rounded-sm overflow-hidden border border-brand-border hover:shadow-lg hover:border-t-4 hover:border-t-brand-blue transition-shadow">
-                  {evt.thumbnailUrl ? (
-                    <div className="h-40 overflow-hidden">
-                      <img src={evt.thumbnailUrl} alt={evt.title} className="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                  ) : (
-                    <div className="h-40 bg-gradient-to-br from-brand-gray to-blue-50 flex items-center justify-center">
-                      <Trophy size={36} className="text-brand-lightBlue" />
-                    </div>
-                  )}
+                  <div className="h-40 overflow-hidden">
+                    <SmartThumbnail
+                      src={evt.thumbnailUrl}
+                      alt={evt.title}
+                      fallback={
+                        <div className="h-full w-full bg-gradient-to-br from-brand-gray to-blue-50 flex items-center justify-center">
+                          <Trophy size={36} className="text-brand-lightBlue" />
+                        </div>
+                      }
+                    />
+                  </div>
                   <div className="p-5">
                     <div className="flex items-center gap-2 mb-2">
                       <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", EVENT_STATUS_COLORS[evt.status] ?? "bg-gray-100 text-gray-600")}>
