@@ -219,7 +219,7 @@ export default function HomeModern(props: HomeDataProps) {
               </div>
               <div className="space-y-4">
                 {notices.map((notice, idx) => (
-                  <Link key={idx} href={notice.id ? `/community?tab=notice&postId=${notice.id}` : "/community?tab=notice"}
+                  <Link key={idx} href={notice.id ? `/community?id=${notice.id}` : "/community?tab=notice"}
                     className="group flex items-start justify-between p-3 rounded-sm hover:bg-gray-50 transition-colors cursor-pointer border border-transparent hover:border-gray-100">
                     <div className="flex-1 min-w-0 pr-4">
                       <div className="flex items-center space-x-2 mb-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Compass, Users, User, Plus } from "lucide-react";
@@ -34,6 +34,16 @@ export default function BottomTabNav() {
   const { user, profile } = useAuth();
   const { showLogin, loginMessage, requireLogin, closeLogin } = useLoginGuard();
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // 시트 열린 동안 배경 스크롤 잠금 (Phase 5-17)
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (sheetOpen) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = original; };
+    }
+  }, [sheetOpen]);
 
   const isAdmin = profile?.role === "admin" || profile?.role === "superadmin";
   const { direction } = useScrollDirection({ threshold: 8, topZone: 16 });

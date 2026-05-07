@@ -29,7 +29,7 @@ export default function HomeNewsTicker({ items }: { items: Notice[] }) {
 
   const current = items[idx] ?? items[0];
   const targetHref = current.id
-    ? `/community?tab=notice&postId=${current.id}`
+    ? `/community?id=${current.id}`
     : "/community?tab=notice";
 
   return (

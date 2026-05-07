@@ -592,7 +592,7 @@ export default function HomeCommunity(props: HomeDataProps) {
           <ul className="space-y-0">
             {notices.map((notice, index) => (
               <li key={index}>
-                <Link href={notice.id ? `/community?tab=notice&postId=${notice.id}` : "/community?tab=notice"} className="flex items-center justify-between py-5 border-b border-brand-border hover:pl-2.5 hover:text-brand-blue transition-all group">
+                <Link href={notice.id ? `/community?id=${notice.id}` : "/community?tab=notice"} className="flex items-center justify-between py-5 border-b border-brand-border hover:pl-2.5 hover:text-brand-blue transition-all group">
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="text-sm font-medium text-brand-blue shrink-0">[{notice.tag}]</span>
                     <span className="text-sm text-gray-700 group-hover:text-brand-blue truncate transition-colors">{notice.title}</span>

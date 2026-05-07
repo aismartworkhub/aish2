@@ -555,6 +555,10 @@ export default function HomeDefault(props: HomeDataProps) {
               </Link>
             </div>
             {/* 가로 스크롤 캐러셀 (인스타 Stories 패턴). snap-x로 스와이프 부드러움. */}
+            {/* Phase 5-16 — 좌우 fade gradient로 추가 콘텐츠 있음을 시각 암시 */}
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white to-transparent md:w-12" aria-hidden />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white to-transparent md:w-12" aria-hidden />
             <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-4 snap-x snap-mandatory scrollbar-hide">
               {latestContents.length > 0
                 ? latestContents.map((content) => {
@@ -611,6 +615,7 @@ export default function HomeDefault(props: HomeDataProps) {
                     </a>
                   ))}
             </div>
+            </div>{/* /relative wrapper for fade gradients */}
             <div className="text-center mt-10 md:hidden">
               <Link href={latestContents.length > 0 ? "/media" : "/videos"} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
                 전체 보기 <ChevronRight size={16} />
@@ -706,7 +711,7 @@ export default function HomeDefault(props: HomeDataProps) {
               <ul className="space-y-0">
                 {notices.map((notice, index) => (
                   <li key={index}>
-                    <Link href={notice.id ? `/community?tab=notice&postId=${notice.id}` : "/community?tab=notice"}
+                    <Link href={notice.id ? `/community?id=${notice.id}` : "/community?tab=notice"}
                       className="flex items-center justify-between py-4 border-b border-brand-border hover:pl-2 hover:text-brand-blue transition-all group">
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="text-sm font-medium text-brand-blue shrink-0">[{notice.tag}]</span>
