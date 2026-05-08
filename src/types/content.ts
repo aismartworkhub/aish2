@@ -1,5 +1,7 @@
 /** 통합 콘텐츠 플랫폼 타입 정의 */
 
+import type { DriveAttachment } from "@/types/firestore";
+
 // ── 게시판 설정 ──
 
 export type BoardGroup = "media" | "community";
@@ -80,6 +82,13 @@ export interface Content {
   likeCountSource?: number;
   /** 영상 길이(초) — 0이면 라이브/실시간 */
   durationSeconds?: number;
+
+  /** 외부 자료 링크 (Google Drive / Notion / Slack) — /admin/posts 의 자료 첨부 패턴 */
+  googleLink?: string;
+  notionLink?: string;
+  slackLink?: string;
+  /** 다중 첨부 — Drive 직접 업로드 또는 외부 링크 (최대 3개 권장) */
+  attachments?: DriveAttachment[];
 
   createdAt: unknown;
   updatedAt?: unknown;

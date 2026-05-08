@@ -138,6 +138,43 @@ function CategoryFallback({ content, compact }: { content: Content; compact?: bo
   );
 }
 
+/**
+ * 외부 자료 링크 + 첨부 카운트 — 카드 하단 칩 행. 콘텐츠가 외부 자료를 가질 때만 노출.
+ * (timeline·dispatch 변형에서 호출)
+ */
+function AttachmentChips({ content }: { content: Content }) {
+  const links: { key: string; label: string; href: string; cls: string }[] = [];
+  if (content.googleLink) links.push({ key: "drive", label: "Drive", href: content.googleLink, cls: "border-red-200 bg-red-50 text-red-700" });
+  if (content.notionLink) links.push({ key: "notion", label: "Notion", href: content.notionLink, cls: "border-gray-200 bg-gray-50 text-gray-700" });
+  if (content.slackLink) links.push({ key: "slack", label: "Slack", href: content.slackLink, cls: "border-purple-200 bg-purple-50 text-purple-700" });
+  const attachCount = content.attachments?.length ?? 0;
+  if (links.length === 0 && attachCount === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {links.map((l) => (
+        <a
+          key={l.key}
+          href={l.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold transition-colors hover:opacity-80",
+            l.cls,
+          )}
+        >
+          {l.label}
+        </a>
+      ))}
+      {attachCount > 0 && (
+        <span className="inline-flex items-center gap-0.5 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+          📎 {attachCount}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** 작은 카테고리 칩 — timeline 헤더에 보드 식별 */
 function CategoryChip({ boardKey }: { boardKey?: string }) {
   const v = getBoardVisual(boardKey);
@@ -604,6 +641,9 @@ function TimelineCard({ content, onClick, priority }: Omit<Props, "board" | "var
             </div>
           )}
 
+          {/* 외부 자료·첨부 칩 — 글에 자원 첨부됐을 때만 */}
+          <AttachmentChips content={content} />
+
           {/* 하단 액션 바 — 인라인 좋아요·북마크·공유 (모달 진입 없이) */}
           <div className="mt-3 flex items-center gap-6 text-xs text-gray-500">
             <button
@@ -786,6 +826,7 @@ function DispatchCard({ content, onClick, priority }: Omit<Props, "board" | "var
             )}
           </span>
         </div>
+        <AttachmentChips content={content} />
       </div>
     </button>
   );

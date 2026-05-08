@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, Eye, Heart, Bookmark, Download, ExternalLink, ChevronLeft, ChevronRight, MessageCircle, Share2, Play, BadgeCheck } from "lucide-react";
+import { X, Eye, Heart, Bookmark, Download, ExternalLink, ChevronLeft, ChevronRight, MessageCircle, Share2, Play, BadgeCheck, FileText, Link as LinkIcon, HardDrive, Image as ImageIconLucide, File } from "lucide-react";
 import { cn, googleDriveUcExportViewUrl, extractGoogleDriveFileId } from "@/lib/utils";
 import { extractYouTubeVideoId } from "@/lib/youtube";
 import type { Content } from "@/types/content";
@@ -421,6 +421,73 @@ export default function ContentDetailModal({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 외부 자료 링크 (Drive · Notion · Slack) */}
+          {(content.googleLink || content.notionLink || content.slackLink) && (
+            <div className="border-t border-gray-100 px-5 py-3">
+              <p className="mb-2 text-xs font-semibold text-gray-500">외부 자료</p>
+              <div className="flex flex-wrap gap-2">
+                {content.googleLink && (
+                  <a
+                    href={content.googleLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
+                  >
+                    <HardDrive size={13} /> Google Drive <ExternalLink size={11} className="opacity-60" />
+                  </a>
+                )}
+                {content.notionLink && (
+                  <a
+                    href={content.notionLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                  >
+                    <FileText size={13} /> Notion <ExternalLink size={11} className="opacity-60" />
+                  </a>
+                )}
+                {content.slackLink && (
+                  <a
+                    href={content.slackLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
+                  >
+                    <LinkIcon size={13} /> Slack <ExternalLink size={11} className="opacity-60" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 첨부 파일 */}
+          {content.attachments && content.attachments.length > 0 && (
+            <div className="border-t border-gray-100 px-5 py-3">
+              <p className="mb-2 text-xs font-semibold text-gray-500">첨부 파일 {content.attachments.length}개</p>
+              <ul className="space-y-1.5">
+                {content.attachments.map((att, i) => {
+                  const href = att.driveDownloadUrl || att.driveViewUrl || att.url;
+                  const Icon = att.type === "drive" ? HardDrive : att.type === "image" ? ImageIconLucide : att.type === "link" ? LinkIcon : File;
+                  return (
+                    <li key={`${att.name}-${i}`}>
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                      >
+                        <Icon size={14} className="shrink-0 text-gray-500" />
+                        <span className="truncate flex-1">{att.name}</span>
+                        {att.size && <span className="shrink-0 text-xs text-gray-400">{att.size}</span>}
+                        <Download size={13} className="shrink-0 text-gray-400" />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
 

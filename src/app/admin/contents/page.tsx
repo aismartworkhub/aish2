@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye, Sparkles, Loader2, ImageIcon, RefreshCw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Save, Pin, Eye, Sparkles, Loader2, ImageIcon, RefreshCw, ExternalLink, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import { getGeminiApiKey, recommendTagsForContent } from "@/lib/gemini";
@@ -23,7 +23,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import MediaPreview from "@/components/content/MediaPreview";
 import DriveFileUploader from "@/components/admin/DriveFileUploader";
+import { HtmlEditor } from "@/components/admin/HtmlEditor";
 import { contentDisplayTitle } from "@/lib/content-display";
+
+const MAX_CONTENT_ATTACHMENTS = 3;
+const MAX_CONTENT_ATTACHMENT_MB = 10;
 
 const EMPTY_CONTENT: Omit<ContentInput, "authorUid" | "authorName"> = {
   boardKey: "",
@@ -42,6 +46,10 @@ const EMPTY_CONTENT: Omit<ContentInput, "authorUid" | "authorName"> = {
   answer: "",
   rating: 0,
   programTitle: "",
+  googleLink: "",
+  notionLink: "",
+  slackLink: "",
+  attachments: [],
 };
 
 export default function AdminContentsPage() {
@@ -613,29 +621,22 @@ function AdminContentsInner() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">본문</label>
-                    <p className="mb-1 text-xs text-gray-500">원문 설명(영문 등). 표시용 한글 설명을 쓰면 상세에서는 한글이 먼저 보입니다.</p>
-                    <textarea
+                    <p className="mb-1 text-xs text-gray-500">원문 설명(영문 등). 표시용 한글 설명을 쓰면 상세에서는 한글이 먼저 보입니다. HTML 태그 사용 가능.</p>
+                    <HtmlEditor
+                      label="본문"
                       value={editing.body || ""}
-                      onChange={(e) => setEditing({ ...editing, body: e.target.value })}
+                      onChange={(v) => setEditing({ ...editing, body: v })}
                       rows={5}
-                      className={cn(
-                        "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none",
-                        "focus:outline-none focus:ring-2 focus:ring-primary-500/20",
-                      )}
+                      placeholder="본문 내용을 입력하세요 (HTML 사용 가능)"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">표시용 한글 설명 (선택)</label>
-                    <textarea
+                    <HtmlEditor
+                      label="표시용 한글 설명 (선택)"
                       value={editing.bodyKo || ""}
-                      onChange={(e) => setEditing({ ...editing, bodyKo: e.target.value })}
+                      onChange={(v) => setEditing({ ...editing, bodyKo: v })}
                       rows={4}
-                      placeholder="요약·번역·한글 안내"
-                      className={cn(
-                        "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none",
-                        "focus:outline-none focus:ring-2 focus:ring-primary-500/20",
-                      )}
+                      placeholder="요약·번역·한글 안내 (HTML 사용 가능)"
                     />
                   </div>
 
@@ -854,6 +855,70 @@ function AdminContentsInner() {
                       </div>
                     )}
                   </div>
+
+                  {/* 외부 자료 링크 — Google Drive · Notion · Slack (선택) */}
+                  <details className="rounded-xl border border-gray-100 p-3 group">
+                    <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-gray-700">
+                      <ExternalLink size={14} className="text-gray-500" />
+                      외부 자료 링크
+                      <span className="text-xs font-normal text-gray-400">— Drive · Notion · Slack (선택)</span>
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Google Drive 링크</label>
+                        <input
+                          type="url"
+                          value={editing.googleLink ?? ""}
+                          onChange={(e) => setEditing({ ...editing, googleLink: e.target.value })}
+                          placeholder="https://drive.google.com/..."
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Notion 링크</label>
+                        <input
+                          type="url"
+                          value={editing.notionLink ?? ""}
+                          onChange={(e) => setEditing({ ...editing, notionLink: e.target.value })}
+                          placeholder="https://notion.so/..."
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-600">Slack 링크</label>
+                        <input
+                          type="url"
+                          value={editing.slackLink ?? ""}
+                          onChange={(e) => setEditing({ ...editing, slackLink: e.target.value })}
+                          placeholder="https://slack.com/..."
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                        />
+                      </div>
+                    </div>
+                  </details>
+
+                  {/* 다중 첨부 — Drive 직접 업로드 또는 외부 링크 (최대 3개) */}
+                  <details className="rounded-xl border border-gray-100 p-3 group" open={Boolean(editing.attachments && editing.attachments.length > 0)}>
+                    <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-gray-700">
+                      <Paperclip size={14} className="text-gray-500" />
+                      첨부 파일
+                      <span className="text-xs font-normal text-gray-400">— 최대 {MAX_CONTENT_ATTACHMENTS}개 · {MAX_CONTENT_ATTACHMENT_MB}MB</span>
+                      {editing.attachments && editing.attachments.length > 0 && (
+                        <span className="ml-1 rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-bold text-primary-700">
+                          {editing.attachments.length}
+                        </span>
+                      )}
+                    </summary>
+                    <div className="mt-3">
+                      <DriveFileUploader
+                        attachments={editing.attachments ?? []}
+                        onChange={(atts) => setEditing({ ...editing, attachments: atts })}
+                        maxFiles={MAX_CONTENT_ATTACHMENTS}
+                        maxFileSizeMB={MAX_CONTENT_ATTACHMENT_MB}
+                        allowLinks
+                      />
+                    </div>
+                  </details>
 
                   {/* 옵션 */}
                   <div className="flex flex-wrap gap-4">
