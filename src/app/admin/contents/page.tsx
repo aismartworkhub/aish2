@@ -29,7 +29,9 @@ import { contentDisplayTitle } from "@/lib/content-display";
 const MAX_CONTENT_ATTACHMENTS = 3;
 const MAX_CONTENT_ATTACHMENT_MB = 10;
 
-const EMPTY_CONTENT: Omit<ContentInput, "authorUid" | "authorName"> = {
+// 작성자 표시명은 수동 오버라이드 가능 (빈 값이면 로그인 admin 이름으로 자동 채움).
+// authorUid는 항상 admin 본인 — 보안상 수동 입력 차단.
+const EMPTY_CONTENT: Omit<ContentInput, "authorUid"> = {
   boardKey: "",
   title: "",
   titleKo: "",
@@ -50,6 +52,7 @@ const EMPTY_CONTENT: Omit<ContentInput, "authorUid" | "authorName"> = {
   notionLink: "",
   slackLink: "",
   attachments: [],
+  authorName: "",
 };
 
 export default function AdminContentsPage() {
@@ -71,7 +74,7 @@ function AdminContentsInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [editing, setEditing] = useState<(Omit<ContentInput, "authorUid" | "authorName"> & { id?: string }) | null>(null);
+  const [editing, setEditing] = useState<(Omit<ContentInput, "authorUid"> & { id?: string }) | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
@@ -167,6 +170,7 @@ function AdminContentsInner() {
       notionLink: c.notionLink ?? "",
       slackLink: c.slackLink ?? "",
       attachments: c.attachments ?? [],
+      authorName: c.authorName ?? "",
     });
     setIsCreating(false);
     setTagInput("");
@@ -253,11 +257,13 @@ function AdminContentsInner() {
     setSaving(true);
     try {
       const { id: editingId, ...editingRest } = editing;
+      const manualAuthor = editingRest.authorName?.trim();
       const data: ContentInput = {
         ...editingRest,
         boardKey: selectedBoard,
         authorUid: user.uid,
-        authorName: profile?.displayName ?? user.displayName ?? "관리자",
+        // 수동 입력값 우선 — 외부 출처 글의 작성자 표시명을 admin이 명시
+        authorName: manualAuthor || profile?.displayName || user.displayName || "관리자",
         authorPhotoURL: user.photoURL ?? undefined,
         title: isFaq ? (editing.question ?? "") : editing.title,
       };
@@ -1011,6 +1017,23 @@ function AdminContentsInner() {
                       />
                     </div>
                   </details>
+
+                  {/* 작성자 표시명 — 외부 출처 글에 원작자를 노출하고 싶을 때만 입력. 비우면 로그인 admin 이름. */}
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">작성자 표시명 (선택)</label>
+                    <p className="mb-1 text-xs text-gray-500">
+                      비우면 현재 로그인한 admin의 이름이 자동 표시됩니다. 외부 출처(YouTuber·블로거 등)를 원작자로 명시하려면 입력하세요.
+                    </p>
+                    <input
+                      value={editing.authorName ?? ""}
+                      onChange={(e) => setEditing({ ...editing, authorName: e.target.value })}
+                      placeholder={profile?.displayName || user?.displayName || "관리자"}
+                      className={cn(
+                        "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm",
+                        "focus:outline-none focus:ring-2 focus:ring-primary-500/20",
+                      )}
+                    />
+                  </div>
 
                   {/* 옵션 */}
                   <div className="flex flex-wrap gap-4">
