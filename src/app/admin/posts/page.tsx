@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import NextLink from "next/link";
 import {
   Plus, Search, Edit, Trash2, Pin, Eye, FileText, X, Save, Link, Paperclip, ExternalLink, Image as ImageIcon, File, HardDrive,
-  CheckCircle,
+  CheckCircle, ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, createDoc, upsertDoc, updateDocFields, removeDoc } from "@/lib/firestore";
@@ -17,6 +19,16 @@ import DriveFileUploader from "@/components/admin/DriveFileUploader";
 import type { DriveAttachment } from "@/types/firestore";
 
 type BoardType = "NOTICE" | "RESOURCE" | string;
+
+/**
+ * 레거시 BoardType → 통합 콘텐츠 보드 key 매핑.
+ * 신규 글 작성을 통합으로 유도할 때 사용. URL ?type= 파라미터를 반영.
+ */
+const LEGACY_TO_UNIFIED_BOARD: Record<string, string> = {
+  NOTICE: "community-notice",
+  RESOURCE: "media-resource",
+  FREE: "community-qna",
+};
 
 interface Post {
   id: string;
@@ -45,21 +57,6 @@ const DEFAULT_BOARD_TYPES: Record<string, string> = {
 const MAX_ATTACHMENTS = 3;
 const MAX_FILE_SIZE_MB = 10;
 
-const emptyPost = (): Omit<Post, "id"> => ({
-  title: "",
-  boardType: "NOTICE",
-  isPinned: false,
-  views: 0,
-  date: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
-  author: "관리자",
-  content: "",
-  googleLink: "",
-  notionLink: "",
-  slackLink: "",
-  attachments: [],
-  isApproved: true,
-});
-
 function getAttachmentIcon(type: string) {
   switch (type) {
     case "drive": return <HardDrive size={14} className="text-blue-500" />;
@@ -71,6 +68,9 @@ function getAttachmentIcon(type: string) {
 
 export default function AdminPostsPage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const urlType = searchParams.get("type") ?? "";
+  // URL ?type= 또는 현재 boardFilter를 기반으로 통합 보드 key 결정 (기본 community-notice)
   const { data: posts, setData: setPosts, loading, error, refresh } = useFirestoreCollection<Post>(COLLECTIONS.POSTS);
   const [boardFilter, setBoardFilter] = useState<"ALL" | string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,11 +87,7 @@ export default function AdminPostsPage() {
     .filter((p) => boardFilter === "ALL" || p.boardType === boardFilter)
     .filter((p) => !searchQuery || p.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const startCreate = () => {
-    setEditingPost(emptyPost());
-    setIsCreating(true);
-  };
-
+  // 신규 작성은 통합 콘텐츠 관리로 이동 — 이 페이지의 작성 진입점은 제거됨 (Phase C-1)
   const startEdit = (post: Post) => {
     setEditingPost({ ...post, attachments: post.attachments ? [...post.attachments] : [] });
     setIsCreating(false);
@@ -200,17 +196,28 @@ export default function AdminPostsPage() {
   if (loading) return <AdminLoading />;
   if (error) return <AdminError message={error} onRetry={refresh} />;
 
+  // 신규 작성 진입점은 통합 콘텐츠로 — URL ?type 또는 현재 필터에 매핑되는 보드로 직행
+  const targetBoardKey =
+    LEGACY_TO_UNIFIED_BOARD[urlType] ??
+    (boardFilter !== "ALL" ? LEGACY_TO_UNIFIED_BOARD[boardFilter] : null) ??
+    "community-notice";
+  const unifiedHref = `/admin/contents?boardKey=${targetBoardKey}`;
+
   return (
     <div>
-      <LegacyMigrationBanner legacyName="게시판 관리 (구)" legacyCollection="posts" targetBoardKey="community-notice" publicPath="/community" />
+      <LegacyMigrationBanner legacyName="게시판 관리 (구)" legacyCollection="posts" targetBoardKey={targetBoardKey} publicPath="/community" />
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">게시판 관리</h1>
-          <p className="text-gray-500 mt-1">공지사항과 교육자료 게시물을 관리합니다.</p>
+          <p className="text-gray-500 mt-1">공지사항·교육자료의 <strong>기존 데이터</strong>를 보기·수정·삭제하는 화면입니다. 신규 글은 통합 콘텐츠에서 작성하세요.</p>
         </div>
-        <button onClick={startCreate} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors">
-          <Plus size={18} />새 게시물 작성
-        </button>
+        <NextLink
+          href={unifiedHref}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+          title="통합 콘텐츠 관리로 이동"
+        >
+          <Plus size={18} />새 글 작성 (통합) <ArrowRight size={14} className="opacity-70" />
+        </NextLink>
       </div>
 
       <div className="flex items-center justify-between mb-6">
