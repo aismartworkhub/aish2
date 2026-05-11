@@ -77,6 +77,8 @@ function AdminContentsInner() {
   const [tagInput, setTagInput] = useState("");
   const [tagRecLoading, setTagRecLoading] = useState(false);
   const [ogExtracting, setOgExtracting] = useState(false);
+  // Phase B — 일괄 선택 + 일괄 삭제
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // 썸네일 일괄 백필 — 누락 og:image를 Gemini URL Context로 추출 (현재 보드만)
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<{
@@ -161,6 +163,10 @@ function AdminContentsInner() {
       answer: c.answer ?? "",
       rating: c.rating ?? 0,
       programTitle: c.programTitle ?? "",
+      googleLink: c.googleLink ?? "",
+      notionLink: c.notionLink ?? "",
+      slackLink: c.slackLink ?? "",
+      attachments: c.attachments ?? [],
     });
     setIsCreating(false);
     setTagInput("");
@@ -277,11 +283,37 @@ function AdminContentsInner() {
     try {
       await deleteContent(id);
       toast("삭제되었습니다.", "success");
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
       await loadContents();
     } catch {
       toast("삭제 실패.", "error");
     }
   };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds(selectedIds.length === filtered.length ? [] : filtered.map((c) => c.id));
+  };
+
+  const bulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`선택된 ${selectedIds.length}건을 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return;
+    try {
+      await Promise.all(selectedIds.map((id) => deleteContent(id)));
+      toast(`${selectedIds.length}건이 삭제되었습니다.`, "success");
+      setSelectedIds([]);
+      await loadContents();
+    } catch {
+      toast("일부 삭제에 실패했습니다.", "error");
+      await loadContents();
+    }
+  };
+
+  // 보드 변경 시 선택 초기화 — 다른 보드의 ID가 남아있지 않도록
+  useEffect(() => { setSelectedIds([]); }, [selectedBoard]);
 
   // 현재 보드의 외부 링크 글 중 thumbnailUrl 누락분 — 백필 후보
   const backfillCandidates = useMemo(
@@ -475,6 +507,21 @@ function AdminContentsInner() {
         />
       </div>
 
+      {/* 일괄 작업 바 — 1건 이상 선택 시 노출 */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5">
+          <p className="text-sm text-rose-800">
+            <strong>{selectedIds.length}건</strong> 선택됨
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSelectedIds([])} className="text-xs text-rose-600 hover:underline">선택 해제</button>
+            <button onClick={bulkDelete} className="flex items-center gap-1.5 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-700">
+              <Trash2 size={13} /> 일괄 삭제
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 콘텐츠 목록 */}
       {loading ? (
         <AdminLoading />
@@ -490,6 +537,16 @@ function AdminContentsInner() {
             <table className="w-full text-sm">
               <thead className="border-b border-gray-100 bg-gray-50">
                 <tr>
+                  <th className="px-3 py-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.length > 0 && selectedIds.length === filtered.length}
+                      onChange={toggleSelectAll}
+                      aria-label="전체 선택"
+                      className="rounded border-gray-300"
+                    />
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600 hidden md:table-cell w-24">구분</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">제목</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">작성자</th>
                   <th className="px-4 py-3 text-center font-medium text-gray-600 hidden md:table-cell">조회</th>
@@ -498,52 +555,87 @@ function AdminContentsInner() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {c.isPinned && <Pin size={12} className="text-primary-500" />}
-                        {c.thumbnailUrl && (
-                          <div className="h-8 w-12 shrink-0 overflow-hidden rounded bg-gray-100">
-                            <MediaPreview
-                              mediaUrl={c.mediaUrl}
-                              mediaType={c.mediaType}
-                              thumbnailUrl={c.thumbnailUrl}
-                              title={contentDisplayTitle(c)}
-                              className="h-full w-full"
-                            />
-                          </div>
-                        )}
-                        <span className="truncate font-medium text-gray-800">
-                          {isFaq ? c.question || c.title : contentDisplayTitle(c)}
+                {filtered.map((c) => {
+                  const groupChip = c.group === "media"
+                    ? { label: "미디어", cls: "bg-blue-100 text-blue-700" }
+                    : c.group === "community"
+                    ? { label: "커뮤니티", cls: "bg-emerald-100 text-emerald-700" }
+                    : { label: "기타", cls: "bg-gray-100 text-gray-600" };
+                  const extraCount =
+                    (c.attachments?.length ?? 0) +
+                    (c.googleLink ? 1 : 0) +
+                    (c.notionLink ? 1 : 0) +
+                    (c.slackLink ? 1 : 0);
+                  const checked = selectedIds.includes(c.id);
+                  return (
+                    <tr key={c.id} className={cn(
+                      "transition-colors",
+                      checked ? "bg-primary-50/40" : "hover:bg-gray-50",
+                    )}>
+                      <td className="px-3 py-3">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelect(c.id)}
+                          aria-label="선택"
+                          className="rounded border-gray-300"
+                        />
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", groupChip.cls)}>
+                          {groupChip.label}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{c.authorName}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 hidden md:table-cell">
-                      <span className="flex items-center justify-center gap-1"><Eye size={12} />{c.views}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center text-gray-500 hidden md:table-cell">{c.likeCount}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => startEdit(c)}
-                          className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-primary-500"
-                          aria-label="수정"
-                        >
-                          <Edit size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(c.id)}
-                          className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
-                          aria-label="삭제"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {c.isPinned && <Pin size={12} className="text-primary-500" />}
+                          {c.thumbnailUrl && (
+                            <div className="h-8 w-12 shrink-0 overflow-hidden rounded bg-gray-100">
+                              <MediaPreview
+                                mediaUrl={c.mediaUrl}
+                                mediaType={c.mediaType}
+                                thumbnailUrl={c.thumbnailUrl}
+                                title={contentDisplayTitle(c)}
+                                className="h-full w-full"
+                              />
+                            </div>
+                          )}
+                          <span className="truncate font-medium text-gray-800">
+                            {isFaq ? c.question || c.title : contentDisplayTitle(c)}
+                          </span>
+                          {extraCount > 0 && (
+                            <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700" title="외부 자료/첨부 있음">
+                              <Paperclip size={10} />{extraCount}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{c.authorName}</td>
+                      <td className="px-4 py-3 text-center text-gray-500 hidden md:table-cell">
+                        <span className="flex items-center justify-center gap-1"><Eye size={12} />{c.views}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center text-gray-500 hidden md:table-cell">{c.likeCount}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => startEdit(c)}
+                            className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-primary-500"
+                            aria-label="수정"
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(c.id)}
+                            className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                            aria-label="삭제"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
