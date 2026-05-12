@@ -41,6 +41,30 @@ function safeIsoSeconds(iso: string): string {
   return m ? `${m[1]}Z` : iso;
 }
 
+/**
+ * YouTube API 키 유효성 진단 — videoCategories.list (1 quota 단위) 호출.
+ * 모듈 캐시는 우회해서 매번 새 호출. 호출 사유(keyInvalid·apiNotActivated·referer)를
+ * 사용자 토스트로 그대로 노출 가능.
+ */
+export async function verifyYoutubeApiKey(
+  apiKey: string,
+): Promise<{ ok: true; sampleCategory: string } | { ok: false; error: string }> {
+  if (!apiKey?.trim()) return { ok: false, error: "키가 비어 있습니다" };
+  if (!/^AIza[\w-]{30,}$/.test(apiKey.trim())) {
+    return { ok: false, error: "키 형식이 다릅니다 (AIza로 시작, 39자 가량)" };
+  }
+  try {
+    const url = `${YT_API}/videoCategories?part=snippet&regionCode=KR&hl=ko&key=${encodeURIComponent(apiKey.trim())}`;
+    const res = await fetch(url);
+    if (!res.ok) return { ok: false, error: await extractYtError(res) };
+    const data = (await res.json()) as { items?: Array<{ snippet?: { title?: string } }> };
+    const title = data.items?.[0]?.snippet?.title ?? "(none)";
+    return { ok: true, sampleCategory: title };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "network" };
+  }
+}
+
 export type YoutubeSearchOpts = {
   q: string;
   categoryId?: string;

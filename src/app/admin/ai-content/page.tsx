@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Sparkles, RefreshCw, Save, Play, Settings2,
   History, CheckCircle, XCircle, Eye, Trash2, Clock,
-  BarChart3, Edit3, Search,
+  BarChart3, Edit3, Search, Loader2, KeyRound,
 } from "lucide-react";
+import { verifyYoutubeApiKey } from "@/lib/youtube-search";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -162,6 +163,7 @@ export default function AdminAiContentPage() {
   const [config, setConfig] = useState<AiCollectorConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [verifyingKey, setVerifyingKey] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [collectProgress, setCollectProgress] = useState("");
 
@@ -771,6 +773,36 @@ function DashboardTab({
             />
             {config.youtubeApiKey === "••••••••" && (
               <p className="mt-1 text-[10px] text-emerald-600">🔒 키가 저장되어 있습니다. 입력 필드 클릭 시 새로 입력 가능.</p>
+            )}
+            {/* 키 진단 — videoCategories.list 1 quota 단위 호출로 즉시 검증 */}
+            <button
+              type="button"
+              disabled={verifyingKey || !config.youtubeApiKey || config.youtubeApiKey === "••••••••"}
+              onClick={async () => {
+                setVerifyingKey(true);
+                try {
+                  const r = await verifyYoutubeApiKey(config.youtubeApiKey);
+                  if (r.ok) {
+                    toast(`✅ 키 정상 — 카테고리 응답: "${r.sampleCategory}"`, "success", 5000);
+                  } else {
+                    toast(`❌ 키 거부: ${r.error}`, "error", 8000);
+                  }
+                } finally {
+                  setVerifyingKey(false);
+                }
+              }}
+              className={cn(
+                "mt-1.5 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
+                "border-violet-300 bg-violet-50 text-violet-700 hover:bg-violet-100",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+              )}
+              title="YouTube API 키 즉시 검증 (1 quota 사용)"
+            >
+              {verifyingKey ? <Loader2 size={11} className="animate-spin" /> : <KeyRound size={11} />}
+              {verifyingKey ? "진단 중..." : "키 진단"}
+            </button>
+            {config.youtubeApiKey === "••••••••" && (
+              <p className="mt-0.5 text-[10px] text-gray-400">진단하려면 입력 필드를 클릭해 새 키를 붙여넣은 뒤 누르세요.</p>
             )}
           </div>
           <div>
