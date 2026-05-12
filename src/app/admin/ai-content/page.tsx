@@ -185,8 +185,10 @@ export default function AdminAiContentPage() {
             ...DEFAULT_CONFIG,
             ...doc,
             boardConfigs: doc.boardConfigs?.length ? doc.boardConfigs : DEFAULT_BOARD_CONFIGS,
-            // 보안 — 화면에선 마스킹 표시, 저장 시 마스킹 그대로면 기존 값 유지 (handleSave 분기)
-            youtubeApiKey: doc.youtubeApiKey ? MASKED_API_KEY : "",
+            // 키는 state에 실제 값 보관 — API 호출에 사용. UI는 type=password로 가림.
+            // 이전엔 MASKED_API_KEY 로 덮었는데 그러면 API 호출 시 마스킹 문자열이 그대로
+            // 전달되어 400 'API key not valid' 발생 → 실제 키 유지로 변경.
+            youtubeApiKey: doc.youtubeApiKey ?? "",
           });
         }
       } catch { /* ignore */ }
