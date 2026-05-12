@@ -57,6 +57,11 @@ interface LegacyPost {
   isApproved?: boolean;
   createdAt?: string;
   date?: string;
+  // Phase A 신규 필드 — 마이그레이션 시 그대로 보존
+  googleLink?: string;
+  notionLink?: string;
+  slackLink?: string;
+  attachments?: import("@/types/firestore").DriveAttachment[];
 }
 
 interface LegacyReview {
@@ -188,6 +193,11 @@ export async function loadLegacyPostsAsContent(postType: string, boardKey: strin
           authorName: p.authorName || p.author || "AISH",
           views: p.views || 0,
           createdAt: p.createdAt || p.date || "",
+          // Phase A 보강 — 외부 자료 링크·다중 첨부도 함께 이행
+          googleLink: p.googleLink,
+          notionLink: p.notionLink,
+          slackLink: p.slackLink,
+          attachments: p.attachments,
         }),
       );
   } catch {
