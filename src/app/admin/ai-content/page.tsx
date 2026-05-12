@@ -163,7 +163,6 @@ export default function AdminAiContentPage() {
   const [config, setConfig] = useState<AiCollectorConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [verifyingKey, setVerifyingKey] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [collectProgress, setCollectProgress] = useState("");
 
@@ -752,6 +751,9 @@ function DashboardTab({
   onCollectCategory: (cat: AiCategory) => void;
   onCleanup: () => void;
 }) {
+  // 키 진단 — DashboardTab 자체 상태 (부모로 끌어올릴 필요 없음)
+  const { toast } = useToast();
+  const [verifyingKey, setVerifyingKey] = useState(false);
   return (
     <div className="space-y-6">
       {/* 기본 설정 */}
