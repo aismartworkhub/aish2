@@ -496,9 +496,20 @@ export default function YoutubeAdvancedSearch({ youtubeApiKey, initialApply }: P
         }
       }
 
-      const { items, quotaUsed } = usingFavoritesOnly
+      const favResult = usingFavoritesOnly
         ? await searchInFavoriteChannels(youtubeApiKey, favoriteChannels, opts)
-        : await searchYouTubeVideos(youtubeApiKey, opts);
+        : null;
+      const { items, quotaUsed } = favResult
+        ?? await searchYouTubeVideos(youtubeApiKey, opts);
+      // 선호 채널 검색에서 채널별 실패가 있으면 사용자에게 알림 (진단 가능 — API 키·할당량·referer 등)
+      if (favResult && favResult.errors.length > 0) {
+        const first = favResult.errors[0];
+        toast(
+          `${favResult.errors.length}개 채널 호출 실패 — ${first.channelId}: ${first.error}`,
+          "error",
+          7000,
+        );
+      }
       const filteredItems = filterByDurations(items);
       setResults(filteredItems);
       setQuotaUsedSession((q) => q + quotaUsed);

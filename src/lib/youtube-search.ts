@@ -13,6 +13,34 @@
 
 const YT_API = "https://www.googleapis.com/youtube/v3";
 
+/**
+ * Google APIs 에러 응답에서 사람이 읽을 수 있는 사유를 추출.
+ * 예: 400 keyInvalid: API key not valid. Please pass a valid API key.
+ */
+async function extractYtError(res: Response): Promise<string> {
+  let text = "";
+  try { text = await res.text(); } catch { /* ignore */ }
+  try {
+    const j = JSON.parse(text) as {
+      error?: { message?: string; status?: string; errors?: Array<{ reason?: string; message?: string }> };
+    };
+    const reason = j?.error?.errors?.[0]?.reason ?? j?.error?.status ?? "";
+    const msg = j?.error?.message ?? j?.error?.errors?.[0]?.message ?? "";
+    const tail = [reason, msg].filter(Boolean).join(": ");
+    if (tail) return `${res.status} ${tail}`;
+  } catch { /* not JSON */ }
+  return `${res.status}${text ? ` ${text.slice(0, 200)}` : ""}`;
+}
+
+/**
+ * publishedAfter 안전 변환 — 일부 환경에서 ms 정밀도(.737Z)를 거부하는 보고가 있어
+ * 초 단위까지만 자른다. 입력이 비표준이면 원본 그대로 통과.
+ */
+function safeIsoSeconds(iso: string): string {
+  const m = iso.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+  return m ? `${m[1]}Z` : iso;
+}
+
 export type YoutubeSearchOpts = {
   q: string;
   categoryId?: string;
@@ -62,7 +90,7 @@ export async function listVideoCategories(
   if (categoryCache && categoryCache.regionCode === regionCode) return categoryCache.items;
   const url = `${YT_API}/videoCategories?part=snippet&regionCode=${regionCode}&hl=ko&key=${encodeURIComponent(apiKey)}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`YouTube videoCategories.list 실패: ${res.status}`);
+  if (!res.ok) throw new Error(`YouTube videoCategories.list 실패: ${await extractYtError(res)}`);
   const data = (await res.json()) as { items?: { id: string; snippet?: { title?: string; assignable?: boolean } }[] };
   const items: YoutubeCategory[] = (data.items ?? [])
     .filter((c) => c.snippet?.assignable !== false) // assignable=false (예: 영화 트레일러)는 제외
@@ -91,7 +119,7 @@ export async function searchYouTubeVideos(
     key: apiKey,
   });
   if (opts.categoryId) searchParams.set("videoCategoryId", opts.categoryId);
-  if (opts.publishedAfter) searchParams.set("publishedAfter", opts.publishedAfter);
+  if (opts.publishedAfter) searchParams.set("publishedAfter", safeIsoSeconds(opts.publishedAfter));
   if (opts.order) searchParams.set("order", opts.order);
   if (opts.videoDuration && opts.videoDuration !== "any") searchParams.set("videoDuration", opts.videoDuration);
   if (opts.regionCode) searchParams.set("regionCode", opts.regionCode);
@@ -99,8 +127,7 @@ export async function searchYouTubeVideos(
 
   const searchRes = await fetch(`${YT_API}/search?${searchParams.toString()}`);
   if (!searchRes.ok) {
-    const txt = await searchRes.text().catch(() => "");
-    throw new Error(`YouTube search.list 실패: ${searchRes.status} ${txt.slice(0, 200)}`);
+    throw new Error(`YouTube search.list 실패: ${await extractYtError(searchRes)}`);
   }
   quotaUsed += 100;
   const searchData = (await searchRes.json()) as {
@@ -130,7 +157,7 @@ export async function searchYouTubeVideos(
     key: apiKey,
   });
   const videosRes = await fetch(`${YT_API}/videos?${videosParams.toString()}`);
-  if (!videosRes.ok) throw new Error(`YouTube videos.list 실패: ${videosRes.status}`);
+  if (!videosRes.ok) throw new Error(`YouTube videos.list 실패: ${await extractYtError(videosRes)}`);
   quotaUsed += 1;
   const videosData = (await videosRes.json()) as {
     items?: Array<{
@@ -255,9 +282,9 @@ export async function listChannelVideos(
     key: apiKey,
   });
   if (opts.q?.trim()) searchParams.set("q", opts.q.trim());
-  if (opts.publishedAfter) searchParams.set("publishedAfter", opts.publishedAfter);
+  if (opts.publishedAfter) searchParams.set("publishedAfter", safeIsoSeconds(opts.publishedAfter));
   const searchRes = await fetch(`${YT_API}/search?${searchParams.toString()}`);
-  if (!searchRes.ok) throw new Error(`YouTube search.list (channel) 실패: ${searchRes.status}`);
+  if (!searchRes.ok) throw new Error(`YouTube search.list (channel ${channelId}) 실패: ${await extractYtError(searchRes)}`);
   quotaUsed += 100;
   const searchData = (await searchRes.json()) as {
     items?: Array<{
@@ -325,14 +352,15 @@ export async function searchInFavoriteChannels(
   apiKey: string,
   channels: { channelId: string }[],
   opts: YoutubeSearchOpts,
-): Promise<{ items: YoutubeVideoDetail[]; quotaUsed: number }> {
+): Promise<{ items: YoutubeVideoDetail[]; quotaUsed: number; errors: { channelId: string; error: string }[] }> {
   if (!apiKey) throw new Error("YouTube API 키가 설정되지 않았습니다.");
-  if (channels.length === 0) return { items: [], quotaUsed: 0 };
+  if (channels.length === 0) return { items: [], quotaUsed: 0, errors: [] };
 
   let quotaUsed = 0;
+  const errors: { channelId: string; error: string }[] = [];
   const perChannelMax = Math.max(5, Math.ceil((opts.maxResults ?? 25) / channels.length));
 
-  // 1) 채널별 search.list 병렬 호출
+  // 1) 채널별 search.list 병렬 호출 — 채널별 실패를 errors 에 수집 (UI에서 표시)
   const searchResults = await Promise.all(
     channels.map(async (ch) => {
       const sp = new URLSearchParams({
@@ -344,14 +372,18 @@ export async function searchInFavoriteChannels(
         key: apiKey,
       });
       if (opts.q?.trim()) sp.set("q", opts.q.trim());
-      if (opts.publishedAfter) sp.set("publishedAfter", opts.publishedAfter);
+      if (opts.publishedAfter) sp.set("publishedAfter", safeIsoSeconds(opts.publishedAfter));
       if (opts.videoDuration && opts.videoDuration !== "any") sp.set("videoDuration", opts.videoDuration);
       try {
         const res = await fetch(`${YT_API}/search?${sp.toString()}`);
-        if (!res.ok) return [] as string[];
+        if (!res.ok) {
+          errors.push({ channelId: ch.channelId, error: await extractYtError(res) });
+          return [] as string[];
+        }
         const data = (await res.json()) as { items?: Array<{ id?: { videoId?: string } }> };
         return (data.items ?? []).map((it) => it.id?.videoId).filter((id): id is string => Boolean(id));
-      } catch {
+      } catch (e) {
+        errors.push({ channelId: ch.channelId, error: e instanceof Error ? e.message : "network" });
         return [] as string[];
       }
     }),
@@ -359,7 +391,7 @@ export async function searchInFavoriteChannels(
   quotaUsed += channels.length * 100;
 
   const videoIds = [...new Set(searchResults.flat())];
-  if (videoIds.length === 0) return { items: [], quotaUsed };
+  if (videoIds.length === 0) return { items: [], quotaUsed, errors };
 
   // 2) videos.list 일괄 (50개씩 청크)
   type VideoApiItem = {
@@ -441,7 +473,7 @@ export async function searchInFavoriteChannels(
   if (opts.order === "viewCount") items.sort((a, b) => b.viewCount - a.viewCount);
   else if (opts.order === "date") items.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
-  return { items: items.slice(0, opts.maxResults ?? 25), quotaUsed };
+  return { items: items.slice(0, opts.maxResults ?? 25), quotaUsed, errors };
 }
 
 /* ── AI 요약 (Gemini, Phase 2 사용) ── */
