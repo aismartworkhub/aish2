@@ -25,6 +25,28 @@ const STATUS_ICONS: Record<FeedbackStatus, React.ElementType> = {
   closed: CheckCircle,
 };
 
+/** 절대 시각 + 상대 시간 한 줄. 예: "2026.05.13 14:23 · 3시간 전" */
+function formatCreatedAt(raw: unknown): { absolute: string; relative: string } | null {
+  if (!raw) return null;
+  const d = typeof raw === "string" ? new Date(raw) : (raw as { toDate?: () => Date }).toDate?.() ?? new Date(raw as string);
+  if (!d || Number.isNaN(d.getTime())) return null;
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  const absolute = `${yyyy}.${mm}.${dd} ${hh}:${mi}`;
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60_000);
+  let relative = "";
+  if (mins < 1) relative = "방금 전";
+  else if (mins < 60) relative = `${mins}분 전`;
+  else if (mins < 60 * 24) relative = `${Math.floor(mins / 60)}시간 전`;
+  else if (mins < 60 * 24 * 30) relative = `${Math.floor(mins / 60 / 24)}일 전`;
+  else relative = "";
+  return { absolute, relative };
+}
+
 export default function AdminFeedbackPage() {
   const { toast } = useToast();
   const { data: rawReports, loading, error, refresh } = useFirestoreCollection<FeedbackReport>(
@@ -130,6 +152,7 @@ export default function AdminFeedbackPage() {
           {filtered.map((r) => {
             const Icon = STATUS_ICONS[r.status];
             const isActive = r.id === selectedId;
+            const ts = formatCreatedAt(r.createdAt);
             return (
               <button
                 key={r.id}
@@ -140,14 +163,18 @@ export default function AdminFeedbackPage() {
                   isActive ? "border-rose-500 ring-2 ring-rose-100" : "border-gray-200",
                 )}
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between gap-2 mb-1">
                   <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", STATUS_COLORS[r.status])}>
                     <Icon className="h-3 w-3" />
                     {STATUS_LABELS[r.status]}
                   </span>
-                  <span className="text-xs text-gray-400">
-                    {r.createdAt ? new Date(r.createdAt).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : ""}
-                  </span>
+                  {ts && (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 shrink-0" title={ts.absolute}>
+                      <Clock className="h-3 w-3 text-gray-400" />
+                      <span className="tabular-nums">{ts.absolute}</span>
+                      {ts.relative && <span className="text-gray-400">· {ts.relative}</span>}
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm font-medium text-gray-900 line-clamp-2">{r.message}</p>
                 <p className="mt-1 text-xs text-gray-500 truncate">
