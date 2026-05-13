@@ -13,7 +13,8 @@ export default function Footer() {
     <footer className="bg-brand-dark text-gray-300">
       <div className="max-w-[1440px] mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Logo & Info */}
+          {/* Logo & Info — 로고 이미지에 이미 'AISH' 글자가 들어 있어서
+              별도 텍스트는 시각 중복. 이미지 로드 실패 시에만 텍스트 fallback. */}
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
               <img
@@ -21,10 +22,13 @@ export default function Footer() {
                 alt={SITE_NAME}
                 className="h-8"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
+                  const img = e.target as HTMLImageElement;
+                  img.style.display = "none";
+                  const sibling = img.nextElementSibling as HTMLElement | null;
+                  if (sibling) sibling.style.display = "inline";
                 }}
               />
-              <span className="text-xl font-bold text-white">{SITE_NAME}</span>
+              <span className="hidden text-xl font-bold text-white">{SITE_NAME}</span>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed mb-4">
               {SITE_FULL_NAME} - 미래를 선도하는 AI 교육 플랫폼.

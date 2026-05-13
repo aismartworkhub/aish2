@@ -155,6 +155,9 @@ function AdminSettingsInner() {
   // Section Toggles (홈 섹션 ON/OFF)
   const [sectionToggles, setSectionToggles] = useState<SectionToggles>(DEFAULT_SECTION_TOGGLES);
 
+  // Gemini API 키 — admin/contents AI 태그 추천·기타 Gemini 호출에 사용 (Firestore siteSettings/gemini)
+  const [geminiApiKey, setGeminiApiKey] = useState<string>("");
+
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({ adminEmail: "", smtpServer: "", senderName: "" });
@@ -170,6 +173,9 @@ function AdminSettingsInner() {
       } else if (tab === "ai") {
         const aiDoc = await getSingletonDoc<AiCollectorConfig>(COLLECTIONS.SETTINGS, "ai-collector");
         if (aiDoc) setAiConfig({ ...DEFAULT_AI_CONFIG, ...aiDoc });
+        // Gemini 키 — 별도 컬렉션 문서 (siteSettings/gemini)
+        const geminiDoc = await getSingletonDoc<{ apiKey?: string }>(COLLECTIONS.SETTINGS, "gemini");
+        setGeminiApiKey(geminiDoc?.apiKey ?? "");
       } else if (tab === "hero") {
         const heroDoc = await getSingletonDoc<{ slides: HeroSlide[] }>(COLLECTIONS.SETTINGS, "hero");
         if (heroDoc?.slides) setHeroSlides(heroDoc.slides);
@@ -250,6 +256,10 @@ function AdminSettingsInner() {
           maxItemsPerRun: aiConfig.maxItemsPerRun,
           minQualityScore: aiConfig.minQualityScore,
         });
+        // Gemini 키 별도 저장 (siteSettings/gemini) — saveGeminiApiKey 와 같은 위치
+        if (geminiApiKey.trim()) {
+          await setSingletonDoc(COLLECTIONS.SETTINGS, "gemini", { apiKey: geminiApiKey.trim() });
+        }
       } else if (activeTab === "hero") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "hero", { slides: heroSlides });
       } else if (activeTab === "stats") {
@@ -380,6 +390,20 @@ function AdminSettingsInner() {
                   type="password"
                   value={aiConfig.youtubeApiKey}
                   onChange={(e) => setAiConfig({ ...aiConfig, youtubeApiKey: e.target.value })}
+                  placeholder="AIza..."
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">Gemini API Key</label>
+                <p className="text-xs text-gray-400 mb-1">
+                  Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">aistudio.google.com/app/apikey</a>)에서 발급.
+                  AI 태그 추천·콘텐츠 큐레이션·강사/이벤트 자동 분석 등에 사용. 비우면 해당 기능이 비활성화됩니다.
+                </p>
+                <input
+                  type="password"
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
                   placeholder="AIza..."
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
