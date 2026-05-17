@@ -10,7 +10,9 @@ const inter = Inter({
  display: "swap",
 });
 
-const SITE_URL = "https://aish-web-v2.web.app";
+// 정식 도메인 — aish-web-v2.web.app 도 별칭으로 계속 동작하지만
+// SEO/공유 미리보기/메타데이터는 aish.co.kr 기준으로 통일.
+const SITE_URL = "https://aish.co.kr";
 const OG_IMAGE = `${SITE_URL}/images/logo-aish-transparent.png`;
 
 export const metadata: Metadata = {
@@ -21,6 +23,10 @@ export const metadata: Metadata = {
  },
  description: SITE_DESCRIPTION,
  keywords: ["AI 교육", "인공지능", "AISH", "스마트워크톤", "바이브 코딩", "데이터 분석"],
+ // 검색엔진에 정식 URL 명시 — .web.app 별칭이 중복 인덱싱되지 않도록
+ alternates: {
+   canonical: "/",
+ },
  // Phase 6 — Open Graph (KakaoTalk·Slack·Facebook 링크 미리보기)
  openGraph: {
    type: "website",

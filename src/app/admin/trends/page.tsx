@@ -477,7 +477,7 @@ function BigQueryTab() {
                 >
                   OAuth 2.0 클라이언트 ID 생성 <ExternalLink size={11} />
                 </a>
-                {" "}(웹 앱, 승인된 출처: <code className="bg-white/60 px-1 rounded text-[11px]">https://aish-web-v2.web.app</code>)
+                {" "}(웹 앱, 승인된 출처: <code className="bg-white/60 px-1 rounded text-[11px]">https://aish.co.kr</code>)
                 → 발급된 Client ID를 GitHub Secret <code className="bg-white/60 px-1 rounded text-[11px]">NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID</code> 에 등록 후 재배포
               </li>
               <li>아래 &ldquo;조회&rdquo; 버튼 클릭 → 팝업에서 BigQuery 권한 동의</li>

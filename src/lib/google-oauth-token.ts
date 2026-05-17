@@ -9,7 +9,7 @@
  *
  * 사전 작업 (한 번만):
  *   GCP 콘솔 → API 및 서비스 → 사용자 인증 정보 → OAuth 2.0 클라이언트 ID(웹 앱)
- *   - 승인된 JS 출처: https://aish-web-v2.web.app , http://localhost:3000
+ *   - 승인된 JS 출처: https://aish.co.kr , https://aish-web-v2.web.app , http://localhost:3000
  *   - 발급된 Client ID를 NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID 환경변수로 등록
  *
  * 사용:
@@ -141,7 +141,7 @@ export async function requestGoogleAccessToken(
       settle(() => reject(new Error(
         "Google 인증 응답 대기 시간 초과 (60초).\n" +
           "팝업이 차단되었거나 창에서 동의가 완료되지 않았습니다.\n" +
-          "주소창의 팝업 차단 아이콘을 확인하고, aish-web-v2.web.app 에 팝업을 허용한 뒤 다시 시도해 주세요.",
+          "주소창의 팝업 차단 아이콘을 확인하고, aish.co.kr 에 팝업을 허용한 뒤 다시 시도해 주세요.",
       )));
     }, 60_000);
 
