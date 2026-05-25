@@ -11,6 +11,7 @@ import {
 } from "@/lib/constants";
 import { cn, htmlToPlainTextSummary } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { loadPageContent, DEFAULT_PROGRAMS } from "@/lib/page-content-public";
 import type { PageContentBase } from "@/types/page-content";
 import type { RunmoaContent, RunmoaCategory } from "@/types/runmoa";
@@ -191,8 +192,8 @@ export default function ProgramsPage() {
         )}
 
         {loading && (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-brand-border border-t-brand-blue rounded-full animate-spin" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <CardGridSkeleton count={6} />
           </div>
         )}
 

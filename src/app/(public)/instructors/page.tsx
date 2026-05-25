@@ -223,40 +223,57 @@ function ReviewSection({ instructorId }: { instructorId: string }) {
           )}
         </div>
 
-        {/* Comment Input */}
-        {user ? (
-          <div className="mb-4 flex gap-2">
-            <textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="리뷰를 남겨주세요..."
-              rows={2}
-              className={cn(
-                "flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm",
-                "focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none placeholder:text-gray-400",
-              )}
-            />
-            <button
-              onClick={handleSubmit}
-              disabled={!newComment.trim() || submitting}
-              className={cn(
-                "self-end px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg",
-                "hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors",
-              )}
-            >
-              <Send size={14} />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() =>
-              requireLogin(() => {}, "리뷰를 작성하려면 로그인이 필요합니다.")
-            }
-            className="w-full mb-4 py-3 border border-dashed border-gray-300 rounded-xl text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors text-sm"
-          >
-            로그인하고 리뷰 작성하기
-          </button>
-        )}
+        {/* Comment Input — 수강생(기수 등록자) 또는 관리자만 폼 노출. 아무나 후기 작성 차단. */}
+        {(() => {
+          if (!user) {
+            return (
+              <button
+                onClick={() => requireLogin(() => {}, "리뷰를 작성하려면 로그인이 필요합니다.")}
+                className="w-full mb-4 py-3 border border-dashed border-gray-300 rounded-xl text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors text-sm"
+              >
+                로그인하고 리뷰 작성하기
+              </button>
+            );
+          }
+          const isAttendee = Boolean(profile?.cohort?.trim()) || isAdmin;
+          if (!isAttendee) {
+            return (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                <p className="font-semibold mb-1">수강생만 리뷰를 작성할 수 있습니다</p>
+                <p className="leading-relaxed">
+                  프로필에 기수가 등록된 수강생만 리뷰 작성이 가능합니다.{" "}
+                  <a href="/profile" className="font-semibold underline hover:text-amber-900">
+                    프로필에 기수 등록하기 →
+                  </a>
+                </p>
+              </div>
+            );
+          }
+          return (
+            <div className="mb-4 flex gap-2">
+              <textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="리뷰를 남겨주세요..."
+                rows={2}
+                className={cn(
+                  "flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm",
+                  "focus:outline-none focus:ring-2 focus:ring-gray-200 resize-none placeholder:text-gray-400",
+                )}
+              />
+              <button
+                onClick={handleSubmit}
+                disabled={!newComment.trim() || submitting}
+                className={cn(
+                  "self-end px-3 py-2 bg-gray-900 text-white text-xs font-medium rounded-lg",
+                  "hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors",
+                )}
+              >
+                <Send size={14} />
+              </button>
+            </div>
+          );
+        })()}
 
         {/* Review List */}
         {!loaded ? (
