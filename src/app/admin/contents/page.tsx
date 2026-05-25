@@ -327,6 +327,35 @@ function AdminContentsInner() {
     [contents],
   );
 
+  // Q&A SLA — community-qna 보드에서 답변 대기 글 추적
+  // 답변 대기 = commentCount === 0. 경과 시간에 따라 SLA 등급 분류 (24h/48h/72h)
+  const qnaSla = useMemo(() => {
+    if (selectedBoard !== "community-qna") return null;
+    const now = Date.now();
+    const ageHours = (createdAt: unknown): number => {
+      if (!createdAt) return 0;
+      let ms = 0;
+      if (typeof createdAt === "string") ms = new Date(createdAt).getTime();
+      else if (typeof (createdAt as { toDate?: () => Date }).toDate === "function") {
+        ms = (createdAt as { toDate: () => Date }).toDate().getTime();
+      } else if (typeof (createdAt as { seconds?: number }).seconds === "number") {
+        ms = (createdAt as { seconds: number }).seconds * 1000;
+      }
+      return ms > 0 ? (now - ms) / 36e5 : 0;
+    };
+    const pending = contents.filter((c) => (c.commentCount ?? 0) === 0);
+    const buckets = { total: pending.length, h24: 0, h48: 0, h72: 0 };
+    const slaMap = new Map<string, "ok" | "h24" | "h48" | "h72">();
+    pending.forEach((c) => {
+      const h = ageHours(c.createdAt);
+      if (h >= 72) { buckets.h72++; slaMap.set(c.id, "h72"); }
+      else if (h >= 48) { buckets.h48++; slaMap.set(c.id, "h48"); }
+      else if (h >= 24) { buckets.h24++; slaMap.set(c.id, "h24"); }
+      else slaMap.set(c.id, "ok");
+    });
+    return { ...buckets, slaMap };
+  }, [contents, selectedBoard]);
+
   /**
    * 누락 썸네일 일괄 백필 — Gemini URL Context로 og:image 재추출 후 Firestore 업데이트.
    * 순차 처리(0.4초 간격)로 burst 방지. 실패는 모아서 상세 표시.
@@ -434,6 +463,25 @@ function AdminContentsInner() {
             ) : (
               <>⚠ 공개 미연결 — group을 media/community로 설정해야 노출됩니다</>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Q&A SLA 패널 — community-qna 보드에서만, 답변 대기 글 가시화 */}
+      {qnaSla && qnaSla.total > 0 && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-rose-900">
+              <strong>답변 대기 {qnaSla.total}건</strong>
+              <span className="ml-2 text-xs text-rose-700">
+                {qnaSla.h72 > 0 && <>· 72h 초과 <strong className="text-red-700">{qnaSla.h72}건</strong> </>}
+                {qnaSla.h48 > 0 && <>· 48h 초과 {qnaSla.h48}건 </>}
+                {qnaSla.h24 > 0 && <>· 24h 초과 {qnaSla.h24}건 </>}
+              </span>
+            </div>
+            <p className="text-[11px] text-rose-700/80">
+              Member Benefits 약속 — 전문가 응답을 위해 24h 내 답변 권장
+            </p>
           </div>
         </div>
       )}
@@ -573,10 +621,17 @@ function AdminContentsInner() {
                     (c.notionLink ? 1 : 0) +
                     (c.slackLink ? 1 : 0);
                   const checked = selectedIds.includes(c.id);
+                  // Q&A SLA 행 색상 — 답변 대기 시간에 따라 amber → red 강조
+                  const slaTier = qnaSla?.slaMap.get(c.id);
+                  const slaCls =
+                    slaTier === "h72" ? "bg-red-50 hover:bg-red-100"
+                    : slaTier === "h48" ? "bg-amber-50 hover:bg-amber-100"
+                    : slaTier === "h24" ? "bg-yellow-50 hover:bg-yellow-100"
+                    : "hover:bg-gray-50";
                   return (
                     <tr key={c.id} className={cn(
                       "transition-colors",
-                      checked ? "bg-primary-50/40" : "hover:bg-gray-50",
+                      checked ? "bg-primary-50/40" : slaCls,
                     )}>
                       <td className="px-3 py-3">
                         <input
