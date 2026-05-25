@@ -6,6 +6,19 @@
   "hosting": {
     "public": "out",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "redirects": [
+      {
+        "//": "메뉴 라벨은 '콘텐츠'지만 실제 라우트는 /media. 외부 링크·URL 직접 입력 호환.",
+        "source": "/contents",
+        "destination": "/media",
+        "type": 301
+      },
+      {
+        "source": "/contents/**",
+        "destination": "/media",
+        "type": 301
+      }
+    ],
     "rewrites": [
       {
         "source": "**",
