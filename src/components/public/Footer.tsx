@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { SITE_NAME, SITE_FULL_NAME, NAV_ITEMS } from "@/lib/constants";
+import { SITE_NAME, SITE_FULL_NAME, NAV_ITEMS, BUSINESS_INFO } from "@/lib/constants";
 import { isExternalHref } from "@/lib/utils";
 import { useSiteCta } from "@/hooks/useSiteCta";
 
@@ -34,7 +34,57 @@ export default function Footer() {
               {SITE_FULL_NAME} - 미래를 선도하는 AI 교육 플랫폼.
               체계적인 교육과 실무 중심 연구로 AI 시대의 인재를 양성합니다.
             </p>
-            <p className="text-xs text-gray-500">
+
+            {/* 사업자 정보 — 전자상거래법·개인정보보호법 필수 고지 */}
+            <dl className="mt-4 space-y-1 text-[11px] leading-relaxed text-gray-500">
+              <div className="flex flex-wrap gap-x-3">
+                <dt className="shrink-0 text-gray-600">상호</dt>
+                <dd>{BUSINESS_INFO.companyName}</dd>
+                <dt className="shrink-0 text-gray-600">대표</dt>
+                <dd>{BUSINESS_INFO.ceo}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-3">
+                <dt className="shrink-0 text-gray-600">사업자등록번호</dt>
+                <dd>{BUSINESS_INFO.businessNumber}</dd>
+                <dt className="shrink-0 text-gray-600">통신판매업</dt>
+                <dd>{BUSINESS_INFO.mailOrderNumber}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-3">
+                <dt className="shrink-0 text-gray-600">주소</dt>
+                <dd>{BUSINESS_INFO.address}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-3">
+                <dt className="shrink-0 text-gray-600">고객센터</dt>
+                <dd>{BUSINESS_INFO.phone}</dd>
+                <dt className="shrink-0 text-gray-600">이메일</dt>
+                <dd>{BUSINESS_INFO.email}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-3">
+                <dt className="shrink-0 text-gray-600">개인정보 보호책임자</dt>
+                <dd>{BUSINESS_INFO.privacyManager}</dd>
+              </div>
+            </dl>
+
+            {/* 정책 링크 — 법적 필수 + 환불정책 */}
+            <ul className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+              <li>
+                <Link href="/privacy" className="font-semibold text-gray-300 hover:text-white transition-colors">
+                  개인정보처리방침
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="text-gray-400 hover:text-white transition-colors">
+                  이용약관
+                </Link>
+              </li>
+              <li>
+                <Link href="/refund" className="text-gray-400 hover:text-white transition-colors">
+                  환불정책
+                </Link>
+              </li>
+            </ul>
+
+            <p className="mt-4 text-xs text-gray-500">
               © {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
             </p>
           </div>

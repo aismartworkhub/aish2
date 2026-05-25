@@ -6,6 +6,22 @@ export const SITE_DOMAIN = "aish.co.kr";
 export const CTA_URL = "https://aish.runmoa.com/classes";
 export const CTA_TEXT = "교육과정 보기";
 
+/**
+ * 사업자 정보 — 전자상거래법·개인정보보호법 필수 고지.
+ * 정식 값은 운영자가 알려주는 대로 갱신.
+ * (모든 필드는 공개 사이트 푸터에 표시되므로 회사 대표 연락처를 권장)
+ */
+export const BUSINESS_INFO = {
+  companyName: "AISH (AI Smartwork Hub)",
+  ceo: "운영자명 미입력",
+  businessNumber: "000-00-00000",         // 사업자등록번호
+  mailOrderNumber: "제0000-서울-0000호",   // 통신판매업 신고번호
+  address: "사업장 주소 미입력",
+  phone: "02-0000-0000",
+  email: "contact@aish.co.kr",
+  privacyManager: "운영자명 미입력",       // 개인정보 보호책임자
+} as const;
+
 export const NAV_ITEMS = [
  { label: "홈", href: "/" },
  { label: "소개", href: "/about" },
