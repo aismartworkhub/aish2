@@ -15,8 +15,10 @@ interface ViewModeToggleProps {
   compact?: boolean;
 }
 
+// 'X 피드' 라는 명칭이 외부 SNS(X.com) 를 연상시켜 교육 플랫폼 톤과 어긋난다는 지적에 따라
+// '타임라인' 으로 변경. ViewMode key('x-feed')는 호환을 위해 그대로 둠.
 const ALL_MODES: { mode: ViewMode; icon: typeof Rss; label: string; hint: string }[] = [
-  { mode: "x-feed", icon: Rss, label: "X 피드", hint: "X.com 스타일 타임라인 (아바타·본문·액션바)" },
+  { mode: "x-feed", icon: Rss, label: "타임라인", hint: "아바타·본문·액션바가 함께 보이는 세로 타임라인" },
   { mode: "card-feed", icon: LayoutGrid, label: "카드", hint: "썸네일 카드 그리드" },
   { mode: "board-list", icon: List, label: "리스트", hint: "전통적 게시판 한 줄 리스트" },
 ];

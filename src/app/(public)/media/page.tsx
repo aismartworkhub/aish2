@@ -300,7 +300,8 @@ function MediaPageInner() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") triggerSearch(); }}
-            placeholder="제목·본문·태그 검색..."
+            placeholder="제목·본문·태그에서 검색 (Enter 로 실행)"
+            title="현재 보드 안에서 제목·본문·태그 필드 전체를 검색합니다"
             className={cn(
               "w-full rounded-full border border-gray-200 py-2.5 pl-10 pr-20 text-sm",
               "focus:outline-none focus:ring-2 focus:ring-primary-500/30",
