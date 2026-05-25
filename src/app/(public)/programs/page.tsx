@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { ExternalLink, Search } from "lucide-react";
+import { ExternalLink, Search, ArrowUpDown } from "lucide-react";
 import { DEMO_PROGRAMS } from "@/lib/demo-data";
 import { getRunmoaContents, getRunmoaCategories } from "@/lib/runmoa-api";
 import {
@@ -21,20 +21,40 @@ function formatPrice(price: number): string {
   return new Intl.NumberFormat("ko-KR").format(price);
 }
 
+type SortKey = "newest" | "name" | "priceAsc";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "newest", label: "최신순" },
+  { key: "name", label: "가나다순" },
+  { key: "priceAsc", label: "가격 낮은순" },
+];
+
 export default function ProgramsPage() {
   const [pc, setPc] = useState<PageContentBase>(DEFAULT_PROGRAMS);
-  const [filter, setFilter] = useState("ALL");
-  const [search, setSearch] = useState(() => {
-    if (typeof window !== "undefined") {
-      return new URLSearchParams(window.location.search).get("q") || "";
-    }
-    return "";
-  });
+  // 초기값을 URL 쿼리에서 동기 로딩 — 새로고침·공유 시 그대로 복원
+  const initialQuery = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const [filter, setFilter] = useState(initialQuery?.get("cat") || "ALL");
+  const [search, setSearch] = useState(initialQuery?.get("q") || "");
+  const [sort, setSort] = useState<SortKey>(
+    (initialQuery?.get("sort") as SortKey) || "newest",
+  );
   const debouncedSearch = useDebounce(search);
   const [contents, setContents] = useState<RunmoaContent[]>([]);
   const [categories, setCategories] = useState<RunmoaCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [useFallback, setUseFallback] = useState(false);
+
+  // URL 쿼리 ↔ state 동기화 — 검색·정렬·카테고리 변경 시 주소창 갱신 (push 아닌 replace 로 히스토리 더럽히지 않음)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.set("q", debouncedSearch);
+    if (sort !== "newest") params.set("sort", sort);
+    if (filter !== "ALL") params.set("cat", filter);
+    const qs = params.toString();
+    const url = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
+    window.history.replaceState(null, "", url);
+  }, [debouncedSearch, sort, filter]);
 
   useEffect(() => {
     loadPageContent("programs").then(setPc).catch(() => {});
@@ -71,18 +91,32 @@ export default function ProgramsPage() {
 
   const filtered = useMemo(() => {
     if (useFallback) {
-      return DEMO_PROGRAMS.filter((p) => {
+      const list = DEMO_PROGRAMS.filter((p) => {
         if (p.status === "CLOSED") return false;
         if (debouncedSearch && !p.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
         return true;
       });
+      // 폴백은 정렬 키가 제한적 — 이름순만 지원
+      if (sort === "name") return [...list].sort((a, b) => a.title.localeCompare(b.title, "ko"));
+      return list;
     }
-    return contents.filter((c) => {
+    const list = contents.filter((c) => {
       if (filter !== "ALL" && !c.category_ids.includes(Number(filter))) return false;
       if (debouncedSearch && !c.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
       return true;
     });
-  }, [contents, filter, debouncedSearch, useFallback]);
+    const sorted = [...list];
+    if (sort === "name") {
+      sorted.sort((a, b) => a.title.localeCompare(b.title, "ko"));
+    } else if (sort === "priceAsc") {
+      const priceOf = (c: RunmoaContent) => (c.is_free ? 0 : c.is_on_sale ? c.sale_price : c.base_price);
+      sorted.sort((a, b) => priceOf(a) - priceOf(b));
+    } else {
+      // newest — created_at 내림차순
+      sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return sorted;
+  }, [contents, filter, debouncedSearch, useFallback, sort]);
 
   return (
     <div className="py-16">
@@ -93,7 +127,7 @@ export default function ProgramsPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="flex flex-col md:flex-row gap-4 mb-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
@@ -103,6 +137,20 @@ export default function ProgramsPage() {
               className="w-full pl-9 pr-4 py-2.5 border border-brand-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue"
             />
           </div>
+          {/* 정렬 드롭다운 */}
+          <label className="relative inline-flex items-center">
+            <ArrowUpDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              aria-label="정렬"
+              className="appearance-none pl-9 pr-8 py-2.5 border border-brand-border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>{o.label}</option>
+              ))}
+            </select>
+          </label>
           {!useFallback && categoryOptions.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               <button
@@ -131,6 +179,16 @@ export default function ProgramsPage() {
             </div>
           )}
         </div>
+
+        {/* 결과 수 헤더 — 검색/필터/정렬 결과 시각화 */}
+        {!loading && (
+          <p className="mb-6 text-sm text-gray-500">
+            검색 결과 <strong className="text-gray-800">{filtered.length.toLocaleString("ko-KR")}건</strong>
+            {debouncedSearch && <> · 검색어 &ldquo;{debouncedSearch}&rdquo;</>}
+            {filter !== "ALL" && <> · 카테고리 필터 적용</>}
+            <span className="ml-1 text-gray-400">· {SORT_OPTIONS.find((o) => o.key === sort)?.label}</span>
+          </p>
+        )}
 
         {loading && (
           <div className="flex justify-center py-12">
