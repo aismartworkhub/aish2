@@ -5,6 +5,7 @@
 
 import type { RawCollectedItem, ContentSource } from "./ai-content-collector";
 import type { MediaType } from "@/types/content";
+import { isBlockedContent } from "./ai-content-blocklist";
 
 export interface CuratedItem {
   /** 원본 제목(영문 등) */
@@ -42,9 +43,18 @@ export async function curateItems(
   boardHints?: BoardCurationHint[],
 ): Promise<CuratedItem[]> {
   if (items.length === 0) return [];
-  if (!geminiApiKey) return items.map(fallbackCurate);
 
-  const prompt = buildPrompt(items, boardHints);
+  // 사전 차단 — Gemini 호출 전 명백히 부적합한 콘텐츠(정치·시사·게임·도박 등) 제거.
+  // 큐레이션 비용·시간 절감 + 명확한 정책 일관성.
+  const filtered = items.filter((it) => {
+    const text = `${it.title} ${it.description ?? ""}`;
+    return !isBlockedContent(text).blocked;
+  });
+  if (filtered.length === 0) return [];
+
+  if (!geminiApiKey) return filtered.map(fallbackCurate);
+
+  const prompt = buildPrompt(filtered, boardHints);
 
   try {
     const res = await fetch(`${GEMINI_ENDPOINT}?key=${geminiApiKey}`, {
@@ -56,15 +66,15 @@ export async function curateItems(
       }),
     });
 
-    if (!res.ok) return items.map(fallbackCurate);
+    if (!res.ok) return filtered.map(fallbackCurate);
 
     const data = await res.json();
     const text: string =
       data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-    return parseGeminiResponse(text, items, minScore, boardHints);
+    return parseGeminiResponse(text, filtered, minScore, boardHints);
   } catch {
-    return items.map(fallbackCurate);
+    return filtered.map(fallbackCurate);
   }
 }
 
@@ -111,6 +121,19 @@ ${boardRules}
 - 가산: 실무/교육적 가치가 높은 콘텐츠 (YouTube 영상, GitHub 프로젝트 등 실체 있는 미디어)
 - 감점: 클릭베이트, 홍보성, 오래된 정보
 - 감점 (qualityScore 3 이하): 단순 링크 나열, 미디어 없는 텍스트 요약, 뉴스/토론 스레드
+
+**도메인 적합성 (반드시 적용)**:
+이 플랫폼은 **AI·머신러닝·데이터·코딩·교육 콘텐츠 전용**이다.
+다음 카테고리는 qualityScore 를 2 이하로 강제하여 사실상 제외:
+- 정치·시사 평론, 정치인·정당·선거 관련 영상·기사
+- 게임 스트리밍·리뷰 (단, '게임 AI', 'AI 게임 개발' 등 기술 맥락은 정상 평가)
+- 도박·성인·혐오·음모론 콘텐츠
+- 단순 뉴스·연예·일상 vlog (AI 교육 관련성 없음)
+- 자기개발 동기부여·강연 (AI 실무 관련성 없으면)
+
+가산: 'LLM', 'RAG', '프롬프트 엔지니어링', '파인튜닝', '머신러닝',
+'데이터 분석', '코딩', 'GitHub', 'Hugging Face' 등 핵심 키워드 포함 시 +1
+
 - community-free는 사용하지 않는다
 
 **Output**: Valid JSON array only.`;
