@@ -13,7 +13,8 @@ export type AdminSettingsHintTab =
   | "theme"
   | "ai"
   | "phases"
-  | "sections";
+  | "sections"
+  | "business";
 
 const COPY: Record<
   AdminSettingsHintTab,
@@ -93,6 +94,15 @@ const COPY: Record<
     ],
     publicPath: "/",
     publicLabel: "메인 페이지 열기",
+  },
+  business: {
+    title: "사업자 정보 — 푸터에 즉시 반영",
+    lines: [
+      "사업자등록번호·대표자·주소·고객센터 등은 전자상거래법·개인정보보호법상 필수 고지 사항입니다.",
+      "입력하신 정보는 모든 공개 페이지의 풋터에 자동 표시됩니다.",
+    ],
+    publicPath: "/",
+    publicLabel: "공개 페이지 풋터 확인",
   },
 };
 

@@ -6,8 +6,10 @@ import {
   ImageIcon, Hash, MousePointerClick, Megaphone,
   Save, Plus, Trash2, GripVertical,
   Key, Mail, Cloud, Calendar, Database, Shield, Loader2,
-  Palette, Check, Bot, RefreshCw, ToggleLeft,
+  Palette, Check, Bot, RefreshCw, ToggleLeft, Building2,
 } from "lucide-react";
+import { BUSINESS_INFO } from "@/lib/constants";
+import { invalidateBusinessInfoCache, type BusinessInfoConfig } from "@/lib/site-settings-public";
 import { cn } from "@/lib/utils";
 import { COLLECTIONS, getSingletonDoc, setSingletonDoc, upsertDoc } from "@/lib/firestore";
 import { useToast } from "@/components/ui/Toast";
@@ -32,9 +34,9 @@ import type { CuratedItem } from "@/lib/ai-content-curator";
 import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-content-dedup";
 import { createContentIfNew } from "@/lib/content-engine";
 
-type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai" | "sections" | "phases";
+type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai" | "sections" | "phases" | "business";
 
-const VALID_SETTINGS_TABS: SettingsTab[] = ["hero", "stats", "cta", "banner", "integrations", "theme", "ai", "sections", "phases"];
+const VALID_SETTINGS_TABS: SettingsTab[] = ["hero", "stats", "cta", "banner", "integrations", "theme", "ai", "sections", "phases", "business"];
 
 /** 구 쿼리스트링(features) 하위 호환: /admin/settings?tab=features → phases 로 자동 이관 */
 function normalizeTabParam(raw: string | null): SettingsTab | null {
@@ -78,6 +80,7 @@ const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }
   { id: "banner", label: "배너 관리", icon: Megaphone },
   { id: "integrations", label: "외부 연동", icon: Key },
   { id: "phases", label: "기능 플래그 (Phase)", icon: ToggleLeft },
+  { id: "business", label: "사업자 정보", icon: Building2 },
 ];
 
 interface AiCollectorConfig {
@@ -158,6 +161,9 @@ function AdminSettingsInner() {
   // Gemini API 키 — admin/contents AI 태그 추천·기타 Gemini 호출에 사용 (Firestore siteSettings/gemini)
   const [geminiApiKey, setGeminiApiKey] = useState<string>("");
 
+  // 사업자 정보 — 전자상거래법·개인정보보호법 필수 고지. Footer 동적 로드와 페어.
+  const [businessInfo, setBusinessInfo] = useState<BusinessInfoConfig>(BUSINESS_INFO);
+
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({ adminEmail: "", smtpServer: "", senderName: "" });
@@ -176,6 +182,9 @@ function AdminSettingsInner() {
         // Gemini 키 — 별도 컬렉션 문서 (siteSettings/gemini)
         const geminiDoc = await getSingletonDoc<{ apiKey?: string }>(COLLECTIONS.SETTINGS, "gemini");
         setGeminiApiKey(geminiDoc?.apiKey ?? "");
+      } else if (tab === "business") {
+        const bizDoc = await getSingletonDoc<Partial<BusinessInfoConfig>>(COLLECTIONS.SETTINGS, "business");
+        setBusinessInfo({ ...BUSINESS_INFO, ...(bizDoc ?? {}) });
       } else if (tab === "hero") {
         const heroDoc = await getSingletonDoc<{ slides: HeroSlide[] }>(COLLECTIONS.SETTINGS, "hero");
         if (heroDoc?.slides) setHeroSlides(heroDoc.slides);
@@ -282,6 +291,10 @@ function AdminSettingsInner() {
           }
         }
         await upsertDoc(COLLECTIONS.SETTINGS, "integrations", { googleApi: safeGoogleApi, emailConfig, driveConfig, calendarConfig });
+      } else if (activeTab === "business") {
+        // 사업자 정보 저장 + Footer 캐시 무효화 — 다음 페이지 로드부터 즉시 반영
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "business", businessInfo);
+        invalidateBusinessInfoCache();
       }
       setSaveMessage("저장되었습니다");
       toast(`저장되었습니다.\n${ADMIN_SETTINGS_SAVED_PUBLIC_HINT}`, "success");
@@ -1122,6 +1135,46 @@ function AdminSettingsInner() {
           </div>
           <div className="flex items-center gap-3 mt-6">
             <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"><Save size={16} />{saving ? "저장중..." : "저장하기"}</button>
+            {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* 사업자 정보 — 전자상거래법·개인정보보호법 필수 고지 (푸터 즉시 반영) */}
+      {activeTab === "business" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">사업자 정보</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            모든 공개 페이지의 풋터에 표시됩니다. 전자상거래법·개인정보보호법상 필수 고지 사항이니
+            <strong> 정확한 값으로 입력</strong>해 주세요.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+            {([
+              { key: "companyName", label: "상호명", placeholder: "예: AISH (AI Smartwork Hub)" },
+              { key: "ceo", label: "대표자명", placeholder: "예: 홍길동" },
+              { key: "businessNumber", label: "사업자등록번호", placeholder: "예: 000-00-00000" },
+              { key: "mailOrderNumber", label: "통신판매업 신고번호", placeholder: "예: 제0000-서울-0000호" },
+              { key: "address", label: "사업장 주소", placeholder: "예: 서울특별시 강남구 ...", full: true },
+              { key: "phone", label: "고객센터 전화", placeholder: "예: 02-0000-0000" },
+              { key: "email", label: "이메일", placeholder: "예: contact@aish.co.kr" },
+              { key: "privacyManager", label: "개인정보 보호책임자", placeholder: "예: 홍길동" },
+            ] as const).map((field) => (
+              <div key={field.key} className={field.full ? "md:col-span-2" : ""}>
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">{field.label}</label>
+                <input
+                  type="text"
+                  value={businessInfo[field.key]}
+                  onChange={(e) => setBusinessInfo({ ...businessInfo, [field.key]: e.target.value })}
+                  placeholder={field.placeholder}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 mt-6">
+            <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50">
+              <Save size={16} />{saving ? "저장중..." : "저장하기"}
+            </button>
             {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
           </div>
         </div>

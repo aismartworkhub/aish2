@@ -1,14 +1,19 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { SITE_NAME, SITE_FULL_NAME, NAV_ITEMS, BUSINESS_INFO } from "@/lib/constants";
 import { isExternalHref } from "@/lib/utils";
 import { useSiteCta } from "@/hooks/useSiteCta";
+import { loadBusinessInfo, type BusinessInfoConfig } from "@/lib/site-settings-public";
 
 export default function Footer() {
   const { buttonUrl: CTA_URL, buttonText: CTA_TEXT } = useSiteCta();
   const ctaOpensNewTab = isExternalHref(CTA_URL);
+  // 사업자 정보 — Firestore 동적 로드. admin 입력값이 즉시 반영.
+  const [biz, setBiz] = useState<BusinessInfoConfig>(BUSINESS_INFO);
+  useEffect(() => { loadBusinessInfo().then(setBiz).catch(() => {}); }, []);
   return (
     <footer className="bg-brand-dark text-gray-300">
       <div className="max-w-[1440px] mx-auto px-4 py-12">
@@ -39,29 +44,29 @@ export default function Footer() {
             <dl className="mt-4 space-y-1 text-[11px] leading-relaxed text-gray-500">
               <div className="flex flex-wrap gap-x-3">
                 <dt className="shrink-0 text-gray-600">상호</dt>
-                <dd>{BUSINESS_INFO.companyName}</dd>
+                <dd>{biz.companyName}</dd>
                 <dt className="shrink-0 text-gray-600">대표</dt>
-                <dd>{BUSINESS_INFO.ceo}</dd>
+                <dd>{biz.ceo}</dd>
               </div>
               <div className="flex flex-wrap gap-x-3">
                 <dt className="shrink-0 text-gray-600">사업자등록번호</dt>
-                <dd>{BUSINESS_INFO.businessNumber}</dd>
+                <dd>{biz.businessNumber}</dd>
                 <dt className="shrink-0 text-gray-600">통신판매업</dt>
-                <dd>{BUSINESS_INFO.mailOrderNumber}</dd>
+                <dd>{biz.mailOrderNumber}</dd>
               </div>
               <div className="flex flex-wrap gap-x-3">
                 <dt className="shrink-0 text-gray-600">주소</dt>
-                <dd>{BUSINESS_INFO.address}</dd>
+                <dd>{biz.address}</dd>
               </div>
               <div className="flex flex-wrap gap-x-3">
                 <dt className="shrink-0 text-gray-600">고객센터</dt>
-                <dd>{BUSINESS_INFO.phone}</dd>
+                <dd>{biz.phone}</dd>
                 <dt className="shrink-0 text-gray-600">이메일</dt>
-                <dd>{BUSINESS_INFO.email}</dd>
+                <dd>{biz.email}</dd>
               </div>
               <div className="flex flex-wrap gap-x-3">
                 <dt className="shrink-0 text-gray-600">개인정보 보호책임자</dt>
-                <dd>{BUSINESS_INFO.privacyManager}</dd>
+                <dd>{biz.privacyManager}</dd>
               </div>
             </dl>
 

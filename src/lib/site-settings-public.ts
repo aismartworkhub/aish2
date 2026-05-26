@@ -1,4 +1,4 @@
-import { CTA_URL, CTA_TEXT } from "@/lib/constants";
+import { CTA_URL, CTA_TEXT, BUSINESS_INFO } from "@/lib/constants";
 import { COLLECTIONS, getSingletonDoc } from "@/lib/firestore";
 
 export type SiteCtaConfig = {
@@ -214,6 +214,40 @@ export async function loadSectionToggles(): Promise<SectionToggles> {
 
 export function invalidateSectionTogglesCache() {
   stCache = null;
+}
+
+/* ── 사업자 정보 (전자상거래법 필수 고지) ── */
+
+export type BusinessInfoConfig = typeof BUSINESS_INFO;
+
+let biCache: BusinessInfoConfig | null = null;
+let biInflight: Promise<BusinessInfoConfig> | null = null;
+
+/**
+ * 사업자 정보를 Firestore(siteSettings/business)에서 로드.
+ * admin/settings 의 '사업자 정보' 탭에서 입력한 값이 즉시 반영됨.
+ * 미입력 필드는 constants.BUSINESS_INFO 의 placeholder 로 fallback.
+ */
+export async function loadBusinessInfo(): Promise<BusinessInfoConfig> {
+  if (biCache) return biCache;
+  if (!biInflight) {
+    biInflight = getSingletonDoc<Partial<BusinessInfoConfig>>(COLLECTIONS.SETTINGS, "business")
+      .then((doc) => {
+        const merged: BusinessInfoConfig = { ...BUSINESS_INFO, ...(doc ?? {}) };
+        biCache = merged;
+        return merged;
+      })
+      .catch(() => {
+        biCache = BUSINESS_INFO;
+        return BUSINESS_INFO;
+      })
+      .finally(() => { biInflight = null; });
+  }
+  return biInflight;
+}
+
+export function invalidateBusinessInfoCache() {
+  biCache = null;
 }
 
 /* ── 홈 테마 설정 ── */
