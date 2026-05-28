@@ -16,6 +16,13 @@ export async function getGeminiApiKey(): Promise<string | null> {
     cachedKey = doc.apiKey;
     return cachedKey;
   }
+  // 폴백: 빌드 env (AI 콘텐츠 수집 크론과 동일 소스). admin이 설정 UI에서
+  // siteSettings/gemini 를 저장하지 않았어도 env 키가 있으면 사용.
+  const envKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY?.trim();
+  if (envKey) {
+    cachedKey = envKey;
+    return cachedKey;
+  }
   return null;
 }
 
