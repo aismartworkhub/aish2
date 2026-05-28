@@ -6,6 +6,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { buildCounselorContext } from "@/lib/ai-counselor-context";
+import { getGeminiApiKey } from "@/lib/gemini";
 import { cn } from "@/lib/utils";
 
 const MODEL_ID = "gemini-2.0-flash";
@@ -16,6 +17,7 @@ export default function AiCounselor() {
   const { profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [siteKey, setSiteKey] = useState("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<{ role: "user" | "model"; text: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -23,10 +25,14 @@ export default function AiCounselor() {
   useEffect(() => {
     if (!enabled) return;
     buildCounselorContext().then(setSystemPrompt).catch(() => setSystemPrompt(""));
+    getGeminiApiKey().then((k) => setSiteKey(k ?? "")).catch(() => {});
   }, [enabled]);
 
+  // 공용 사이트 키(siteSettings/gemini) 우선, 개인 프로필 키가 있으면 override
+  const effectiveKey = (profile?.geminiApiKey?.trim() || siteKey).trim();
+
   const send = useCallback(async () => {
-    const key = profile?.geminiApiKey?.trim();
+    const key = effectiveKey;
     const userMsg = input.trim();
     if (!key || !userMsg || !systemPrompt || loading) return;
 
@@ -54,13 +60,13 @@ export default function AiCounselor() {
         { role: "user", text: userMsg },
         {
           role: "model",
-          text: "응답에 실패했습니다. 프로필의 Gemini API 키를 확인하거나 잠시 후 다시 시도해 주세요.",
+          text: "응답에 실패했습니다. 잠시 후 다시 시도해 주세요.",
         },
       ]);
     } finally {
       setLoading(false);
     }
-  }, [profile?.geminiApiKey, input, systemPrompt, loading, messages]);
+  }, [effectiveKey, input, systemPrompt, loading, messages]);
 
   if (!enabled) return null;
 
@@ -96,9 +102,9 @@ export default function AiCounselor() {
                 <X size={18} />
               </button>
             </div>
-            {!profile?.geminiApiKey?.trim() ? (
+            {!effectiveKey ? (
               <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-gray-500">
-                프로필 설정에서 Gemini API 키를 저장하면 상담을 이용할 수 있습니다.
+                상담 기능을 준비 중입니다. 잠시 후 다시 시도해 주세요.
               </div>
             ) : (
               <>
