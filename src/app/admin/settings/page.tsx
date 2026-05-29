@@ -396,30 +396,33 @@ function AdminSettingsInner() {
             <p className="text-sm text-gray-500 mb-6">YouTube, GitHub, Reddit, X.com, Instagram에서 최신 AI 콘텐츠를 수집하고 Gemini로 교차 검증합니다.</p>
 
             <div className="space-y-4 max-w-lg">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">YouTube API Key</label>
-                <p className="text-xs text-gray-400 mb-1">Google Cloud Console에서 YouTube Data API v3 키를 발급받으세요. 없으면 YouTube 수집을 건너뜁니다.</p>
+              <div className="rounded-lg border border-red-100 bg-red-50/40 p-3">
+                <label className="text-sm font-bold text-red-700 mb-1 block">① YouTube API Key (영상 검색·수집용)</label>
+                <p className="text-xs text-gray-500 mb-1.5">Google Cloud Console → <strong>YouTube Data API v3</strong> 키. 없으면 YouTube 수집을 건너뜁니다. <strong>Gemini 키를 여기에 넣지 마세요.</strong></p>
                 <input
                   type="password"
                   value={aiConfig.youtubeApiKey}
                   onChange={(e) => setAiConfig({ ...aiConfig, youtubeApiKey: e.target.value })}
-                  placeholder="AIza..."
+                  placeholder="YouTube Data API 키 (보통 AIza...)"
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Gemini API Key</label>
-                <p className="text-xs text-gray-400 mb-1">
+              <div className="rounded-lg border border-purple-100 bg-purple-50/40 p-3">
+                <label className="text-sm font-bold text-purple-700 mb-1 block">② Gemini API Key (AI 상담·요약·분석용)</label>
+                <p className="text-xs text-gray-500 mb-1.5">
                   Google AI Studio (<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline">aistudio.google.com/app/apikey</a>)에서 발급.
-                  AI 태그 추천·콘텐츠 큐레이션·강사/이벤트 자동 분석 등에 사용. 비우면 해당 기능이 비활성화됩니다.
+                  <strong> AI 상담창</strong>·태그 추천·콘텐츠 큐레이션·강사/이벤트 분석에 사용. 비우면 해당 기능이 비활성화됩니다.
                 </p>
                 <input
                   type="password"
                   value={geminiApiKey}
                   onChange={(e) => setGeminiApiKey(e.target.value)}
-                  placeholder="AIza..."
+                  placeholder="Gemini 키 (AQ... 또는 AIza...)"
                   className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
+                {geminiApiKey.trim() && (
+                  <p className="text-xs text-purple-600 mt-1.5">저장 시 이 키가 <code>siteSettings/gemini</code>에 기록됩니다.</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getSingletonDoc, setSingletonDoc, COLLECTIONS } from "@/lib/firestore";
+import { GEMINI_MODEL } from "@/lib/gemini-model";
 
 /* ── Gemini API 키 관리 (Firestore siteSettings/gemini) ── */
 
@@ -63,7 +64,7 @@ const SYSTEM_PROMPT = `당신은 행사/이벤트 정보 추출 전문가입니�
 
 function getModel(apiKey: string) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+  return genAI.getGenerativeModel({ model: GEMINI_MODEL });
 }
 
 function parseResponse<T = GeminiEventResult>(text: string): T {

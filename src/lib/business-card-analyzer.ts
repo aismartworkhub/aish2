@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GEMINI_MODEL } from "./gemini-model";
 
 export interface BusinessCardResult {
   name?: string;
@@ -29,7 +30,7 @@ export async function analyzeBusinessCard(
   geminiApiKey: string,
 ): Promise<BusinessCardResult> {
   const genAI = new GoogleGenerativeAI(geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
   const result = await model.generateContent([
     PROMPT,

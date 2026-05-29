@@ -11,6 +11,8 @@
  * 클라이언트 fetch — YouTube CORS 허용.
  */
 
+import { GEMINI_MODEL } from "./gemini-model";
+
 const YT_API = "https://www.googleapis.com/youtube/v3";
 
 /**
@@ -518,7 +520,7 @@ export async function summarizeYouTubeVideo(
 ): Promise<YoutubeAiSummary> {
   const { GoogleGenerativeAI } = await import("@google/generative-ai");
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
   const prompt = `${SUMMARY_PROMPT}\n\n제목: ${video.title}\n\n설명:\n${video.description.slice(0, 4000)}`;
   const result = await model.generateContent(prompt);
   const text = result.response.text().replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();

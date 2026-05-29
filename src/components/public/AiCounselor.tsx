@@ -10,9 +10,8 @@ import { getGeminiApiKey } from "@/lib/gemini";
 import { loadBusinessInfo, type BusinessInfoConfig } from "@/lib/site-settings-public";
 import { submitFeedback } from "@/lib/feedback-engine";
 import { BUSINESS_INFO } from "@/lib/constants";
+import { GEMINI_MODEL } from "@/lib/gemini-model";
 import { cn } from "@/lib/utils";
-
-const MODEL_ID = "gemini-2.5-flash-lite";
 
 export default function AiCounselor() {
   const ff = useFeatureFlags();
@@ -51,7 +50,7 @@ export default function AiCounselor() {
     try {
       const genAI = new GoogleGenerativeAI(key);
       const model = genAI.getGenerativeModel({
-        model: MODEL_ID,
+        model: GEMINI_MODEL,
         systemInstruction: systemPrompt,
       });
       const chat = model.startChat({

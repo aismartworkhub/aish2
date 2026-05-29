@@ -6,6 +6,7 @@
 import type { RawCollectedItem, ContentSource } from "./ai-content-collector";
 import type { MediaType } from "@/types/content";
 import { isBlockedContent } from "./ai-content-blocklist";
+import { GEMINI_MODEL } from "./gemini-model";
 
 export interface CuratedItem {
   /** 원본 제목(영문 등) */
@@ -33,7 +34,6 @@ export interface BoardCurationHint {
   sources: ContentSource[];
 }
 
-const GEMINI_MODEL = "gemini-2.5-flash-lite";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 export async function curateItems(
