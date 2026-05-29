@@ -12,7 +12,7 @@ import { submitFeedback } from "@/lib/feedback-engine";
 import { BUSINESS_INFO } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-const MODEL_ID = "gemini-2.0-flash";
+const MODEL_ID = "gemini-2.5-flash-lite";
 
 export default function AiCounselor() {
   const ff = useFeatureFlags();
