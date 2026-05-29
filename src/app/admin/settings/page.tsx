@@ -70,6 +70,16 @@ function isMasked(value: string): boolean {
   return value === MASKED_VALUE;
 }
 
+/** API 키를 노출 없이 분류 (길이 + 형식만). 진단·상태 문서용. */
+type KeyFormat = "empty" | "aq" | "aiza" | "other";
+function classifyApiKey(value: string): { len: number; format: KeyFormat } {
+  const v = (value ?? "").trim();
+  if (!v) return { len: 0, format: "empty" };
+  if (v.startsWith("AQ.")) return { len: v.length, format: "aq" };
+  if (v.startsWith("AIza")) return { len: v.length, format: "aiza" };
+  return { len: v.length, format: "other" };
+}
+
 const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "theme", label: "홈 테마", icon: Palette },
   { id: "ai", label: "AI 수집", icon: Bot },
@@ -269,6 +279,14 @@ function AdminSettingsInner() {
         if (geminiApiKey.trim()) {
           await setSingletonDoc(COLLECTIONS.SETTINGS, "gemini", { apiKey: geminiApiKey.trim() });
         }
+        // 키 상태 진단 문서 (값 제외 — 길이·형식만). 비-자격증명이라 공개 읽기 안전.
+        const yt = classifyApiKey(aiConfig.youtubeApiKey);
+        const gm = classifyApiKey(geminiApiKey);
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-key-status", {
+          youtubeLen: yt.len, youtubeFormat: yt.format,
+          geminiLen: gm.len, geminiFormat: gm.format,
+          geminiSaved: gm.len > 0,
+        });
       } else if (activeTab === "hero") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "hero", { slides: heroSlides });
       } else if (activeTab === "stats") {
@@ -424,6 +442,31 @@ function AdminSettingsInner() {
                   <p className="text-xs text-purple-600 mt-1.5">저장 시 이 키가 <code>siteSettings/gemini</code>에 기록됩니다.</p>
                 )}
               </div>
+
+              {/* 키 상태 자가진단 (값 노출 없이 길이·형식만) */}
+              {(() => {
+                const yt = classifyApiKey(aiConfig.youtubeApiKey);
+                const gm = classifyApiKey(geminiApiKey);
+                const fmtLabel = (f: KeyFormat) =>
+                  f === "empty" ? "비어 있음" : f === "aq" ? "AQ. (Gemini 신형)" : f === "aiza" ? "AIza (Google)" : "기타";
+                const ytWrong = yt.format === "aq"; // Gemini 키가 YouTube 칸에 들어감
+                const gmEmpty = gm.format === "empty";
+                return (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs space-y-1">
+                    <p className="font-semibold text-gray-700">🔎 키 상태 점검</p>
+                    <p className={ytWrong ? "text-red-600 font-medium" : "text-gray-600"}>
+                      ① YouTube 칸: {fmtLabel(yt.format)}{yt.len > 0 ? ` · 길이 ${yt.len}` : ""}
+                      {ytWrong && " ⚠ Gemini 키로 보입니다 → ② 칸으로 옮기세요"}
+                    </p>
+                    <p className={gmEmpty ? "text-amber-600 font-medium" : "text-gray-600"}>
+                      ② Gemini 칸: {fmtLabel(gm.format)}{gm.len > 0 ? ` · 길이 ${gm.len}` : ""}
+                      {gmEmpty && " ✗ 비어 있음 (저장 안 됨)"}
+                    </p>
+                    <p className="text-gray-400">전체 키 값은 표시하지 않습니다(보안). 저장 시 같은 정보가 <code>siteSettings/ai-key-status</code>에 기록됩니다.</p>
+                  </div>
+                );
+              })()}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-2 block">수집 최대 건수</label>
