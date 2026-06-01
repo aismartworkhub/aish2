@@ -150,3 +150,24 @@
 - 불필요한 useEffect, console.log (디버그 외)
 - 기존 코드 무시하고 전체 재작성
 - 스코프 밖 리팩토링/기능 추가
+
+---
+
+## 작업 연속성 (세션 이어가기)
+
+새 세션을 시작하면 다음 두 파일을 **가장 먼저** 읽어 직전 작업 맥락을 파악한다.
+
+- **`.claude/session/handoff.md`** — Stop 훅이 세션 종료 시 자동 기록한 git 상태(최근 커밋·미커밋·브랜치). 수동 편집 X.
+- **`.claude/session/status.md`** — 작업자가 남긴 작업 맥락. 3개 섹션 + 갱신 시각:
+  1. ✅ 완료 요약 (직전 세션 마지막 결과)
+  2. 📋 잔여 할 일
+  3. ⏸ 사용자 확인 대기
+
+### 작업 완료 시 (필수)
+의미 있는 작업 단위(커밋·중요 결정·요구 분기) 완료 시 `.claude/session/status.md`를 **즉시 갱신**한다.
+- 매번 **덮어쓰기** (누적 X) — 직전 상태만 유지해 짧고 신선하게.
+- handoff.md는 Stop 훅이 자동 처리하므로 손대지 않는다.
+
+### 인프라
+- Stop 훅: [.claude/settings.json](.claude/settings.json) → [scripts/session-handoff.sh](scripts/session-handoff.sh) 실행.
+- `.claude/`는 `.gitignore`라 로컬 전용. 머신 간 동기화는 별도 처리.
