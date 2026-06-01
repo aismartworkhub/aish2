@@ -81,6 +81,7 @@ const NAV_GROUPS: NavGroup[] = [
      {
        label: "사이트 설정", href: "/admin/settings", icon: "Settings",
       children: [
+        { label: "AI 수집", href: "/admin/settings?tab=ai" },
         { label: "섹션 표시", href: "/admin/settings?tab=sections" },
         { label: "히어로 섹션", href: "/admin/settings?tab=hero" },
         { label: "실적 수치", href: "/admin/settings?tab=stats" },
