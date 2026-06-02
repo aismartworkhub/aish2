@@ -12,6 +12,7 @@ export type AdminSettingsHintTab =
   | "integrations"
   | "theme"
   | "ai"
+  | "knowledge"
   | "phases"
   | "sections"
   | "business";
@@ -76,6 +77,15 @@ const COPY: Record<
     ],
     publicPath: "/media",
     publicLabel: "콘텐츠실 열기",
+  },
+  knowledge: {
+    title: "AI 지식이란?",
+    lines: [
+      "여기 입력한 배경지식 + 사이트 콘텐츠(프로그램·강사·공지)가 공개 AI 상담창의 답변 근거로 쓰입니다.",
+      "외부에 노출 가능한 내용만 입력하세요(공개 읽기). 저장 즉시 상담창에 반영됩니다.",
+    ],
+    publicPath: "/",
+    publicLabel: "상담창 확인(공개 홈)",
   },
   phases: {
     title: "기능 플래그 (Phase) — 점진 공개 가이드",

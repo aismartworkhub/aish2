@@ -6,7 +6,7 @@ import {
   ImageIcon, Hash, MousePointerClick, Megaphone,
   Save, Plus, Trash2, GripVertical,
   Key, Mail, Cloud, Calendar, Database, Shield, Loader2,
-  Palette, Check, Bot, RefreshCw, ToggleLeft, Building2,
+  Palette, Check, Bot, RefreshCw, ToggleLeft, Building2, BrainCircuit,
 } from "lucide-react";
 import { BUSINESS_INFO } from "@/lib/constants";
 import { invalidateBusinessInfoCache, type BusinessInfoConfig } from "@/lib/site-settings-public";
@@ -27,6 +27,7 @@ import {
   DEFAULT_SECTION_TOGGLES,
   invalidateSectionTogglesCache,
 } from "@/lib/site-settings-public";
+import { KNOWLEDGE_MAX_CHARS, type AiKnowledge } from "@/lib/ai-counselor-context";
 import { collectAll } from "@/lib/ai-content-collector";
 import type { CollectResult } from "@/lib/ai-content-collector";
 import { curateItems } from "@/lib/ai-content-curator";
@@ -34,9 +35,9 @@ import type { CuratedItem } from "@/lib/ai-content-curator";
 import { getExistingUrls, filterDuplicates, cleanupDuplicates } from "@/lib/ai-content-dedup";
 import { createContentIfNew } from "@/lib/content-engine";
 
-type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai" | "sections" | "phases" | "business";
+type SettingsTab = "hero" | "stats" | "cta" | "banner" | "integrations" | "theme" | "ai" | "knowledge" | "sections" | "phases" | "business";
 
-const VALID_SETTINGS_TABS: SettingsTab[] = ["hero", "stats", "cta", "banner", "integrations", "theme", "ai", "sections", "phases", "business"];
+const VALID_SETTINGS_TABS: SettingsTab[] = ["hero", "stats", "cta", "banner", "integrations", "theme", "ai", "knowledge", "sections", "phases", "business"];
 
 /** 구 쿼리스트링(features) 하위 호환: /admin/settings?tab=features → phases 로 자동 이관 */
 function normalizeTabParam(raw: string | null): SettingsTab | null {
@@ -83,6 +84,7 @@ function classifyApiKey(value: string): { len: number; format: KeyFormat } {
 const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
   { id: "theme", label: "홈 테마", icon: Palette },
   { id: "ai", label: "AI 수집", icon: Bot },
+  { id: "knowledge", label: "AI 지식", icon: BrainCircuit },
   { id: "sections", label: "섹션 표시", icon: ToggleLeft },
   { id: "hero", label: "히어로 섹션", icon: ImageIcon },
   { id: "stats", label: "실적 수치", icon: Hash },
@@ -174,6 +176,9 @@ function AdminSettingsInner() {
   // 사업자 정보 — 전자상거래법·개인정보보호법 필수 고지. Footer 동적 로드와 페어.
   const [businessInfo, setBusinessInfo] = useState<BusinessInfoConfig>(BUSINESS_INFO);
 
+  // AI 지식 — 상담사 컨텍스트 보강 (siteSettings/ai-knowledge). manual=관리자 직접 입력, drive/youtube=Phase 2 가져오기.
+  const [knowledge, setKnowledge] = useState<AiKnowledge>({ manual: "", drive: "", youtube: "" });
+
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
   const [emailConfig, setEmailConfig] = useState<EmailConfig>({ adminEmail: "", smtpServer: "", senderName: "" });
@@ -192,6 +197,9 @@ function AdminSettingsInner() {
         // Gemini 키 — 별도 컬렉션 문서 (siteSettings/gemini)
         const geminiDoc = await getSingletonDoc<{ apiKey?: string }>(COLLECTIONS.SETTINGS, "gemini");
         setGeminiApiKey(geminiDoc?.apiKey ?? "");
+      } else if (tab === "knowledge") {
+        const kn = await getSingletonDoc<Partial<AiKnowledge>>(COLLECTIONS.SETTINGS, "ai-knowledge");
+        setKnowledge({ manual: kn?.manual ?? "", drive: kn?.drive ?? "", youtube: kn?.youtube ?? "" });
       } else if (tab === "business") {
         const bizDoc = await getSingletonDoc<Partial<BusinessInfoConfig>>(COLLECTIONS.SETTINGS, "business");
         setBusinessInfo({ ...BUSINESS_INFO, ...(bizDoc ?? {}) });
@@ -287,6 +295,8 @@ function AdminSettingsInner() {
           geminiLen: gm.len, geminiFormat: gm.format,
           geminiSaved: gm.len > 0,
         });
+      } else if (activeTab === "knowledge") {
+        await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-knowledge", knowledge);
       } else if (activeTab === "hero") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "hero", { slides: heroSlides });
       } else if (activeTab === "stats") {
@@ -1217,6 +1227,62 @@ function AdminSettingsInner() {
               </div>
             ))}
           </div>
+          <div className="flex items-center gap-3 mt-6">
+            <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50">
+              <Save size={16} />{saving ? "저장중..." : "저장하기"}
+            </button>
+            {saveMessage && <span className="text-sm text-green-600 font-medium">{saveMessage}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* AI 지식 — 공개 상담창(AiCounselor)이 답변 근거로 사용하는 배경지식 */}
+      {activeTab === "knowledge" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-2">AI 상담사 지식</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            공개 페이지 AI 상담창이 답변할 때 근거로 쓰는 배경지식입니다. 과정·정책·자주 묻는 내용·말투 지침 등을
+            자유롭게 입력하세요. 사이트 콘텐츠(프로그램·강사·공지·사업자 정보)는 <strong>자동으로 함께 주입</strong>되므로 중복 입력은 불필요합니다.
+          </p>
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-800 mb-4">
+            ⚠ 이 내용은 공개 상담창이 읽으므로 <strong>외부에 노출 가능한 내용만</strong> 입력하세요. 비밀번호·개인정보·API 키 등 기밀은 넣지 마세요.
+          </div>
+          <label className="text-sm font-bold text-gray-700 mb-1 block">배경지식 (직접 입력)</label>
+          <textarea
+            value={knowledge.manual}
+            onChange={(e) => setKnowledge({ ...knowledge, manual: e.target.value })}
+            rows={16}
+            placeholder={"예) AISH는 직장인 대상 AI·스마트워크 실전 교육 기관입니다.\n- 환불 정책: 개강 7일 전까지 100% 환불, 이후 수강률에 따라 차등\n- 주요 과정: AI실전마스터(8주), 스마트워크톤 등\n- 문의는 상단 '문의하기' 또는 커뮤니티 게시판으로 안내"}
+            className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary-500/20 font-mono"
+          />
+          <div className="mt-1.5 flex items-center justify-between text-xs">
+            <span className={cn(knowledge.manual.length > KNOWLEDGE_MAX_CHARS ? "text-red-600 font-medium" : "text-gray-400")}>
+              {knowledge.manual.length.toLocaleString()} / {KNOWLEDGE_MAX_CHARS.toLocaleString()}자
+              {knowledge.manual.length > KNOWLEDGE_MAX_CHARS && " — 초과분은 상담창 주입 시 잘립니다"}
+            </span>
+            <span className="text-gray-400">저장 위치: <code>siteSettings/ai-knowledge</code></span>
+          </div>
+
+          {(knowledge.drive?.trim() || knowledge.youtube?.trim()) ? (
+            <div className="mt-5 space-y-2">
+              <p className="text-sm font-semibold text-gray-700">가져온 외부 지식 (읽기 전용)</p>
+              {knowledge.drive?.trim() && (
+                <details className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs">
+                  <summary className="cursor-pointer font-medium text-gray-600">📁 구글 드라이브 ({knowledge.drive.length.toLocaleString()}자)</summary>
+                  <pre className="mt-2 whitespace-pre-wrap text-gray-500">{knowledge.drive.slice(0, 1000)}{knowledge.drive.length > 1000 ? "…" : ""}</pre>
+                </details>
+              )}
+              {knowledge.youtube?.trim() && (
+                <details className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs">
+                  <summary className="cursor-pointer font-medium text-gray-600">▶ 유튜브 ({knowledge.youtube.length.toLocaleString()}자)</summary>
+                  <pre className="mt-2 whitespace-pre-wrap text-gray-500">{knowledge.youtube.slice(0, 1000)}{knowledge.youtube.length > 1000 ? "…" : ""}</pre>
+                </details>
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-xs text-gray-400">드라이브·유튜브 자동 가져오기는 다음 단계(Phase 2)에서 이 화면에 추가됩니다.</p>
+          )}
+
           <div className="flex items-center gap-3 mt-6">
             <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50">
               <Save size={16} />{saving ? "저장중..." : "저장하기"}
