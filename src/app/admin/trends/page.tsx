@@ -457,11 +457,27 @@ function BigQueryTab() {
 
   return (
     <div className="space-y-6">
+      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-900">
+        <div className="flex items-start gap-2">
+          <Info size={16} className="mt-0.5 shrink-0" />
+          <div className="space-y-1">
+            <p className="font-medium">권장: 자동 수집 (팝업 불필요)</p>
+            <p className="text-emerald-800/90">
+              Google Apps Script가 매일 BigQuery를 조회해 아래 <strong>캐시 목록</strong>을 자동으로 채웁니다.
+              설정해 두면 이 페이지는 별도 조회·로그인 팝업 없이 최신 트렌드를 보여줍니다.
+              설치 방법은 저장소의 <code className="bg-white/60 px-1 rounded text-[11px]">scripts/gas/README.md</code> 참고.
+            </p>
+            <p className="text-xs text-emerald-700/90 pt-0.5">
+              아래 &ldquo;조회&rdquo;는 즉석 수동 조회용입니다(브라우저 팝업 허용 필요). 자동 수집을 쓰면 사용하지 않아도 됩니다.
+            </p>
+          </div>
+        </div>
+      </div>
       <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 text-sm text-amber-900">
         <div className="flex items-start gap-2">
           <Info size={16} className="mt-0.5 shrink-0" />
           <div className="space-y-1">
-            <p className="font-medium">사전 작업 필요 (한 번만)</p>
+            <p className="font-medium">수동 조회 사전 작업 (선택)</p>
             <ol className="list-decimal list-inside text-amber-800/90 space-y-0.5">
               <li>
                 <a
