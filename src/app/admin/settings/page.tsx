@@ -6,7 +6,7 @@ import {
   ImageIcon, Hash, MousePointerClick, Megaphone,
   Save, Plus, Trash2, GripVertical,
   Key, Mail, Cloud, Calendar, Database, Shield, Loader2,
-  Palette, Check, Bot, RefreshCw, ToggleLeft, Building2, BrainCircuit,
+  Palette, Check, Bot, RefreshCw, ToggleLeft, Building2, BrainCircuit, FolderOpen, Youtube,
 } from "lucide-react";
 import { BUSINESS_INFO } from "@/lib/constants";
 import { invalidateBusinessInfoCache, type BusinessInfoConfig } from "@/lib/site-settings-public";
@@ -28,6 +28,7 @@ import {
   invalidateSectionTogglesCache,
 } from "@/lib/site-settings-public";
 import { KNOWLEDGE_MAX_CHARS, type AiKnowledge } from "@/lib/ai-counselor-context";
+import { importDriveFolderText, importYoutubeChannelText } from "@/lib/ai-knowledge-import";
 import { collectAll } from "@/lib/ai-content-collector";
 import type { CollectResult } from "@/lib/ai-content-collector";
 import { curateItems } from "@/lib/ai-content-curator";
@@ -176,8 +177,9 @@ function AdminSettingsInner() {
   // 사업자 정보 — 전자상거래법·개인정보보호법 필수 고지. Footer 동적 로드와 페어.
   const [businessInfo, setBusinessInfo] = useState<BusinessInfoConfig>(BUSINESS_INFO);
 
-  // AI 지식 — 상담사 컨텍스트 보강 (siteSettings/ai-knowledge). manual=관리자 직접 입력, drive/youtube=Phase 2 가져오기.
-  const [knowledge, setKnowledge] = useState<AiKnowledge>({ manual: "", drive: "", youtube: "" });
+  // AI 지식 — 상담사 컨텍스트 보강 (siteSettings/ai-knowledge). manual=관리자 직접 입력, drive/youtube=가져오기.
+  const [knowledge, setKnowledge] = useState<AiKnowledge>({ manual: "", drive: "", youtube: "", driveFolderId: "", youtubeChannelId: "" });
+  const [knowledgeImporting, setKnowledgeImporting] = useState<"" | "drive" | "youtube">("");
 
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
@@ -199,7 +201,10 @@ function AdminSettingsInner() {
         setGeminiApiKey(geminiDoc?.apiKey ?? "");
       } else if (tab === "knowledge") {
         const kn = await getSingletonDoc<Partial<AiKnowledge>>(COLLECTIONS.SETTINGS, "ai-knowledge");
-        setKnowledge({ manual: kn?.manual ?? "", drive: kn?.drive ?? "", youtube: kn?.youtube ?? "" });
+        setKnowledge({
+          manual: kn?.manual ?? "", drive: kn?.drive ?? "", youtube: kn?.youtube ?? "",
+          driveFolderId: kn?.driveFolderId ?? "", youtubeChannelId: kn?.youtubeChannelId ?? "",
+        });
       } else if (tab === "business") {
         const bizDoc = await getSingletonDoc<Partial<BusinessInfoConfig>>(COLLECTIONS.SETTINGS, "business");
         setBusinessInfo({ ...BUSINESS_INFO, ...(bizDoc ?? {}) });
@@ -331,6 +336,26 @@ function AdminSettingsInner() {
       toast("저장에 실패했습니다.", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // AI 지식 — 드라이브/유튜브에서 텍스트 가져와 미리 채움 (저장은 별도 '저장하기')
+  const runKnowledgeImport = async (kind: "drive" | "youtube") => {
+    setKnowledgeImporting(kind);
+    try {
+      if (kind === "drive") {
+        const { text, fileCount } = await importDriveFolderText(knowledge.driveFolderId ?? "");
+        setKnowledge((prev) => ({ ...prev, drive: text }));
+        toast(`드라이브 문서 ${fileCount}개를 가져왔습니다. '저장하기'를 눌러 반영하세요.`, "success");
+      } else {
+        const { text, videoCount } = await importYoutubeChannelText(knowledge.youtubeChannelId ?? "");
+        setKnowledge((prev) => ({ ...prev, youtube: text }));
+        toast(`유튜브 영상 ${videoCount}개를 가져왔습니다. '저장하기'를 눌러 반영하세요.`, "success");
+      }
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "가져오기에 실패했습니다.", "error");
+    } finally {
+      setKnowledgeImporting("");
     }
   };
 
@@ -1263,25 +1288,72 @@ function AdminSettingsInner() {
             <span className="text-gray-400">저장 위치: <code>siteSettings/ai-knowledge</code></span>
           </div>
 
-          {(knowledge.drive?.trim() || knowledge.youtube?.trim()) ? (
-            <div className="mt-5 space-y-2">
-              <p className="text-sm font-semibold text-gray-700">가져온 외부 지식 (읽기 전용)</p>
+          {/* 외부 소스 가져오기 — 텍스트로 흡수 후 '저장하기'로 반영 */}
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 구글 드라이브 */}
+            <div className="rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <FolderOpen size={16} className="text-primary-600" />
+                <span className="text-sm font-bold text-gray-800">구글 드라이브 가져오기</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-2.5">
+                <strong>전체 공개(링크 있는 모두 보기)</strong> 폴더의 구글문서·텍스트를 흡수합니다. 기밀 문서는 넣지 마세요.
+                API 키는 <strong>외부 연동</strong> 탭의 Google API 키를 사용합니다.
+              </p>
+              <input
+                type="text"
+                value={knowledge.driveFolderId ?? ""}
+                onChange={(e) => setKnowledge({ ...knowledge, driveFolderId: e.target.value })}
+                placeholder="드라이브 폴더 ID (예: 1aBcD...)"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              />
+              <button
+                onClick={() => runKnowledgeImport("drive")}
+                disabled={knowledgeImporting !== "" || !knowledge.driveFolderId?.trim()}
+                className="mt-2 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-primary-200 bg-primary-50 text-primary-700 text-sm font-semibold hover:bg-primary-100 transition-colors disabled:opacity-50"
+              >
+                {knowledgeImporting === "drive" ? <Loader2 size={15} className="animate-spin" /> : <FolderOpen size={15} />}
+                {knowledgeImporting === "drive" ? "가져오는 중..." : "드라이브에서 가져오기"}
+              </button>
               {knowledge.drive?.trim() && (
-                <details className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs">
-                  <summary className="cursor-pointer font-medium text-gray-600">📁 구글 드라이브 ({knowledge.drive.length.toLocaleString()}자)</summary>
-                  <pre className="mt-2 whitespace-pre-wrap text-gray-500">{knowledge.drive.slice(0, 1000)}{knowledge.drive.length > 1000 ? "…" : ""}</pre>
-                </details>
-              )}
-              {knowledge.youtube?.trim() && (
-                <details className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs">
-                  <summary className="cursor-pointer font-medium text-gray-600">▶ 유튜브 ({knowledge.youtube.length.toLocaleString()}자)</summary>
-                  <pre className="mt-2 whitespace-pre-wrap text-gray-500">{knowledge.youtube.slice(0, 1000)}{knowledge.youtube.length > 1000 ? "…" : ""}</pre>
+                <details className="mt-2.5 rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-xs">
+                  <summary className="cursor-pointer font-medium text-gray-600">가져온 내용 ({knowledge.drive.length.toLocaleString()}자)</summary>
+                  <pre className="mt-2 whitespace-pre-wrap text-gray-500">{knowledge.drive.slice(0, 800)}{knowledge.drive.length > 800 ? "…" : ""}</pre>
                 </details>
               )}
             </div>
-          ) : (
-            <p className="mt-4 text-xs text-gray-400">드라이브·유튜브 자동 가져오기는 다음 단계(Phase 2)에서 이 화면에 추가됩니다.</p>
-          )}
+            {/* 유튜브 */}
+            <div className="rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Youtube size={16} className="text-red-600" />
+                <span className="text-sm font-bold text-gray-800">유튜브 채널 가져오기</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-2.5">
+                채널 최신 영상(최대 25개)의 제목·설명을 흡수합니다. API 키는 <strong>AI 수집</strong> 탭의 YouTube 키를 사용합니다.
+              </p>
+              <input
+                type="text"
+                value={knowledge.youtubeChannelId ?? ""}
+                onChange={(e) => setKnowledge({ ...knowledge, youtubeChannelId: e.target.value })}
+                placeholder="채널 ID(UC…) 또는 @핸들"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              />
+              <button
+                onClick={() => runKnowledgeImport("youtube")}
+                disabled={knowledgeImporting !== "" || !knowledge.youtubeChannelId?.trim()}
+                className="mt-2 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm font-semibold hover:bg-red-100 transition-colors disabled:opacity-50"
+              >
+                {knowledgeImporting === "youtube" ? <Loader2 size={15} className="animate-spin" /> : <Youtube size={15} />}
+                {knowledgeImporting === "youtube" ? "가져오는 중..." : "유튜브에서 가져오기"}
+              </button>
+              {knowledge.youtube?.trim() && (
+                <details className="mt-2.5 rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-xs">
+                  <summary className="cursor-pointer font-medium text-gray-600">가져온 내용 ({knowledge.youtube.length.toLocaleString()}자)</summary>
+                  <pre className="mt-2 whitespace-pre-wrap text-gray-500">{knowledge.youtube.slice(0, 800)}{knowledge.youtube.length > 800 ? "…" : ""}</pre>
+                </details>
+              )}
+            </div>
+          </div>
 
           <div className="flex items-center gap-3 mt-6">
             <button onClick={showSave} disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50">

@@ -8,10 +8,14 @@ import type { BusinessInfoConfig } from "@/lib/site-settings-public";
 export interface AiKnowledge {
   /** 관리자 직접 입력 */
   manual: string;
-  /** Phase 2: 구글 드라이브 공개 폴더에서 가져온 텍스트 */
+  /** 구글 드라이브 공개 폴더에서 가져온 텍스트 */
   drive: string;
-  /** Phase 2: 유튜브 채널에서 가져온 영상 제목·설명 */
+  /** 유튜브 채널에서 가져온 영상 제목·설명 */
   youtube: string;
+  /** 가져오기 소스: 드라이브 공개 폴더 ID (재가져오기용 기억) */
+  driveFolderId?: string;
+  /** 가져오기 소스: 유튜브 채널 ID(UC...) 또는 @핸들 */
+  youtubeChannelId?: string;
 }
 
 /** "직접 입력" 배경지식 권장 상한 (관리자 UI 글자수 경고 기준). */
