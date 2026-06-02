@@ -200,3 +200,13 @@ export function clearGoogleTokenCache(scope?: string): void {
 export function hasGoogleOAuthClientId(): boolean {
   return !!CLIENT_ID;
 }
+
+/**
+ * GIS 스크립트를 미리 로드한다. (페이지 마운트 시 호출 권장)
+ * 클릭 핸들러에서 `await loadGisScript()`가 네트워크 로드를 기다리면
+ * 사용자 제스처(user activation)가 소실되어 팝업이 차단되므로,
+ * 미리 로드해 두면 실제 요청 시 즉시 팝업이 열린다.
+ */
+export function preloadGoogleIdentityServices(): void {
+  void loadGisScript().catch(() => { /* 무시: 실제 요청 시 재시도 */ });
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, Database, Trash2, RefreshCw, Save, ExternalLink, Loader2, Info } from "lucide-react";
 import { COLLECTIONS, createDoc, removeDoc, upsertDoc } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
@@ -21,6 +21,7 @@ import {
   BIGQUERY_SUPPORTED_COUNTRIES,
   type BigQueryTopTerm,
 } from "@/lib/bigQueryTrends";
+import { preloadGoogleIdentityServices } from "@/lib/google-oauth-token";
 import TrendsLineChart from "@/components/admin/TrendsLineChart";
 
 type TabKey = "csv" | "bigquery";
@@ -380,6 +381,11 @@ function BigQueryTab() {
   const [refreshDate, setRefreshDate] = useState("");
   const [running, setRunning] = useState(false);
   const [savingCache, setSavingCache] = useState(false);
+
+  // GIS 스크립트 사전 로드 — 조회 클릭 시 await 없이 팝업이 사용자 제스처 안에서 열리도록(팝업 차단 방지)
+  useEffect(() => {
+    preloadGoogleIdentityServices();
+  }, []);
 
   const countryLabel = useMemo(() => {
     const found = BIGQUERY_SUPPORTED_COUNTRIES.find((c) => c.code === country);
