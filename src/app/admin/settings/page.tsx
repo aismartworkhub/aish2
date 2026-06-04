@@ -307,6 +307,11 @@ function AdminSettingsInner() {
         });
       } else if (activeTab === "knowledge") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "ai-knowledge", knowledge);
+        // 저장 후 검색 색인 자동 갱신 (백그라운드, 실패해도 저장은 성공)
+        getGeminiApiKey()
+          .then((k) => (k ? buildRagIndex(k) : null))
+          .then((r) => { if (r) setRagInfo({ count: r.count }); })
+          .catch(() => {});
       } else if (activeTab === "hero") {
         await setSingletonDoc(COLLECTIONS.SETTINGS, "hero", { slides: heroSlides });
       } else if (activeTab === "stats") {
