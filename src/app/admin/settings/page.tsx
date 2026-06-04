@@ -180,7 +180,7 @@ function AdminSettingsInner() {
   const [businessInfo, setBusinessInfo] = useState<BusinessInfoConfig>(BUSINESS_INFO);
 
   // AI 지식 — 상담사 컨텍스트 보강 (siteSettings/ai-knowledge). manual=관리자 직접 입력, drive/youtube=가져오기.
-  const [knowledge, setKnowledge] = useState<AiKnowledge>({ manual: "", drive: "", youtube: "", driveFolderId: "", youtubeChannelId: "" });
+  const [knowledge, setKnowledge] = useState<AiKnowledge>({ manual: "", drive: "", youtube: "", driveFolderId: "", youtubeChannelId: "", persona: "" });
   const [knowledgeImporting, setKnowledgeImporting] = useState<"" | "drive" | "youtube">("");
   const [ragInfo, setRagInfo] = useState<{ count: number } | null>(null);
   const [ragBuilding, setRagBuilding] = useState(false);
@@ -208,6 +208,7 @@ function AdminSettingsInner() {
         setKnowledge({
           manual: kn?.manual ?? "", drive: kn?.drive ?? "", youtube: kn?.youtube ?? "",
           driveFolderId: kn?.driveFolderId ?? "", youtubeChannelId: kn?.youtubeChannelId ?? "",
+          persona: kn?.persona ?? "",
         });
         getRagIndexInfo().then(setRagInfo).catch(() => {});
       } else if (tab === "business") {
@@ -1315,6 +1316,21 @@ function AdminSettingsInner() {
               {knowledge.manual.length > KNOWLEDGE_MAX_CHARS && " — 초과분은 상담창 주입 시 잘립니다"}
             </span>
             <span className="text-gray-400">저장 위치: <code>siteSettings/ai-knowledge</code></span>
+          </div>
+
+          {/* 상담 말투·양식 지침 — 답변 톤/형식을 학습시키는 설정 */}
+          <div className="mt-5">
+            <label className="text-sm font-bold text-gray-700 mb-1 block">상담 말투·양식 지침</label>
+            <p className="text-xs text-gray-500 mb-1.5">
+              상담 AI가 <strong>어떤 말투·형식</strong>으로 답할지 지정합니다. 예) “존댓말로 따뜻하게, 3문장 이내로 핵심만. 마지막에 관련 과정 링크를 1개 제안.”
+            </p>
+            <textarea
+              value={knowledge.persona ?? ""}
+              onChange={(e) => setKnowledge({ ...knowledge, persona: e.target.value })}
+              rows={4}
+              placeholder={"예) 친근한 존댓말, 이모지 없이 간결하게.\n- 먼저 한 문장으로 결론 → 이어서 이유\n- 모르면 솔직히 모른다고 하고 '담당자 연락' 안내\n- 답변 끝에 다음 행동(신청/문의)을 한 가지 제안"}
+              className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+            />
           </div>
 
           {/* 외부 소스 가져오기 — 텍스트로 흡수 후 '저장하기'로 반영 */}

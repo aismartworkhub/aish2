@@ -18,6 +18,8 @@ export interface AiKnowledge {
   driveFolderId?: string;
   /** 가져오기 소스: 유튜브 채널 ID(UC...) 또는 @핸들 */
   youtubeChannelId?: string;
+  /** 상담 AI 답변 말투·형식 지침 (시스템 프롬프트에 강하게 주입) */
+  persona?: string;
 }
 
 /** "직접 입력" 배경지식 권장 상한 (관리자 UI 글자수 경고 기준). */
@@ -50,6 +52,16 @@ async function buildKnowledgeBlock(): Promise<string> {
     ].filter(Boolean);
     if (parts.length === 0) return "";
     return cap(parts.join("\n\n"), KNOWLEDGE_MAX_CHARS);
+  } catch {
+    return "";
+  }
+}
+
+/** 관리자가 지정한 답변 말투·형식 지침. */
+async function buildPersonaBlock(): Promise<string> {
+  try {
+    const kn = await getSingletonDoc<Partial<AiKnowledge>>(COLLECTIONS.SETTINGS, "ai-knowledge");
+    return kn?.persona?.trim() ?? "";
   } catch {
     return "";
   }
@@ -186,8 +198,9 @@ export async function buildCounselorContext(): Promise<string> {
     .join("\n");
   const navBlock = NAV_ITEMS.map((i) => `- ${i.label}: ${i.href}`).join("\n");
 
-  const [knowledgeBlock, programsBlock, instructorsBlock, noticesBlock, businessBlock, faqBlock] =
+  const [personaBlock, knowledgeBlock, programsBlock, instructorsBlock, noticesBlock, businessBlock, faqBlock] =
     await Promise.all([
+      buildPersonaBlock(),
       buildKnowledgeBlock(),
       buildProgramsBlock(),
       buildInstructorsBlock(),
@@ -203,6 +216,7 @@ export async function buildCounselorContext(): Promise<string> {
     "- AI·스마트워크 등 일반 지식 질문에는 일반적인 지식으로 친절히 도움을 주되, AISH 고유의 사실(없는 과정·가격 등)을 지어내지 마세요.",
     "- 한국어로 간결하고 친절하게 답합니다.",
     "- 마크다운 강조 기호(**, ##, ` 등)는 쓰지 말고 일반 텍스트로 답하세요(화면에 그대로 노출됩니다).",
+    personaBlock ? `\n## 답변 말투·형식 지침 (반드시 따르세요)\n${personaBlock}` : "",
     "",
     "## 사이트 메뉴",
     navBlock,
