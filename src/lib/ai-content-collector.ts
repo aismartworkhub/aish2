@@ -6,7 +6,7 @@
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-export type ContentSource = "youtube" | "github" | "reddit" | "xcom" | "instagram";
+export type ContentSource = "youtube" | "github" | "reddit" | "xcom" | "instagram" | "hackernews";
 
 export interface RawCollectedItem {
   source: ContentSource;
@@ -191,6 +191,45 @@ export async function fetchXcomAI(maxResults = 5): Promise<RawCollectedItem[]> {
   return [];
 }
 
+// ── Hacker News via Algolia API (무료·무키, CORS·데이터센터 IP 허용) ──
+// reddit이 클라우드 IP를 차단하는 환경(GitHub Actions)에서 커뮤니티 소스로 사용.
+
+const HN_QUERIES = ["AI", "LLM", "machine learning"];
+const HN_MIN_POINTS = 20;
+
+export async function fetchHackerNewsAI(maxResults = 5): Promise<RawCollectedItem[]> {
+  const cutoffSec = Math.floor((Date.now() - SEVEN_DAYS_MS) / 1000);
+  const all: RawCollectedItem[] = [];
+  const seen = new Set<string>();
+
+  for (const query of HN_QUERIES) {
+    if (all.length >= maxResults) break;
+    try {
+      const res = await fetch(
+        `https://hn.algolia.com/api/v1/search?tags=story&query=${encodeURIComponent(query)}` +
+          `&numericFilters=created_at_i>${cutoffSec},points>${HN_MIN_POINTS}&hitsPerPage=${maxResults}`,
+        { signal: withTimeout(8_000) },
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const hit of data.hits ?? []) {
+        if (!hit?.title || seen.has(hit.objectID)) continue;
+        seen.add(hit.objectID);
+        all.push({
+          source: "hackernews",
+          title: hit.title,
+          url: hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`,
+          description: (hit.story_text || "").slice(0, 500),
+          publishedAt: new Date((hit.created_at_i ?? cutoffSec) * 1000).toISOString(),
+        });
+      }
+    } catch {
+      /* HN API 실패 시 무시 */
+    }
+  }
+  return all.slice(0, maxResults);
+}
+
 function parseRssItems(
   xml: string,
   cutoff: number,
@@ -290,6 +329,7 @@ export async function collectAll(
     reddit: { count: 0 },
     xcom: { count: 0 },
     instagram: { count: 0 },
+    hackernews: { count: 0 },
   };
 
   const fetchers: [ContentSource, Promise<RawCollectedItem[]>][] = [
@@ -298,6 +338,7 @@ export async function collectAll(
     ["reddit", fetchRedditAI(max, options.redditSubreddits)],
     ["xcom", fetchXcomAI(max)],
     ["instagram", fetchInstagramAI(max)],
+    ["hackernews", fetchHackerNewsAI(max)],
   ];
 
   const results = await Promise.allSettled(fetchers.map(([, p]) => p));
@@ -348,6 +389,7 @@ export async function collectByCategory(
     reddit: { count: 0 },
     xcom: { count: 0 },
     instagram: { count: 0 },
+    hackernews: { count: 0 },
   };
 
   const fetchers: [ContentSource, () => Promise<RawCollectedItem[]>][] = [
@@ -356,6 +398,7 @@ export async function collectByCategory(
     ["reddit", () => fetchRedditAI(max, options.redditSubreddits)],
     ["xcom", () => fetchXcomAI(max)],
     ["instagram", () => fetchInstagramAI(max)],
+    ["hackernews", () => fetchHackerNewsAI(max)],
   ];
 
   const activeFetchers = fetchers.filter(([source]) => enabledSources.has(source));

@@ -30,7 +30,7 @@ export const CATEGORY_DESCRIPTIONS: Record<AiCategory, string> = {
 /** 카테고리 → 활성 소스 (수집 시 해당 fetcher만 실행) */
 export const CATEGORY_SOURCES: Record<AiCategory, ContentSource[]> = {
   video: ["youtube"],
-  article: ["reddit", "xcom"],
+  article: ["hackernews", "reddit", "xcom"],
   resource: ["github"],
 };
 
@@ -43,8 +43,8 @@ export const CATEGORY_BOARD_HINTS: Record<AiCategory, BoardCurationHint[]> = {
     { boardKey: "media-workathon", label: "워크톤 현장", maxItems: 3, sources: ["youtube"] },
   ],
   article: [
-    { boardKey: "community-notice", label: "공지·뉴스룸", maxItems: 5, sources: ["reddit", "xcom"] },
-    { boardKey: "community-free", label: "자유", maxItems: 5, sources: ["reddit", "xcom"] },
+    { boardKey: "community-notice", label: "공지·뉴스룸", maxItems: 5, sources: ["hackernews", "reddit", "xcom"] },
+    { boardKey: "community-free", label: "자유", maxItems: 5, sources: ["hackernews", "reddit", "xcom"] },
   ],
   resource: [
     { boardKey: "media-resource", label: "추천자료", maxItems: 5, sources: ["github"] },

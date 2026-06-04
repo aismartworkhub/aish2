@@ -77,8 +77,8 @@ const DEFAULT_BOARD_CONFIGS: BoardCollectionConfig[] = [
   { boardKey: "media-lecture", label: "강의 영상", enabled: true, maxItems: 5, minQualityScore: 7, sources: ["youtube"], requireReview: false },
   { boardKey: "media-resource", label: "자료실", enabled: true, maxItems: 5, minQualityScore: 7, sources: ["github", "reddit"], requireReview: false },
   // 커뮤니티 'AI 멤버' — AI 큐레이터가 reddit/X 흐름에서 선별한 글을 커뮤니티에도 게시(AI 작성자로 표시)
-  { boardKey: "community-notice", label: "AI 뉴스", enabled: true, maxItems: 2, minQualityScore: 7, sources: ["reddit", "xcom"], requireReview: false },
-  { boardKey: "community-free", label: "AI 커뮤니티 글", enabled: true, maxItems: 3, minQualityScore: 7, sources: ["reddit", "xcom"], requireReview: false },
+  { boardKey: "community-notice", label: "AI 뉴스", enabled: true, maxItems: 2, minQualityScore: 7, sources: ["hackernews", "reddit", "xcom"], requireReview: false },
+  { boardKey: "community-free", label: "AI 커뮤니티 글", enabled: true, maxItems: 3, minQualityScore: 7, sources: ["hackernews", "reddit", "xcom"], requireReview: false },
 ];
 
 const DEFAULT_CATEGORY_SETTINGS: Record<AiCategory, CategorySettings> = {
