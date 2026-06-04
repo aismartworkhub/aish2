@@ -46,6 +46,8 @@ const NAV_GROUPS: NavGroup[] = [
    title: "",
    items: [
      { label: "대시보드", href: "/admin", icon: "LayoutDashboard" },
+     { label: "AI 도우미", href: "/admin/ai-assistant", icon: "Sparkles" },
+     { label: "도움말", href: "/admin/help", icon: "HelpCircle" },
    ],
  },
  {
