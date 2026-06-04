@@ -176,8 +176,8 @@ export function useHomeData() {
           const [runmoaRes, eventsData, lectureContents, resourceContents, freeContents, qnaContents, noticeContents, reviewContents] = await Promise.all([
             getRunmoaContents({ status: "publish", limit: 8 }),
             getCollection<AdminEvent & { id: string }>(COLLECTIONS.ADMIN_EVENTS),
-            getContents("media-lecture", { maxItems: 4 }),
-            getContents("media-resource", { maxItems: 5 }),
+            getContents("media-lecture", { maxItems: 15 }),
+            getContents("media-resource", { maxItems: 15 }),
             getContents("community-free", { maxItems: 5 }).catch(() => [] as Content[]),
             getContents("community-qna", { maxItems: 5 }).catch(() => [] as Content[]),
             getContents("community-notice", { maxItems: 4 }).catch(() => [] as Content[]),
@@ -186,8 +186,14 @@ export function useHomeData() {
           if (runmoaRes.data.length > 0) setRunmoaPrograms(runmoaRes.data);
           if (eventsData.length > 0) setAdminEvents(eventsData.filter((e) => e.status !== "COMPLETED" && e.status !== "CANCELLED"));
           const merged = [...lectureContents, ...resourceContents]
-            .filter((c) => c.isApproved !== false)
+            .filter((c) => c.isApproved !== false && !c.homeHidden)
             .sort((a, b) => {
+              // 관리자 지정 순서(homeOrder) 우선 → 없으면 최신 날짜순
+              const oa = typeof a.homeOrder === "number" ? a.homeOrder : null;
+              const ob = typeof b.homeOrder === "number" ? b.homeOrder : null;
+              if (oa !== null && ob !== null) return oa - ob;
+              if (oa !== null) return -1;
+              if (ob !== null) return 1;
               const ta = typeof a.createdAt === "string" ? new Date(a.createdAt).getTime() : 0;
               const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() : 0;
               return tb - ta;

@@ -44,6 +44,7 @@ const EMPTY_CONTENT: Omit<ContentInput, "authorUid"> = {
   tags: [],
   isPinned: false,
   isApproved: true,
+  homeHidden: false,
   question: "",
   answer: "",
   rating: 0,
@@ -162,6 +163,8 @@ function AdminContentsInner() {
       tags: c.tags ?? [],
       isPinned: c.isPinned ?? false,
       isApproved: c.isApproved ?? true,
+      homeHidden: c.homeHidden ?? false,
+      homeOrder: c.homeOrder,
       question: c.question ?? "",
       answer: c.answer ?? "",
       rating: c.rating ?? 0,
@@ -1109,6 +1112,25 @@ function AdminContentsInner() {
                         className="rounded border-gray-300"
                       />
                       <span className="text-sm text-gray-700">공개 승인</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={editing.homeHidden ?? false}
+                        onChange={(e) => setEditing({ ...editing, homeHidden: e.target.checked })}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">홈 ‘AI 콘텐츠’에서 숨김</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <span className="text-sm text-gray-700">홈 노출 순서</span>
+                      <input
+                        type="number"
+                        value={editing.homeOrder ?? ""}
+                        placeholder="최신순"
+                        onChange={(e) => setEditing({ ...editing, homeOrder: e.target.value === "" ? undefined : Number(e.target.value) })}
+                        className="w-20 px-2 py-1 rounded border border-gray-300 text-sm"
+                      />
                     </label>
                   </div>
                 </>

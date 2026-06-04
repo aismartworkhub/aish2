@@ -61,6 +61,10 @@ export interface Content {
   searchTerms?: string[];
   isPinned?: boolean;
   isApproved?: boolean;
+  /** 홈 'AI 콘텐츠'(Insight) 섹션에서 숨김 */
+  homeHidden?: boolean;
+  /** 홈 'AI 콘텐츠' 섹션 노출 순서(낮을수록 먼저). 없으면 최신 날짜순 */
+  homeOrder?: number;
   views: number;
   likeCount: number;
   commentCount: number;
