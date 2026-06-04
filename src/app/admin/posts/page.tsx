@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import NextLink from "next/link";
 import {
@@ -67,6 +67,14 @@ function getAttachmentIcon(type: string) {
 }
 
 export default function AdminPostsPage() {
+  return (
+    <Suspense fallback={<div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>}>
+      <AdminPostsInner />
+    </Suspense>
+  );
+}
+
+function AdminPostsInner() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const urlType = searchParams.get("type") ?? "";

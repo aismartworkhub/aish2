@@ -99,11 +99,11 @@ const COPY: Record<
   sections: {
     title: "섹션 표시 — 메인 페이지 노출 ON/OFF",
     lines: [
-      "히어로·실적·프로그램 등 메인 섹션을 켜고 끌 수 있습니다.",
-      "비활성화 시 해당 섹션은 사용자에게 보이지 않습니다.",
+      "기본 홈 디자인의 섹션 표시·순서·제목·여백은 이제 사이드바 '메인 페이지 편집'에서 통합 관리합니다.",
+      "이 탭의 토글은 일부 대체 홈 템플릿에만 적용됩니다.",
     ],
-    publicPath: "/",
-    publicLabel: "메인 페이지 열기",
+    publicPath: "/admin/home-layout",
+    publicLabel: "메인 페이지 편집 열기",
   },
   business: {
     title: "사업자 정보 — 푸터에 즉시 반영",

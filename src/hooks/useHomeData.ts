@@ -26,6 +26,9 @@ import {
   type SectionToggles,
 } from "@/lib/site-settings-public";
 import { loadPageContent, DEFAULT_HOME } from "@/lib/page-content-public";
+import { loadHomeLayout } from "@/lib/home-layout-public";
+import { loadSiteTheme } from "@/lib/site-settings-public";
+import type { HomeLayout, HomeTemplateKey } from "@/types/home-layout";
 import type { HomePageContent } from "@/types/page-content";
 import { calculateDDay, toDateString } from "@/lib/utils";
 import { filterActiveInstructors } from "@/lib/instructor-display";
@@ -97,6 +100,7 @@ export function useHomeData() {
   const [ctaCfg, setCtaCfg] = useState(DEFAULT_SITE_CTA);
   const [sectionToggles, setSectionToggles] = useState<SectionToggles>(DEFAULT_SECTION_TOGGLES);
   const [pageContent, setPageContent] = useState<HomePageContent>(DEFAULT_HOME);
+  const [homeLayout, setHomeLayout] = useState<HomeLayout>({ sections: [] });
   const [instructors, setInstructors] = useState<(typeof DEMO_INSTRUCTORS[number] & { imageUrl?: string })[]>(
     DEMO_INSTRUCTORS.filter((i) => i.isActive !== false)
   );
@@ -133,6 +137,10 @@ export function useHomeData() {
   useEffect(() => {
     loadPageContent<HomePageContent>("home").then(setPageContent).catch(() => {});
     loadSectionToggles().then(setSectionToggles).catch(() => {});
+    loadSiteTheme()
+      .then((t) => loadHomeLayout(t.homeTemplate as HomeTemplateKey))
+      .then(setHomeLayout)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -285,7 +293,7 @@ export function useHomeData() {
     stats, programs, runmoaPrograms, adminEvents,
     reviews, workathon, notices, featuredVideos,
     heroSlides, heroIndex, setHeroIndex,
-    siteBanner, ctaCfg, sectionToggles, pageContent, instructors,
+    siteBanner, ctaCfg, sectionToggles, pageContent, homeLayout, instructors,
     dDay, revealRefs, addRevealRef,
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,

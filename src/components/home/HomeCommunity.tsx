@@ -17,6 +17,8 @@ import { STAT_ICONS } from "@/hooks/useHomeData";
 import RatingSummary from "@/components/community/RatingSummary";
 import HomeRecentSection from "@/components/home/HomeRecentSection";
 import type { HomeDataProps } from "@/hooks/useHomeData";
+import { useMemo } from "react";
+import { indexHomeSections } from "@/lib/home-layout-public";
 
 const MEMBER_BENEFITS = [
   { icon: FolderOpen, title: "교육자료", desc: "수업 자료, 양식, 템플릿을 제공합니다.", href: "/community?tab=resource" },
@@ -33,7 +35,7 @@ export default function HomeCommunity(props: HomeDataProps) {
     stats, programs, runmoaPrograms, adminEvents,
     reviews, workathon, notices, featuredVideos,
     heroSlides, heroIndex, setHeroIndex,
-    siteBanner, ctaCfg, sectionToggles, pageContent, instructors,
+    siteBanner, ctaCfg, homeLayout, instructors,
     recentActivity,
     dDay, addRevealRef,
     specialtyCardsResolved, currentHero,
@@ -48,15 +50,24 @@ export default function HomeCommunity(props: HomeDataProps) {
   const showSampleBadge = p1 && ff.phase1.demoSampleBadge === true;
   const contentDeep = p1 && ff.phase1.contentDeepLink === true;
 
+  // 섹션 레이아웃(표시·순서·제목·여백) — siteSettings/home-layout(community). 기본값은 현재 화면 그대로.
+  const L = useMemo(() => indexHomeSections(homeLayout, "community"), [homeLayout]);
+  const sx = (key: string): React.CSSProperties => ({
+    order: L[key].order,
+    ...(L[key].visible ? {} : { display: "none" }),
+    ...(L[key].paddingTop != null ? { paddingTop: L[key].paddingTop } : {}),
+    ...(L[key].paddingBottom != null ? { paddingBottom: L[key].paddingBottom } : {}),
+  });
+
   return (
-    <>
+    <div className="flex flex-col">
       {/* ── 배너 ── */}
-      {sectionToggles.banner && siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (() => {
+      {L.banner.visible && siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (() => {
         const bannerHref = siteBanner.link?.trim() || "/workathon";
         const external = isExternalHref(bannerHref);
         const bannerDDay = calculateDDay(siteBanner.dDayDate);
         return (
-          <div className="bg-brand-dark text-white text-center text-sm" role="banner">
+          <div className="bg-brand-dark text-white text-center text-sm" role="banner" style={{ order: L.banner.order }}>
             {external ? (
               <a href={bannerHref} className="block w-full py-3 px-4 hover:bg-brand-dark/50 transition-colors font-medium" target="_blank" rel="noopener noreferrer">
                 {siteBanner.title} · {bannerDDay}
@@ -71,8 +82,8 @@ export default function HomeCommunity(props: HomeDataProps) {
       })()}
 
       {/* ── S1: 히어로 (CTA 2개) ── */}
-      {sectionToggles.hero && (
-      <section className="relative h-[85vh] min-h-[600px] overflow-hidden">
+      {L.hero.visible && (
+      <section className="relative h-[85vh] min-h-[600px] overflow-hidden" style={sx("hero")}>
         <img
           src={currentHero?.imageUrl || "/images/defaults/hero-main.jpg"}
           alt=""
@@ -124,7 +135,7 @@ export default function HomeCommunity(props: HomeDataProps) {
       )}
 
       {/* ── S2: 검색 패널 ── */}
-      <section className="relative z-30 -mt-[60px]">
+      <section className="relative z-30 -mt-[60px]" style={sx("search")}>
         <div className="w-[90%] max-w-[1200px] mx-auto flex flex-col md:flex-row shadow-[0_20px_40px_rgba(0,0,0,0.15)]">
           <div className="flex-1 bg-white p-8 md:p-11">
             <h3 className="text-lg font-medium text-gray-900 mb-5">빠른 교육과정 탐색</h3>
@@ -164,12 +175,12 @@ export default function HomeCommunity(props: HomeDataProps) {
       </section>
 
       {/* ── S3: 교육 프로그램 (가장 먼저 노출) ── */}
-      <section className="py-24 md:py-28 bg-brand-gray">
+      <section className="py-24 md:py-28 bg-brand-gray" style={sx("programs")}>
         <div className="container-custom">
           <div className="flex items-end justify-between mb-12">
             <div>
-              <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Program {showSampleBadge && isDemoPrograms && <SampleBadge adminLink="/admin/programs" />}</h2>
-              <p className="mt-2 text-gray-500 text-lg">진행중인 교육 과정</p>
+              <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight whitespace-pre-line">{L.programs.title} {showSampleBadge && isDemoPrograms && <SampleBadge adminLink="/admin/programs" />}</h2>
+              <p className="mt-2 text-gray-500 text-lg whitespace-pre-line">{L.programs.description}</p>
             </div>
             <Link href="/programs" className="hidden md:inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
               전체 보기 <ChevronRight size={16} />
@@ -225,13 +236,13 @@ export default function HomeCommunity(props: HomeDataProps) {
       </section>
 
       {/* ── S4: AI실전마스터 (신뢰 보강) ── */}
-      <section className="py-24 md:py-28">
+      <section className="py-24 md:py-28" style={sx("education")}>
         <div className="text-center mb-16">
-          <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
-            {pageContent.sections.education?.title ?? "AI실전마스터"}
+          <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4 whitespace-pre-line">
+            {L.education.title}
           </h2>
-          <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
-            {pageContent.sections.education?.description ?? "각 분야 현업 전문가가 여러분의 성장을 이끕니다."}
+          <p className="text-gray-500 text-lg max-w-[800px] mx-auto whitespace-pre-line">
+            {L.education.description}
           </p>
         </div>
 
@@ -287,14 +298,14 @@ export default function HomeCommunity(props: HomeDataProps) {
       </section>
 
       {/* ── S5: 회원 혜택 (신규 핵심 섹션) ── */}
-      <section className="py-24 md:py-28 bg-brand-gray">
+      <section className="py-24 md:py-28 bg-brand-gray" style={sx("memberBenefits")}>
         <div className="container-custom">
           <div className="text-center mb-16">
-            <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
-              Member Benefits
+            <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4 whitespace-pre-line">
+              {L.memberBenefits.title}
             </h2>
-            <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
-              AISH 회원이라면 누리는 혜택 — 자료, 지원, 네트워크를 한 곳에서
+            <p className="text-gray-500 text-lg max-w-[800px] mx-auto whitespace-pre-line">
+              {L.memberBenefits.description}
             </p>
           </div>
 
@@ -326,14 +337,14 @@ export default function HomeCommunity(props: HomeDataProps) {
       </section>
 
       {/* ── S6: 실무 콘텐츠/자료 (Videos + Specialty 통합) ── */}
-      <section className="py-24 md:py-28">
+      <section className="py-24 md:py-28" style={sx("insight")}>
         <div className="container-custom">
           <div className="text-center mb-16">
-            <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
-              Insight
+            <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4 whitespace-pre-line">
+              {L.insight.title}
             </h2>
-            <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
-              실무에 바로 쓰는 교육 영상과 양질의 콘텐츠
+            <p className="text-gray-500 text-lg max-w-[800px] mx-auto whitespace-pre-line">
+              {L.insight.description}
             </p>
           </div>
 
@@ -414,7 +425,7 @@ export default function HomeCommunity(props: HomeDataProps) {
       </section>
 
       {/* ── S7: 워크톤 + Event 통합 ── */}
-      <section className="flex flex-col md:flex-row min-h-[550px]">
+      <section className="flex flex-col md:flex-row min-h-[550px]" style={sx("workathon")}>
         <div className="flex-1 relative flex items-center px-[6%] md:px-[8%] py-16 text-white overflow-hidden">
           <img src={workathon.posterUrl || "/images/defaults/workathon-bg.jpg"} alt="Smart Workathon" className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
           <div className="absolute inset-0 bg-brand-blue/60" />
@@ -465,13 +476,13 @@ export default function HomeCommunity(props: HomeDataProps) {
       </section>
 
       {/* Event (조건부) */}
-      {adminEvents.length > 0 && (
-        <section className="py-24 md:py-28 bg-brand-gray">
+      {L.event.visible && adminEvents.length > 0 && (
+        <section className="py-24 md:py-28 bg-brand-gray" style={sx("event")}>
           <div className="container-custom">
             <div className="flex items-end justify-between mb-12">
               <div>
-                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Event</h2>
-                <p className="mt-2 text-gray-500 text-lg">진행 예정 행사 및 이벤트</p>
+                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight whitespace-pre-line">{L.event.title}</h2>
+                <p className="mt-2 text-gray-500 text-lg whitespace-pre-line">{L.event.description}</p>
               </div>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -506,12 +517,12 @@ export default function HomeCommunity(props: HomeDataProps) {
       )}
 
       {/* ── S8: 후기 + 숫자 실적 (통합) ── */}
-      <section className="py-24 md:py-28">
+      <section className="py-24 md:py-28" style={sx("reviewStats")}>
         <div className="container-custom">
           {/* 후기 */}
           <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Review</h2>
-            <p className="mt-3 text-gray-500 text-lg">수강생들의 생생한 후기</p>
+            <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight whitespace-pre-line">{L.reviewStats.title}</h2>
+            <p className="mt-3 text-gray-500 text-lg whitespace-pre-line">{L.reviewStats.description}</p>
           </div>
           {reviews.length > 0 && (
             <div className="mx-auto mb-10 max-w-2xl">
@@ -541,7 +552,7 @@ export default function HomeCommunity(props: HomeDataProps) {
           </div>
 
           {/* 숫자 실적 */}
-          {sectionToggles.stats && (
+          {L.reviewStats.visible && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 rounded-sm overflow-hidden">
             {stats.map((stat) => {
               const Icon = STAT_ICONS[stat.icon] || Star;
@@ -562,11 +573,13 @@ export default function HomeCommunity(props: HomeDataProps) {
       </section>
 
       {/* S8.5: 최근 커뮤니티 활동 (X 풍) */}
-      <HomeRecentSection items={recentActivity} />
+      <div style={sx("recent")}>
+        <HomeRecentSection items={recentActivity} />
+      </div>
 
       {/* ── S9: NewsRoom + 최종 CTA ── */}
-      <section className="flex flex-col md:flex-row min-h-[500px] bg-brand-gray">
-        {sectionToggles.cta && (
+      <section className="flex flex-col md:flex-row min-h-[500px] bg-brand-gray" style={sx("newsroomCta")}>
+        {L.newsroomCta.visible && (
         <div className="flex-1 bg-[#1a1a2e] p-12 md:p-16 flex flex-col justify-center text-white">
           <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-5">AI 시대,<br />지금 시작하세요</h2>
           <p className="text-white/60 text-base leading-relaxed max-w-[400px] mb-8">
@@ -604,6 +617,6 @@ export default function HomeCommunity(props: HomeDataProps) {
           </ul>
         </div>
       </section>
-    </>
+    </div>
   );
 }

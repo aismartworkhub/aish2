@@ -21,6 +21,8 @@ import { ContentCard } from "@/components/content";
 import { STAT_ICONS, COMMUNITY_SHORTCUTS } from "@/hooks/useHomeData";
 import type { HomeDataProps } from "@/hooks/useHomeData";
 import type { Content } from "@/types/content";
+import { useMemo } from "react";
+import { indexHomeSections } from "@/lib/home-layout-public";
 
 export default function HomeDefault(props: HomeDataProps) {
   const {
@@ -28,7 +30,7 @@ export default function HomeDefault(props: HomeDataProps) {
     stats, programs, runmoaPrograms, adminEvents,
     reviews, workathon, notices, featuredVideos,
     heroSlides, heroIndex, setHeroIndex,
-    siteBanner, ctaCfg, sectionToggles, pageContent, instructors,
+    siteBanner, ctaCfg, homeLayout, instructors,
     dDay, addRevealRef,
     specialtyCardsResolved, currentHero,
     primaryCtaHref, primaryCtaLabel,
@@ -40,18 +42,27 @@ export default function HomeDefault(props: HomeDataProps) {
 
   const ff = useFeatureFlags();
   const p1 = ff.phase1.enabled;
+
+  // 섹션 레이아웃(표시·순서·제목·여백) — siteSettings/home-layout. 기본값은 현재 화면 그대로.
+  const L = useMemo(() => indexHomeSections(homeLayout, "default"), [homeLayout]);
+  const sx = (key: string): React.CSSProperties => ({
+    order: L[key].order,
+    ...(L[key].visible ? {} : { display: "none" }),
+    ...(L[key].paddingTop != null ? { paddingTop: L[key].paddingTop } : {}),
+    ...(L[key].paddingBottom != null ? { paddingBottom: L[key].paddingBottom } : {}),
+  });
   const showSampleBadge = p1 && ff.phase1.demoSampleBadge === true;
   const showProgramSkeleton =
     p1 && ff.phase1.loadingSkeleton === true && isHomeDataLoading && isDemoPrograms && runmoaPrograms.length === 0;
 
   return (
-    <>
-      {sectionToggles.banner && siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (() => {
+    <div className="flex flex-col">
+      {L.banner.visible && siteBanner?.enabled && siteBanner.title && siteBanner.dDayDate && (() => {
         const bannerHref = siteBanner.link?.trim() || "/workathon";
         const external = isExternalHref(bannerHref);
         const bannerDDay = calculateDDay(siteBanner.dDayDate);
         return (
-          <div className="bg-brand-dark text-white text-center text-sm" role="banner">
+          <div className="bg-brand-dark text-white text-center text-sm" role="banner" style={{ order: L.banner.order }}>
             {external ? (
               <a
                 href={bannerHref}
@@ -74,8 +85,8 @@ export default function HomeDefault(props: HomeDataProps) {
       })()}
 
       {/* S1: 히어로 */}
-      {sectionToggles.hero && (
-      <section className="relative h-[85vh] min-h-[600px] overflow-hidden bg-gradient-to-br from-brand-blue to-brand-dark">
+      {L.hero.visible && (
+      <section className="relative h-[85vh] min-h-[600px] overflow-hidden bg-gradient-to-br from-brand-blue to-brand-dark" style={sx("hero")}>
         <img
           src={currentHero?.imageUrl || "/images/defaults/hero-main.jpg"}
           alt={currentHero?.title?.replace(/\n/g, " ") ?? ""}
@@ -138,10 +149,12 @@ export default function HomeDefault(props: HomeDataProps) {
       )}
 
       {/* S1.5: 최신 소식 띠 — 히어로 직하 (NewsRoom 헤드라인 1건 회전) */}
-      <HomeNewsTicker items={notices} />
+      <div style={sx("newsticker")}>
+        <HomeNewsTicker items={notices} />
+      </div>
 
       {/* S2: 검색 섹션 */}
-      <section className="relative z-30 -mt-[60px]">
+      <section className="relative z-30 -mt-[60px]" style={sx("search")}>
         <div className="w-[90%] max-w-[1200px] mx-auto flex flex-col md:flex-row shadow-[0_20px_40px_rgba(0,0,0,0.15)]">
           <div className="flex-1 bg-white p-8 md:p-11">
             <h3 className="text-lg font-medium text-gray-900 mb-5">빠른 교육과정 탐색</h3>
@@ -195,13 +208,13 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
 
       {/* S3: AI실전마스터 */}
-      <section className="py-24 md:py-28">
+      <section className="py-24 md:py-28" style={sx("education")}>
         <div className="text-center mb-16">
-          <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
-            {pageContent.sections.education?.title ?? "AI실전마스터"}
+          <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4 whitespace-pre-line">
+            {L.education.title}
           </h2>
-          <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
-            {pageContent.sections.education?.description ?? "각 분야 현업 전문가가 여러분의 성장을 이끕니다."}
+          <p className="text-gray-500 text-lg max-w-[800px] mx-auto whitespace-pre-line">
+            {L.education.description}
           </p>
         </div>
 
@@ -299,13 +312,13 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
 
       {/* S4: Specialty */}
-      <section className="py-24 md:py-28 bg-brand-gray">
+      <section className="py-24 md:py-28 bg-brand-gray" style={sx("specialty")}>
         <div className="text-center mb-16">
-          <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4">
-            {pageContent.sections.specialty?.title ?? "Specialty"}
+          <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue uppercase tracking-tight mb-4 whitespace-pre-line">
+            {L.specialty.title}
           </h2>
-          <p className="text-gray-500 text-lg max-w-[800px] mx-auto">
-            {pageContent.sections.specialty?.description ?? "AISH만의 차별화된 교육 가치를 경험하세요."}
+          <p className="text-gray-500 text-lg max-w-[800px] mx-auto whitespace-pre-line">
+            {L.specialty.description}
           </p>
         </div>
 
@@ -333,8 +346,8 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
 
       {/* S5: 숫자 실적 */}
-      {sectionToggles.stats && (
-      <section className="py-20 md:py-24">
+      {L.stats.visible && (
+      <section className="py-20 md:py-24" style={sx("stats")}>
         <div className="container-custom">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 rounded-sm overflow-hidden">
             {stats.map((stat) => {
@@ -356,7 +369,7 @@ export default function HomeDefault(props: HomeDataProps) {
       )}
 
       {/* S6: 워크톤 + 쇼룸 — 이미지 실패 시 brand-blue 배경(아래 overlay)이 안전망 (Phase 1-3) */}
-      <section className="flex flex-col md:flex-row min-h-[550px]">
+      <section className="flex flex-col md:flex-row min-h-[550px]" style={sx("workathon")}>
         <div className="flex-1 relative flex items-center px-[6%] md:px-[8%] py-16 text-white overflow-hidden bg-brand-blue">
           <img
             src={workathon.posterUrl || "/images/defaults/workathon-bg.jpg"}
@@ -422,14 +435,14 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
 
       {/* S7: 교육 프로그램 */}
-      <section className="py-24 md:py-28 bg-brand-gray">
+      <section className="py-24 md:py-28 bg-brand-gray" style={sx("programs")}>
         <div className="container-custom">
           <div className="flex items-end justify-between mb-12">
             <div>
-              <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">
-                Program {showSampleBadge && isDemoPrograms && <SampleBadge adminLink="/admin/programs" />}
+              <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight whitespace-pre-line">
+                {L.programs.title} {showSampleBadge && isDemoPrograms && <SampleBadge adminLink="/admin/programs" />}
               </h2>
-              <p className="mt-2 text-gray-500 text-lg">진행중인 교육 과정</p>
+              <p className="mt-2 text-gray-500 text-lg whitespace-pre-line">{L.programs.description}</p>
             </div>
             <Link href="/programs" className="hidden md:inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
               전체 보기 <ChevronRight size={16} />
@@ -495,13 +508,13 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
 
       {/* S7.2: Event */}
-      {adminEvents.length > 0 && (
-        <section className="py-24 md:py-28">
+      {L.event.visible && adminEvents.length > 0 && (
+        <section className="py-24 md:py-28" style={sx("event")}>
           <div className="container-custom">
             <div className="flex items-end justify-between mb-12">
               <div>
-                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Event</h2>
-                <p className="mt-2 text-gray-500 text-lg">진행 예정 행사 및 이벤트</p>
+                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight whitespace-pre-line">{L.event.title}</h2>
+                <p className="mt-2 text-gray-500 text-lg whitespace-pre-line">{L.event.description}</p>
               </div>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -542,15 +555,15 @@ export default function HomeDefault(props: HomeDataProps) {
         </section>
       )}
 
-      {/* S7.5: Insight (콘텐츠 우선, 없으면 비디오 폴백) — admin/settings → 섹션 표시에서 OFF 가능 */}
-      {sectionToggles.insight !== false && (latestContents.length > 0 || featuredVideos.length > 0) && (
-        <section className="py-24 md:py-28">
+      {/* S7.5: Insight (콘텐츠 우선, 없으면 비디오 폴백) — 메인 페이지 편집에서 표시 OFF 가능 */}
+      {L.insight.visible && (latestContents.length > 0 || featuredVideos.length > 0) && (
+        <section className="py-24 md:py-28" style={sx("insight")}>
           <div className="container-custom">
             <div className="flex items-end justify-between mb-12">
               <div>
-                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Insight</h2>
+                <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight whitespace-pre-line">{L.insight.title}</h2>
                 <p className="mt-2 text-gray-500 text-lg">
-                  {latestContents.length > 0 ? "실무에 바로 쓰는 AI 콘텐츠" : "주요 교육 영상"}
+                  {latestContents.length > 0 ? L.insight.description : "주요 교육 영상"}
                 </p>
               </div>
               <Link href={latestContents.length > 0 ? "/media" : "/videos"} className="hidden md:inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">
@@ -629,11 +642,11 @@ export default function HomeDefault(props: HomeDataProps) {
       )}
 
       {/* S8: 수강생 후기 — 평점 요약 + 카드 */}
-      <section className="py-24 md:py-28">
+      <section className="py-24 md:py-28" style={sx("review")}>
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight">Review</h2>
-            <p className="mt-3 text-gray-500 text-lg">수강생들의 생생한 후기</p>
+            <h2 className="text-2xl md:text-[42px] font-bold text-brand-blue tracking-tight whitespace-pre-line">{L.review.title}</h2>
+            <p className="mt-3 text-gray-500 text-lg whitespace-pre-line">{L.review.description}</p>
           </div>
           {reviews.length > 0 && (
             <div className="mx-auto mb-10 max-w-2xl">
@@ -675,7 +688,7 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
 
       {/* S9: 커뮤니티 아이콘 바 */}
-      <section className="py-16 md:py-20 bg-white border-t border-brand-border">
+      <section className="py-16 md:py-20 bg-white border-t border-brand-border" style={sx("community")}>
         <div className="container-custom">
           <div className="mx-auto grid max-w-5xl grid-cols-2 gap-4 md:grid-cols-4">
             {COMMUNITY_SHORTCUTS.map((item) => (
@@ -690,7 +703,7 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
 
       {/* S10: NewsRoom + 최근 커뮤니티 활동 — 2분할 통합 섹션 (앵커 #newsroom) */}
-      <section id="newsroom" className="py-16 md:py-20 bg-brand-gray border-t border-brand-border scroll-mt-20">
+      <section id="newsroom" className="py-16 md:py-20 bg-brand-gray border-t border-brand-border scroll-mt-20" style={sx("newsroom")}>
         <div className="container-custom">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
             {/* 좌: NewsRoom */}
@@ -764,14 +777,13 @@ export default function HomeDefault(props: HomeDataProps) {
       </section>
 
       {/* S11: 최종 CTA — full-width 다크 배너 (단독 분리) */}
-      {sectionToggles.cta && (
-        <section className="bg-[#1a1a2e] py-16 md:py-24">
+      {L.cta.visible && (
+        <section className="bg-[#1a1a2e] py-16 md:py-24" style={sx("cta")}>
           <div className="container-custom flex flex-col md:flex-row items-start md:items-center justify-between gap-8 text-white">
             <div className="max-w-2xl">
-              <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-4">AI 시대,<br />지금 시작하세요</h2>
-              <p className="text-white/60 text-base leading-relaxed">
-                AISH와 함께라면 누구나 AI 전문가로 성장할 수 있습니다.
-                무료 정규 과정부터 실무 프로젝트까지, 단계별로 설계된 커리큘럼이 준비되어 있습니다.
+              <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-4 whitespace-pre-line">{L.cta.title}</h2>
+              <p className="text-white/60 text-base leading-relaxed whitespace-pre-line">
+                {L.cta.description}
               </p>
             </div>
             <a href={ctaCfg.buttonUrl}
@@ -783,6 +795,6 @@ export default function HomeDefault(props: HomeDataProps) {
           </div>
         </section>
       )}
-    </>
+    </div>
   );
 }
