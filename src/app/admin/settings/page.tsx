@@ -29,6 +29,8 @@ import {
 } from "@/lib/site-settings-public";
 import { KNOWLEDGE_MAX_CHARS, type AiKnowledge } from "@/lib/ai-counselor-context";
 import { importDriveFolderText, importYoutubeChannelText } from "@/lib/ai-knowledge-import";
+import { buildRagIndex, getRagIndexInfo } from "@/lib/ai-rag";
+import { getGeminiApiKey } from "@/lib/gemini";
 import { collectAll } from "@/lib/ai-content-collector";
 import type { CollectResult } from "@/lib/ai-content-collector";
 import { curateItems } from "@/lib/ai-content-curator";
@@ -180,6 +182,8 @@ function AdminSettingsInner() {
   // AI 지식 — 상담사 컨텍스트 보강 (siteSettings/ai-knowledge). manual=관리자 직접 입력, drive/youtube=가져오기.
   const [knowledge, setKnowledge] = useState<AiKnowledge>({ manual: "", drive: "", youtube: "", driveFolderId: "", youtubeChannelId: "" });
   const [knowledgeImporting, setKnowledgeImporting] = useState<"" | "drive" | "youtube">("");
+  const [ragInfo, setRagInfo] = useState<{ count: number } | null>(null);
+  const [ragBuilding, setRagBuilding] = useState(false);
 
   // Integrations
   const [googleApi, setGoogleApi] = useState<GoogleApiConfig>({ clientId: "", clientSecret: "", apiKey: "" });
@@ -205,6 +209,7 @@ function AdminSettingsInner() {
           manual: kn?.manual ?? "", drive: kn?.drive ?? "", youtube: kn?.youtube ?? "",
           driveFolderId: kn?.driveFolderId ?? "", youtubeChannelId: kn?.youtubeChannelId ?? "",
         });
+        getRagIndexInfo().then(setRagInfo).catch(() => {});
       } else if (tab === "business") {
         const bizDoc = await getSingletonDoc<Partial<BusinessInfoConfig>>(COLLECTIONS.SETTINGS, "business");
         setBusinessInfo({ ...BUSINESS_INFO, ...(bizDoc ?? {}) });
@@ -356,6 +361,25 @@ function AdminSettingsInner() {
       toast(e instanceof Error ? e.message : "가져오기에 실패했습니다.", "error");
     } finally {
       setKnowledgeImporting("");
+    }
+  };
+
+  // AI 검색 색인(RAG) 재생성 — 과정·강사·FAQ·AI지식을 임베딩해 siteSettings/ai-index 저장
+  const runReindex = async () => {
+    const key = await getGeminiApiKey().catch(() => null);
+    if (!key) {
+      toast("Gemini 키가 필요합니다. 'AI 수집' 탭에서 ② Gemini 키를 저장해 주세요.", "error");
+      return;
+    }
+    setRagBuilding(true);
+    try {
+      const { count } = await buildRagIndex(key);
+      setRagInfo({ count });
+      toast(`AI 검색 색인 완료 — ${count}개 조각을 색인했습니다.`, "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "색인에 실패했습니다.", "error");
+    } finally {
+      setRagBuilding(false);
     }
   };
 
@@ -1352,6 +1376,31 @@ function AdminSettingsInner() {
                   <pre className="mt-2 whitespace-pre-wrap text-gray-500">{knowledge.youtube.slice(0, 800)}{knowledge.youtube.length > 800 ? "…" : ""}</pre>
                 </details>
               )}
+            </div>
+          </div>
+
+          {/* AI 검색 색인 (RAG) — 콘텐츠가 많아도 질문마다 관련 조각만 찾아 답하게 함 */}
+          <div className="mt-6 rounded-lg border border-indigo-200 bg-indigo-50/50 p-4">
+            <div className="flex items-center gap-2 mb-1.5">
+              <BrainCircuit size={16} className="text-indigo-600" />
+              <span className="text-sm font-bold text-gray-800">AI 검색 색인 (RAG)</span>
+            </div>
+            <p className="text-xs text-gray-600 mb-3">
+              과정·강사·FAQ·위 배경지식을 <strong>임베딩 색인</strong>해 두면, 상담 AI가 질문마다 <strong>관련 조각만 검색</strong>해 답합니다.
+              콘텐츠를 크게 바꾼 뒤 <strong>재색인</strong>하세요. (과정·강사 등은 평소에도 자동 반영되며, 색인은 보강용입니다.)
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={runReindex}
+                disabled={ragBuilding}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-indigo-200 bg-white text-indigo-700 text-sm font-semibold hover:bg-indigo-50 transition-colors disabled:opacity-50"
+              >
+                {ragBuilding ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                {ragBuilding ? "색인 중..." : "재색인"}
+              </button>
+              <span className="text-xs text-gray-500">
+                {ragInfo ? `현재 색인: ${ragInfo.count.toLocaleString()}개 조각` : "아직 색인되지 않음"}
+              </span>
             </div>
           </div>
 

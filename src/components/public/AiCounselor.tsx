@@ -6,6 +6,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { buildCounselorContext } from "@/lib/ai-counselor-context";
+import { retrieveRagContext } from "@/lib/ai-rag";
 import { getGeminiApiKey } from "@/lib/gemini";
 import { loadBusinessInfo, type BusinessInfoConfig } from "@/lib/site-settings-public";
 import { submitFeedback } from "@/lib/feedback-engine";
@@ -49,9 +50,11 @@ export default function AiCounselor() {
     const prior = messages;
     try {
       const genAI = new GoogleGenerativeAI(key);
+      // RAG: 질문 관련 자료를 검색해 시스템 프롬프트에 보강(색인 없거나 실패 시 빈 문자열)
+      const ragBlock = await retrieveRagContext(key, userMsg);
       const model = genAI.getGenerativeModel({
         model: GEMINI_MODEL,
-        systemInstruction: systemPrompt,
+        systemInstruction: ragBlock ? `${systemPrompt}\n\n${ragBlock}` : systemPrompt,
       });
       const chat = model.startChat({
         history: prior.map((m) => ({
