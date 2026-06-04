@@ -25,6 +25,7 @@ import { useInfiniteContents } from "@/hooks/useInfiniteContents";
 import { getContentById } from "@/lib/content-engine";
 import { useViewMode } from "@/hooks/useViewMode";
 import ViewModeToggle from "@/components/ui/ViewModeToggle";
+import { sortContents, CONTENT_SORTS, type ContentSort } from "@/lib/content-sort";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Loader2 } from "lucide-react";
@@ -95,6 +96,7 @@ function CommunityPageInner() {
   // 외부 데이터(수료증/협력문의) 인라인 도입창 모드
   const [inlineView, setInlineView] = useState<"certificate" | "inquiry" | null>(null);
   const [activeMediaType, setActiveMediaType] = useState<MediaTypeFilter>(ALL_KEY);
+  const [sortBy, setSortBy] = useState<ContentSort>("latest");
   const [searchInput, setSearchInput] = useState("");
   const [searchActive, setSearchActive] = useState<string>("");
   const [pageContent, setPageContent] = useState<PageContentBase>(DEFAULT_COMMUNITY);
@@ -352,15 +354,17 @@ function CommunityPageInner() {
   // 전체일 때는 mergedItems(콘텐츠 + 수료증), 단일 보드일 때는 feed.items
   const baseItems = mergedItems;
   const filtered = useMemo(() => {
-    if (activeMediaType === ALL_KEY) return baseItems;
-    return baseItems.filter((c) => {
-      if (activeMediaType === "youtube") return c.mediaType === "youtube";
-      if (activeMediaType === "image") return c.mediaType === "image" || c.mediaType === "gif";
-      if (activeMediaType === "pdf") return c.mediaType === "pdf";
-      if (activeMediaType === "link") return c.mediaType === "link";
-      return true;
-    });
-  }, [baseItems, activeMediaType]);
+    const base = activeMediaType === ALL_KEY
+      ? baseItems
+      : baseItems.filter((c) => {
+          if (activeMediaType === "youtube") return c.mediaType === "youtube";
+          if (activeMediaType === "image") return c.mediaType === "image" || c.mediaType === "gif";
+          if (activeMediaType === "pdf") return c.mediaType === "pdf";
+          if (activeMediaType === "link") return c.mediaType === "link";
+          return true;
+        });
+    return sortContents(base, sortBy);
+  }, [baseItems, activeMediaType, sortBy]);
 
   const triggerSearch = () => setSearchActive(searchInput.trim());
   const clearSearch = () => { setSearchInput(""); setSearchActive(""); };
@@ -506,7 +510,19 @@ function CommunityPageInner() {
               })}
             </div>
           </div>
-          <ViewModeToggle mode={viewMode} onChange={setViewMode} className="shrink-0" />
+          <div className="flex items-center gap-2 shrink-0">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as ContentSort)}
+              aria-label="정렬"
+              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+            >
+              {CONTENT_SORTS.map((s) => (
+                <option key={s.key} value={s.key}>{s.label}</option>
+              ))}
+            </select>
+            <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+          </div>
         </div>
 
         {/* 2차 칩 — 활성 카테고리에 보드 ≥2개일 때만 동적 노출 */}

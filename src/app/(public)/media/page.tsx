@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
+import { sortContents, CONTENT_SORTS, type ContentSort } from "@/lib/content-sort";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X, Plus, Sparkles, Play, Image as ImageIcon, FileText, Star, Pin } from "lucide-react";
@@ -78,6 +79,7 @@ function MediaPageInner() {
   );
   const [activeBoardKey, setActiveBoardKey] = useState<string | null>(null);
   const [activeMediaType, setActiveMediaType] = useState<MediaTypeFilter>(ALL_KEY);
+  const [sortBy, setSortBy] = useState<ContentSort>("latest");
   const [searchInput, setSearchInput] = useState("");
   const [searchActive, setSearchActive] = useState<string>("");
   const [pageContent, setPageContent] = useState<PageContentBase>(DEFAULT_MEDIA);
@@ -219,15 +221,17 @@ function MediaPageInner() {
 
   // 클라이언트 측 미디어 타입 필터 (서버 필터와 별개 — 발견형 칩)
   const filtered = useMemo(() => {
-    if (activeMediaType === ALL_KEY) return feed.items;
-    return feed.items.filter((c) => {
-      if (activeMediaType === "youtube") return c.mediaType === "youtube";
-      if (activeMediaType === "image") return c.mediaType === "image" || c.mediaType === "gif";
-      if (activeMediaType === "pdf") return c.mediaType === "pdf";
-      if (activeMediaType === "link") return c.mediaType === "link";
-      return true;
-    });
-  }, [feed.items, activeMediaType]);
+    const base = activeMediaType === ALL_KEY
+      ? feed.items
+      : feed.items.filter((c) => {
+          if (activeMediaType === "youtube") return c.mediaType === "youtube";
+          if (activeMediaType === "image") return c.mediaType === "image" || c.mediaType === "gif";
+          if (activeMediaType === "pdf") return c.mediaType === "pdf";
+          if (activeMediaType === "link") return c.mediaType === "link";
+          return true;
+        });
+    return sortContents(base, sortBy);
+  }, [feed.items, activeMediaType, sortBy]);
 
   const triggerSearch = () => setSearchActive(searchInput.trim());
   const clearSearch = () => { setSearchInput(""); setSearchActive(""); };
@@ -372,7 +376,19 @@ function MediaPageInner() {
               })}
             </div>
           </div>
-          <ViewModeToggle mode={viewMode} onChange={setViewMode} className="shrink-0" />
+          <div className="flex items-center gap-2 shrink-0">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as ContentSort)}
+              aria-label="정렬"
+              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+            >
+              {CONTENT_SORTS.map((s) => (
+                <option key={s.key} value={s.key}>{s.label}</option>
+              ))}
+            </select>
+            <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+          </div>
         </div>
 
         {/* 2차 칩 — 활성 카테고리에 보드 ≥2개일 때만 동적 노출 */}
