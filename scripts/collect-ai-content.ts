@@ -93,8 +93,11 @@ async function loadSettings(): Promise<{
   boardConfigs: BoardCollectionConfig[];
   defaultRequireReview: boolean;
   youtubeKey: string;
+  geminiKey: string;
   categorySettings: Partial<Record<AiCategory, CategorySettings>>;
 }> {
+  // Gemini 키 — env(GitHub Secret) 우선, 없으면 관리자 모드 저장값(siteSettings/gemini) 사용
+  const geminiKey = GEMINI_KEY || (await firestore.doc("siteSettings/gemini").get().then((d) => (d.data()?.apiKey as string) || "").catch(() => ""));
   try {
     const doc = await firestore.doc("siteSettings/ai-collector").get();
     const data = doc.data() as AiCollectorSettings | undefined;
@@ -105,6 +108,7 @@ async function loadSettings(): Promise<{
         boardConfigs: data.boardConfigs?.length ? data.boardConfigs : DEFAULT_BOARD_CONFIGS,
         defaultRequireReview: data.defaultRequireReview ?? false,
         youtubeKey: data.youtubeApiKey || YOUTUBE_KEY,
+        geminiKey,
         categorySettings: data.categorySettings ?? {},
       };
     }
@@ -117,6 +121,7 @@ async function loadSettings(): Promise<{
     boardConfigs: DEFAULT_BOARD_CONFIGS,
     defaultRequireReview: false,
     youtubeKey: YOUTUBE_KEY,
+    geminiKey,
     categorySettings: {},
   };
 }
@@ -177,6 +182,7 @@ async function runCategory(
   category: AiCategory,
   ctx: {
     youtubeKey: string;
+    geminiKey: string;
     minScore: number;
     boardConfigs: BoardCollectionConfig[];
     enabledBoards: BoardCollectionConfig[];
@@ -217,8 +223,8 @@ async function runCategory(
 
   // Gemini 큐레이션 — 카테고리별 boardHints 전달 (Phase 1 합의)
   let curated: CuratedItem[];
-  if (GEMINI_KEY) {
-    curated = await curateItems(unique, GEMINI_KEY, ctx.minScore, hints);
+  if (ctx.geminiKey) {
+    curated = await curateItems(unique, ctx.geminiKey, ctx.minScore, hints);
   } else {
     console.log(`[${catLabel}] Gemini 키 없음 — fallback`);
     curated = unique.map((item: RawCollectedItem) => ({
@@ -359,7 +365,8 @@ async function runCategory(
 async function main() {
   const startTime = Date.now();
   const settings = await loadSettings();
-  const { minScore, boardConfigs, defaultRequireReview, youtubeKey, categorySettings } = settings;
+  const { minScore, boardConfigs, defaultRequireReview, youtubeKey, geminiKey, categorySettings } = settings;
+  console.log(`[AI Collector] Gemini 키 ${geminiKey ? "있음" : "없음"}, YouTube 키 ${youtubeKey ? "있음" : "없음"} (env 또는 관리자 저장값)`);
 
   const enabledBoards = boardConfigs.filter((b) => b.enabled);
   const enabledBoardKeys = new Set(enabledBoards.map((b) => b.boardKey));
@@ -367,7 +374,7 @@ async function main() {
   console.log(`[AI Collector] 카테고리별 수집 시작 — minScore=${minScore}, boards=${enabledBoards.map((b) => b.boardKey).join(",")}`);
 
   const existingUrls = await getExistingUrlsAdmin();
-  const ctx = { youtubeKey, minScore, boardConfigs, enabledBoards, enabledBoardKeys, defaultRequireReview, existingUrls, categorySettings };
+  const ctx = { youtubeKey, geminiKey, minScore, boardConfigs, enabledBoards, enabledBoardKeys, defaultRequireReview, existingUrls, categorySettings };
 
   let totalInserted = 0;
   const updatedCategorySettings: Partial<Record<AiCategory, CategorySettings>> = { ...categorySettings };
