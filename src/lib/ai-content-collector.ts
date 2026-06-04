@@ -119,6 +119,7 @@ export async function fetchGitHubAI(maxResults = 5, keywords?: string): Promise<
 // ── Reddit JSON API ──
 
 const DEFAULT_SUBREDDITS = ["artificial", "MachineLearning", "LocalLLaMA"];
+const REDDIT_USER_AGENT = "aish-content-collector/1.0 (+https://www.aish.co.kr)";
 
 export async function fetchRedditAI(maxResults = 5, subredditOverrides?: string[]): Promise<RawCollectedItem[]> {
   const subreddits = subredditOverrides?.length ? subredditOverrides : DEFAULT_SUBREDDITS;
@@ -130,7 +131,8 @@ export async function fetchRedditAI(maxResults = 5, subredditOverrides?: string[
     try {
       const res = await fetch(
         `https://www.reddit.com/r/${sub}/hot.json?limit=${maxResults}&raw_json=1`,
-        { signal: withTimeout(8_000) },
+        // reddit은 명시적 User-Agent가 없으면 데이터센터 IP 요청을 403/429로 차단한다.
+        { signal: withTimeout(8_000), headers: { "User-Agent": REDDIT_USER_AGENT } },
       );
       if (!res.ok) continue;
       const data = await res.json();
