@@ -1,6 +1,8 @@
 import { HELP_TEXTS } from "@/lib/help-texts";
 import { NAV_ITEMS } from "@/lib/constants";
 import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
+import { getRunmoaContents } from "@/lib/runmoa-api";
+import type { RunmoaContent } from "@/types/runmoa";
 import type { Program, Instructor, Post } from "@/types/firestore";
 import type { BusinessInfoConfig } from "@/lib/site-settings-public";
 
@@ -20,10 +22,11 @@ export interface AiKnowledge {
 
 /** "직접 입력" 배경지식 권장 상한 (관리자 UI 글자수 경고 기준). */
 export const KNOWLEDGE_MAX_CHARS = 16_000;
-/** 최종 조립된 시스템 프롬프트 안전 상한 (≈7k 토큰). 무료 Gemini 쿼터 보호용. */
-export const MAX_CONTEXT_CHARS = 24_000;
+/** 최종 조립된 시스템 프롬프트 안전 상한 (≈9k 토큰). 무료 Gemini 쿼터 보호용. */
+export const MAX_CONTEXT_CHARS = 32_000;
 
-const PROGRAMS_LIMIT = 35;
+const PROGRAMS_LIMIT = 60;
+const PROGRAM_DESC_MAX = 160;
 const INSTRUCTORS_LIMIT = 20;
 const NOTICES_LIMIT = 5;
 const FAQ_LIMIT = 40;
@@ -52,8 +55,45 @@ async function buildKnowledgeBlock(): Promise<string> {
   }
 }
 
-/** 등록된 교육 프로그램(제목 + 요약 + 일정). */
+/** HTML 태그 제거 후 공백 정리. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Runmoa 콘텐츠 가격 표기. */
+function formatRunmoaPrice(c: RunmoaContent): string {
+  if (c.is_free) return "무료";
+  if (c.is_on_sale && c.sale_price > 0) return `${c.sale_price.toLocaleString("ko-KR")}원`;
+  if (c.base_price > 0) return `${c.base_price.toLocaleString("ko-KR")}원`;
+  return "";
+}
+
+/**
+ * 교육 프로그램 — 실제 과정은 Runmoa(aish.runmoa.com)에서 제공하므로 사이트와 동일 소스를 읽는다.
+ * Runmoa 실패/빈 결과 시 Firestore programs 로 폴백.
+ */
 async function buildProgramsBlock(): Promise<string> {
+  try {
+    const res = await getRunmoaContents({ status: "publish", limit: PROGRAMS_LIMIT });
+    const items = res?.data ?? [];
+    if (items.length > 0) {
+      return items
+        .map((c) => {
+          const cats = (c.categories ?? []).map((cat) => cat.name).filter(Boolean).join(", ");
+          const meta = [cats, formatRunmoaPrice(c)].filter(Boolean).join(" · ");
+          const desc = stripHtml(c.description_html ?? "").slice(0, PROGRAM_DESC_MAX);
+          return `- ${c.title}${meta ? ` (${meta})` : ""}${desc ? `: ${desc}` : ""}`;
+        })
+        .join("\n");
+    }
+  } catch {
+    /* Runmoa 실패 → Firestore 폴백 */
+  }
   try {
     const programs = await getCollection<Program>(COLLECTIONS.PROGRAMS);
     return programs
