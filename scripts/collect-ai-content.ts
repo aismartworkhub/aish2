@@ -18,6 +18,9 @@ const YOUTUBE_KEY = process.env.YOUTUBE_API_KEY ?? "";
 const GEMINI_KEY = process.env.GEMINI_API_KEY ?? "";
 const ENV_MAX_ITEMS = Number(process.env.MAX_ITEMS) || 10;
 const ENV_MIN_SCORE = Number(process.env.MIN_QUALITY_SCORE) || 7;
+// 관리자가 과도하게 높인 점수(예: 10)는 Gemini가 만점 준 항목만 통과시켜 모든 수집을 막는다.
+// 효과적 최소 점수를 이 상한으로 보정해 양질 콘텐츠가 정상 유입되게 한다.
+const MAX_EFFECTIVE_MIN_SCORE = 7;
 
 // ── Firebase Admin 초기화 ──
 
@@ -85,6 +88,19 @@ const DEFAULT_CATEGORY_SETTINGS: Record<AiCategory, CategorySettings> = {
   resource: { enabled: true, autoPublish: false, maxPerRun: 5 },
 };
 
+// 관리자 저장 boardConfigs를 보정: 보드별 과도한 점수를 상한으로 낮추고,
+// 누락된 기본 보드(특히 커뮤니티)를 enabled 상태로 병합한다.
+function mergeBoardConfigs(saved?: BoardCollectionConfig[]): BoardCollectionConfig[] {
+  if (!saved?.length) return DEFAULT_BOARD_CONFIGS;
+  const clamped = saved.map((b) => ({
+    ...b,
+    minQualityScore: Math.min(b.minQualityScore, MAX_EFFECTIVE_MIN_SCORE),
+  }));
+  const present = new Set(clamped.map((b) => b.boardKey));
+  const missing = DEFAULT_BOARD_CONFIGS.filter((b) => !present.has(b.boardKey));
+  return [...clamped, ...missing];
+}
+
 // ── Firestore에서 설정 로드 ──
 
 async function loadSettings(): Promise<{
@@ -104,8 +120,8 @@ async function loadSettings(): Promise<{
     if (data) {
       return {
         maxItems: data.maxItemsPerRun ?? ENV_MAX_ITEMS,
-        minScore: data.minQualityScore ?? ENV_MIN_SCORE,
-        boardConfigs: data.boardConfigs?.length ? data.boardConfigs : DEFAULT_BOARD_CONFIGS,
+        minScore: Math.min(data.minQualityScore ?? ENV_MIN_SCORE, MAX_EFFECTIVE_MIN_SCORE),
+        boardConfigs: mergeBoardConfigs(data.boardConfigs),
         defaultRequireReview: data.defaultRequireReview ?? false,
         youtubeKey: data.youtubeApiKey || YOUTUBE_KEY,
         geminiKey,
