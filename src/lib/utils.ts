@@ -234,6 +234,27 @@ export function toDateString(value: unknown): string {
   return String(value);
 }
 
+/**
+ * Firestore Timestamp / ISO 문자열 / {seconds} / 숫자(ms)를 밀리초로 변환한다.
+ * 정렬용. 알 수 없으면 0.
+ */
+export function toMillis(value: unknown): number {
+  if (!value) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const t = new Date(value).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  }
+  if (typeof value === "object") {
+    const o = value as { toMillis?: () => number; seconds?: number };
+    if (typeof o.toMillis === "function") {
+      try { return o.toMillis(); } catch { /* fall through */ }
+    }
+    if (typeof o.seconds === "number") return o.seconds * 1000;
+  }
+  return 0;
+}
+
 // ── 유효성 검증 유틸 ──
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

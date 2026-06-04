@@ -30,7 +30,7 @@ import { loadHomeLayout } from "@/lib/home-layout-public";
 import { loadSiteTheme } from "@/lib/site-settings-public";
 import type { HomeLayout, HomeTemplateKey } from "@/types/home-layout";
 import type { HomePageContent } from "@/types/page-content";
-import { calculateDDay, toDateString } from "@/lib/utils";
+import { calculateDDay, toDateString, toMillis } from "@/lib/utils";
 import { filterActiveInstructors } from "@/lib/instructor-display";
 
 export const STAT_ICONS: Record<string, React.ElementType> = {
@@ -194,9 +194,7 @@ export function useHomeData() {
               if (oa !== null && ob !== null) return oa - ob;
               if (oa !== null) return -1;
               if (ob !== null) return 1;
-              const ta = typeof a.createdAt === "string" ? new Date(a.createdAt).getTime() : 0;
-              const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() : 0;
-              return tb - ta;
+              return toMillis(b.createdAt) - toMillis(a.createdAt);
             })
             .slice(0, 4);
           if (merged.length > 0) setLatestContents(merged);
@@ -204,11 +202,7 @@ export function useHomeData() {
           // /media와 /community 양쪽에서 신규 콘텐츠를 한 곳에 통합 표시 (S10 우측)
           const activity = [...freeContents, ...qnaContents, ...reviewContents, ...resourceContents]
             .filter((c) => c.isApproved !== false)
-            .sort((a, b) => {
-              const ta = typeof a.createdAt === "string" ? new Date(a.createdAt).getTime() : 0;
-              const tb = typeof b.createdAt === "string" ? new Date(b.createdAt).getTime() : 0;
-              return tb - ta;
-            })
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
             .slice(0, 6);
           if (activity.length > 0) setRecentActivity(activity);
 
@@ -220,8 +214,8 @@ export function useHomeData() {
               id: c.id || "",
               tag: c.tags?.[0] || "공지",
               title: c.title,
-              date: toDateString(typeof c.createdAt === "string" ? c.createdAt : ""),
-              ts: typeof c.createdAt === "string" ? new Date(c.createdAt).getTime() : 0,
+              date: toDateString(c.createdAt),
+              ts: toMillis(c.createdAt),
             }));
           const fromPosts: NoticeRow[] = (firestorePosts ?? [])
             .filter((p) => (p.type || p.boardType) === "NOTICE")
