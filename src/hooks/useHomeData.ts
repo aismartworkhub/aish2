@@ -11,6 +11,7 @@ import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
 import { getContents } from "@/lib/content-engine";
 import type { Content } from "@/types/content";
 import { getRunmoaContents } from "@/lib/runmoa-api";
+import { loadProgramOverrides, applyProgramOverrides } from "@/lib/program-overrides";
 import type { RunmoaContent } from "@/types/runmoa";
 import type { AdminEvent } from "@/types/firestore";
 import {
@@ -173,8 +174,8 @@ export function useHomeData() {
           setIsDemoInstructors(false);
         }
         try {
-          const [runmoaRes, eventsData, lectureContents, resourceContents, freeContents, qnaContents, noticeContents, reviewContents] = await Promise.all([
-            getRunmoaContents({ status: "publish", limit: 8 }),
+          const [runmoaRes, eventsData, lectureContents, resourceContents, freeContents, qnaContents, noticeContents, reviewContents, programOverrides] = await Promise.all([
+            getRunmoaContents({ status: "publish", limit: 40 }),
             getCollection<AdminEvent & { id: string }>(COLLECTIONS.ADMIN_EVENTS),
             getContents("media-lecture", { maxItems: 15 }),
             getContents("media-resource", { maxItems: 15 }),
@@ -182,8 +183,10 @@ export function useHomeData() {
             getContents("community-qna", { maxItems: 5 }).catch(() => [] as Content[]),
             getContents("community-notice", { maxItems: 4 }).catch(() => [] as Content[]),
             getContents("community-review", { maxItems: 5 }).catch(() => [] as Content[]),
+            loadProgramOverrides().catch(() => ({})),
           ]);
-          if (runmoaRes.data.length > 0) setRunmoaPrograms(runmoaRes.data);
+          // 관리자 지정 노출 순서·숨김 적용 후 홈 노출 개수만큼 슬라이스
+          if (runmoaRes.data.length > 0) setRunmoaPrograms(applyProgramOverrides(runmoaRes.data, programOverrides).slice(0, 8));
           if (eventsData.length > 0) setAdminEvents(eventsData.filter((e) => e.status !== "COMPLETED" && e.status !== "CANCELLED"));
           const merged = [...lectureContents, ...resourceContents]
             .filter((c) => c.isApproved !== false && !c.homeHidden)

@@ -13,6 +13,9 @@ import { cn, htmlToPlainTextSummary } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { loadPageContent, DEFAULT_PROGRAMS } from "@/lib/page-content-public";
+import {
+  loadProgramOverrides, applyProgramOverrides, type ProgramOverrides,
+} from "@/lib/program-overrides";
 import type { PageContentBase } from "@/types/page-content";
 import type { RunmoaContent, RunmoaCategory } from "@/types/runmoa";
 
@@ -22,9 +25,10 @@ function formatPrice(price: number): string {
   return new Intl.NumberFormat("ko-KR").format(price);
 }
 
-type SortKey = "newest" | "name" | "priceAsc";
+type SortKey = "recommended" | "newest" | "name" | "priceAsc";
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "recommended", label: "추천순" },
   { key: "newest", label: "최신순" },
   { key: "name", label: "가나다순" },
   { key: "priceAsc", label: "가격 낮은순" },
@@ -37,10 +41,11 @@ export default function ProgramsPage() {
   const [filter, setFilter] = useState(initialQuery?.get("cat") || "ALL");
   const [search, setSearch] = useState(initialQuery?.get("q") || "");
   const [sort, setSort] = useState<SortKey>(
-    (initialQuery?.get("sort") as SortKey) || "newest",
+    (initialQuery?.get("sort") as SortKey) || "recommended",
   );
   const debouncedSearch = useDebounce(search);
   const [contents, setContents] = useState<RunmoaContent[]>([]);
+  const [overrides, setOverrides] = useState<ProgramOverrides>({});
   const [categories, setCategories] = useState<RunmoaCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [useFallback, setUseFallback] = useState(false);
@@ -50,7 +55,7 @@ export default function ProgramsPage() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams();
     if (debouncedSearch) params.set("q", debouncedSearch);
-    if (sort !== "newest") params.set("sort", sort);
+    if (sort !== "recommended") params.set("sort", sort);
     if (filter !== "ALL") params.set("cat", filter);
     const qs = params.toString();
     const url = `${window.location.pathname}${qs ? `?${qs}` : ""}`;
@@ -65,11 +70,13 @@ export default function ProgramsPage() {
     Promise.all([
       getRunmoaContents({ status: "publish", limit: 100 }),
       getRunmoaCategories(),
+      loadProgramOverrides().catch(() => ({})),
     ])
-      .then(([res, cats]) => {
+      .then(([res, cats, ov]) => {
         if (res.data.length > 0) {
           setContents(res.data);
           setCategories(cats);
+          setOverrides(ov);
         } else {
           setUseFallback(true);
         }
@@ -106,7 +113,10 @@ export default function ProgramsPage() {
       if (debouncedSearch && !c.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
       return true;
     });
-    const sorted = [...list];
+    // 관리자 숨김 제외 + 추천(지정) 순서 적용. 다른 정렬은 숨김만 반영하고 기준대로 재정렬.
+    const visible = applyProgramOverrides(list, overrides);
+    if (sort === "recommended") return visible;
+    const sorted = [...visible];
     if (sort === "name") {
       sorted.sort((a, b) => a.title.localeCompare(b.title, "ko"));
     } else if (sort === "priceAsc") {
@@ -117,7 +127,7 @@ export default function ProgramsPage() {
       sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
     return sorted;
-  }, [contents, filter, debouncedSearch, useFallback, sort]);
+  }, [contents, filter, debouncedSearch, useFallback, sort, overrides]);
 
   return (
     <div className="py-16">

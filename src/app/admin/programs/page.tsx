@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Plus, Search, Filter, ExternalLink, RefreshCw,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Eye, EyeOff,
 } from "lucide-react";
 import { cn, htmlToPlainTextSummary } from "@/lib/utils";
+import {
+  loadProgramOverrides, saveProgramOverrides, type ProgramOverrides,
+} from "@/lib/program-overrides";
 import {
   RUNMOA_CONTENT_TYPE_LABELS,
   RUNMOA_STATUS_LABELS,
@@ -40,6 +43,56 @@ export default function AdminProgramsPage() {
 
   const { data: contents, pagination, loading, error, refresh } = useRunmoaContents(params);
 
+  // 관리자 지정 노출 순서·숨김 (홈·프로그램 페이지에 반영)
+  const [overrides, setOverrides] = useState<ProgramOverrides>({});
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState(false);
+
+  useEffect(() => {
+    loadProgramOverrides().then(setOverrides).catch(() => {});
+  }, []);
+
+  // 빈 항목 제거하며 오버라이드 갱신
+  const patchOverride = (id: number, patch: Partial<{ order: number | undefined; hidden: boolean }>) => {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      const cur = { ...(next[String(id)] ?? {}) };
+      if ("order" in patch) {
+        if (patch.order === undefined) delete cur.order;
+        else cur.order = patch.order;
+      }
+      if ("hidden" in patch) {
+        if (patch.hidden) cur.hidden = true;
+        else delete cur.hidden;
+      }
+      if (cur.order === undefined && !cur.hidden) delete next[String(id)];
+      else next[String(id)] = cur;
+      return next;
+    });
+    setDirty(true);
+    setSavedMsg(false);
+  };
+
+  const handleOrderChange = (id: number, value: string) => {
+    const trimmed = value.trim();
+    const n = trimmed === "" ? undefined : Number(trimmed);
+    patchOverride(id, { order: n !== undefined && Number.isFinite(n) ? n : undefined });
+  };
+
+  const handleSaveOverrides = async () => {
+    setSaving(true);
+    try {
+      await saveProgramOverrides(overrides);
+      setDirty(false);
+      setSavedMsg(true);
+    } catch {
+      /* 저장 실패 시 dirty 유지 — 사용자가 재시도 */
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleOpenAdd = () => {
     window.open(RUNMOA_ADMIN_ADD_URL, "_blank", "noopener");
   };
@@ -72,6 +125,8 @@ export default function AdminProgramsPage() {
           <h1 className="text-2xl font-bold text-gray-900">교육 프로그램 관리</h1>
           <p className="text-gray-500 mt-1">
             Runmoa 콘텐츠와 연동됩니다. 등록·수정은 Runmoa 관리 화면에서 진행합니다.
+            <br />
+            <span className="text-gray-400">노출 순서·숨김은 홈·교육과정 페이지에 반영됩니다 (작은 순서가 먼저, 빈 칸은 기본 순서).</span>
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -141,13 +196,15 @@ export default function AdminProgramsPage() {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">상태</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">가격</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">카테고리</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">노출 순서</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">노출</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">수정</th>
               </tr>
             </thead>
             <tbody>
               {contents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400 text-sm">
                     {loading ? "불러오는 중..." : "콘텐츠가 없습니다."}
                   </td>
                 </tr>
@@ -221,6 +278,34 @@ export default function AdminProgramsPage() {
                         {c.categories.map((cat) => cat.name).join(", ") || "-"}
                       </span>
                     </td>
+                    <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="number"
+                        value={overrides[String(c.content_id)]?.order ?? ""}
+                        onChange={(e) => handleOrderChange(c.content_id, e.target.value)}
+                        placeholder="-"
+                        className="w-16 px-2 py-1 rounded-lg border border-gray-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                      />
+                    </td>
+                    <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      {(() => {
+                        const hidden = !!overrides[String(c.content_id)]?.hidden;
+                        return (
+                          <button
+                            onClick={() => patchOverride(c.content_id, { hidden: !hidden })}
+                            className={cn(
+                              "p-2 rounded-lg transition-colors",
+                              hidden
+                                ? "text-gray-300 hover:text-gray-500 hover:bg-gray-50"
+                                : "text-primary-600 hover:bg-primary-50",
+                            )}
+                            title={hidden ? "숨김 — 클릭하면 노출" : "노출 중 — 클릭하면 숨김"}
+                          >
+                            {hidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center justify-end">
                         <button
@@ -284,6 +369,27 @@ export default function AdminProgramsPage() {
           </div>
         )}
       </div>
+
+      {/* 순서·노출 저장 바 */}
+      {(dirty || savedMsg) && (
+        <div className="sticky bottom-4 mt-4 flex items-center justify-end gap-3">
+          {savedMsg && !dirty && (
+            <span className="text-sm text-green-600">노출 순서·숨김이 저장되었습니다.</span>
+          )}
+          {dirty && (
+            <>
+              <span className="text-sm text-gray-500">변경된 노출 순서·숨김이 저장되지 않았습니다.</span>
+              <button
+                onClick={handleSaveOverrides}
+                disabled={saving}
+                className="px-5 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 disabled:opacity-50 shadow-lg"
+              >
+                {saving ? "저장 중..." : "순서·노출 저장"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
