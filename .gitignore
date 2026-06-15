@@ -20,6 +20,12 @@ API_런모아*.txt
 
 # debug
 npm-debug.log*
+firebase-debug.log*
+
+# 점검용 임시 산출물 (Playwright 캡쳐/스냅샷)
+.playwright-mcp/
+community-live.png
+typo-copy-cards.png
 
 # env files
 .env*.local
