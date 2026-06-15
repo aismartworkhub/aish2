@@ -38,6 +38,27 @@ export async function saveProgramOverrides(items: ProgramOverrides): Promise<voi
   await setSingletonDoc(COLLECTIONS.SETTINGS, OVERRIDES_DOC_ID, { items });
 }
 
+/**
+ * Runmoa 원문에 흔한 표시 오타를 표시 단계에서 정리한다.
+ * - 단독 한글 자모(깨진 글자) 제거
+ * - 복제 접미사 `_copy` 제거
+ * - 대괄호 주변 공백 정규화, 연속 공백 축소
+ * - 단독/한글 앞 소문자 `ai` → `AI` (email·training 등 단어 내부는 건드리지 않음)
+ */
+export function sanitizeProgramText(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/[㄰-㆏]/g, "")
+    .replace(/(?:_copy)+\s*$/i, "")
+    .replace(/\[\s+/g, "[")
+    .replace(/\s+\]/g, "]")
+    .replace(/\](?=[^\s\]])/g, "] ")
+    .replace(/\bai\b/gi, "AI")
+    .replace(/\bai(?=[가-힣])/g, "AI")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 /** Runmoa 콘텐츠에 오버레이 표시 필드를 병합(있는 필드만 덮어씀) */
 export function mergeProgram(c: RunmoaContent, ov?: ProgramOverride): RunmoaContent {
   if (!ov) return c;
@@ -77,5 +98,9 @@ export function applyProgramOverrides(
       if (ob !== null) return 1;
       return a.i - b.i;
     })
-    .map((x) => mergeProgram(x.c, overrides[String(x.c.content_id)]));
+    .map((x) => {
+      const merged = mergeProgram(x.c, overrides[String(x.c.content_id)]);
+      // 관리자 오버레이가 없는 필드에 남은 원문 오타를 표시 단계에서 정리
+      return { ...merged, title: sanitizeProgramText(merged.title) };
+    });
 }

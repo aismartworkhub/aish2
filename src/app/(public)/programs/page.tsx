@@ -14,7 +14,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { loadPageContent, DEFAULT_PROGRAMS } from "@/lib/page-content-public";
 import {
-  loadProgramOverrides, applyProgramOverrides, type ProgramOverrides,
+  loadProgramOverrides, applyProgramOverrides, sanitizeProgramText, type ProgramOverrides,
 } from "@/lib/program-overrides";
 import type { PageContentBase } from "@/types/page-content";
 import type { RunmoaContent, RunmoaCategory } from "@/types/runmoa";
@@ -212,7 +212,7 @@ export default function ProgramsPage() {
         {!loading && !useFallback && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {(filtered as RunmoaContent[]).map((c) => {
-              const descPlain = htmlToPlainTextSummary(c.description_html, 120);
+              const descPlain = sanitizeProgramText(htmlToPlainTextSummary(c.description_html, 120));
               return (
               <div key={c.content_id} className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden flex flex-col hover-lift hover:border-t-4 hover:border-t-brand-blue">
                 {c.featured_image ? (
