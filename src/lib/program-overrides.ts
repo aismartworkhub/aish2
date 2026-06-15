@@ -1,7 +1,24 @@
 import { getSingletonDoc, setSingletonDoc, COLLECTIONS } from "@/lib/firestore";
+import type { RunmoaContent, RunmoaContentType } from "@/types/runmoa";
 
-/** Runmoa 프로그램(외부 읽기전용)에 관리자가 덧씌우는 노출 순서·숨김 값 */
-export type ProgramOverride = { order?: number; hidden?: boolean };
+/**
+ * Runmoa 프로그램(외부 읽기전용)에 관리자가 덧씌우는 표시 오버레이.
+ * 노출 순서·숨김 + 카드 표시 필드(제목·설명·이미지·유형·가격)를 덮어쓴다.
+ * 값이 없는 필드는 Runmoa 원본을 그대로 사용한다.
+ */
+export type ProgramOverride = {
+  order?: number;
+  hidden?: boolean;
+  // 표시 필드 오버레이
+  title?: string;
+  description?: string;          // 평문/HTML 모두 허용 — 카드에서 htmlToPlainTextSummary 처리
+  featuredImage?: string;
+  contentType?: RunmoaContentType;
+  isFree?: boolean;
+  basePrice?: number;
+  salePrice?: number;
+  isOnSale?: boolean;
+};
 
 /** content_id(문자열) → 오버라이드 */
 export type ProgramOverrides = Record<string, ProgramOverride>;
@@ -10,27 +27,43 @@ const OVERRIDES_DOC_ID = "program-overrides";
 
 type OverridesDoc = { items?: ProgramOverrides };
 
-/** 관리자 지정 순서·숨김 맵 로드 (없으면 빈 맵) */
+/** 관리자 오버레이 맵 로드 (없으면 빈 맵) */
 export async function loadProgramOverrides(): Promise<ProgramOverrides> {
   const doc = await getSingletonDoc<OverridesDoc>(COLLECTIONS.SETTINGS, OVERRIDES_DOC_ID);
   return doc?.items ?? {};
 }
 
-/** 관리자 지정 순서·숨김 맵 저장 */
+/** 관리자 오버레이 맵 저장 */
 export async function saveProgramOverrides(items: ProgramOverrides): Promise<void> {
   await setSingletonDoc(COLLECTIONS.SETTINGS, OVERRIDES_DOC_ID, { items });
 }
 
+/** Runmoa 콘텐츠에 오버레이 표시 필드를 병합(있는 필드만 덮어씀) */
+export function mergeProgram(c: RunmoaContent, ov?: ProgramOverride): RunmoaContent {
+  if (!ov) return c;
+  return {
+    ...c,
+    title: ov.title?.trim() ? ov.title : c.title,
+    description_html: ov.description?.trim() ? ov.description : c.description_html,
+    featured_image: ov.featuredImage?.trim() ? ov.featuredImage : c.featured_image,
+    content_type: ov.contentType ?? c.content_type,
+    is_free: ov.isFree ?? c.is_free,
+    base_price: typeof ov.basePrice === "number" ? ov.basePrice : c.base_price,
+    sale_price: typeof ov.salePrice === "number" ? ov.salePrice : c.sale_price,
+    is_on_sale: ov.isOnSale ?? c.is_on_sale,
+  };
+}
+
 /**
- * Runmoa 목록에 오버라이드 적용: 숨김 제거 + 지정 순서 우선 정렬.
+ * Runmoa 목록에 오버레이 적용: 숨김 제거 + 지정 순서 우선 정렬 + 표시 필드 병합.
  * 순서가 지정된 항목이 (작은 값부터) 앞에 오고, 미지정 항목은 원래 순서를 유지한다(stable).
  */
-export function applyProgramOverrides<T extends { content_id: number }>(
-  list: T[],
+export function applyProgramOverrides(
+  list: RunmoaContent[],
   overrides: ProgramOverrides,
-): T[] {
+): RunmoaContent[] {
   const visible = list.filter((c) => !overrides[String(c.content_id)]?.hidden);
-  const orderOf = (c: T): number | null => {
+  const orderOf = (c: RunmoaContent): number | null => {
     const v = overrides[String(c.content_id)]?.order;
     return typeof v === "number" ? v : null;
   };
@@ -44,5 +77,5 @@ export function applyProgramOverrides<T extends { content_id: number }>(
       if (ob !== null) return 1;
       return a.i - b.i;
     })
-    .map((x) => x.c);
+    .map((x) => mergeProgram(x.c, overrides[String(x.c.content_id)]));
 }

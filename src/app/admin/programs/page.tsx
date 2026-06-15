@@ -3,11 +3,12 @@
 import { useState, useMemo, useEffect } from "react";
 import {
   Plus, Search, Filter, ExternalLink, RefreshCw,
-  ChevronLeft, ChevronRight, Eye, EyeOff,
+  ChevronLeft, ChevronRight, Eye, EyeOff, Pencil, X,
 } from "lucide-react";
 import { cn, htmlToPlainTextSummary } from "@/lib/utils";
 import {
-  loadProgramOverrides, saveProgramOverrides, type ProgramOverrides,
+  loadProgramOverrides, saveProgramOverrides, mergeProgram,
+  type ProgramOverrides, type ProgramOverride,
 } from "@/lib/program-overrides";
 import {
   RUNMOA_CONTENT_TYPE_LABELS,
@@ -18,7 +19,7 @@ import { RUNMOA_ADMIN_ADD_URL, runmoaAdminEditUrl } from "@/lib/runmoa-api";
 import { useRunmoaContents } from "@/hooks/useRunmoaContents";
 import { useDebounce } from "@/hooks/useDebounce";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
-import type { RunmoaContentType, RunmoaStatus } from "@/types/runmoa";
+import type { RunmoaContent, RunmoaContentType, RunmoaStatus } from "@/types/runmoa";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -91,6 +92,76 @@ export default function AdminProgramsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── 표시 필드 편집 모달 (제목·설명·이미지·유형·가격) ──
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<ProgramOverride>({});
+  const editing = contents.find((c) => c.content_id === editingId) ?? null;
+
+  const openEditor = (c: RunmoaContent) => {
+    const ov = overrides[String(c.content_id)] ?? {};
+    setForm({
+      title: ov.title ?? c.title,
+      description: ov.description ?? htmlToPlainTextSummary(c.description_html, 100000),
+      featuredImage: ov.featuredImage ?? c.featured_image,
+      contentType: ov.contentType ?? c.content_type,
+      isFree: ov.isFree ?? c.is_free,
+      basePrice: typeof ov.basePrice === "number" ? ov.basePrice : c.base_price,
+      salePrice: typeof ov.salePrice === "number" ? ov.salePrice : c.sale_price,
+      isOnSale: ov.isOnSale ?? c.is_on_sale,
+      order: ov.order,
+      hidden: ov.hidden,
+    });
+    setEditingId(c.content_id);
+  };
+
+  // 원본과 다른 값만 오버레이로 저장 (미변경 필드는 Runmoa 원본을 계속 따라감)
+  const buildOverride = (c: RunmoaContent): ProgramOverride => {
+    const plainOrig = htmlToPlainTextSummary(c.description_html, 100000);
+    const ov: ProgramOverride = {};
+    if (form.title?.trim() && form.title.trim() !== c.title) ov.title = form.title.trim();
+    if (form.description?.trim() && form.description.trim() !== plainOrig) ov.description = form.description.trim();
+    if (form.featuredImage?.trim() && form.featuredImage.trim() !== c.featured_image) ov.featuredImage = form.featuredImage.trim();
+    if (form.contentType && form.contentType !== c.content_type) ov.contentType = form.contentType;
+    if (form.isFree !== c.is_free) ov.isFree = form.isFree;
+    if (typeof form.basePrice === "number" && form.basePrice !== c.base_price) ov.basePrice = form.basePrice;
+    if (typeof form.salePrice === "number" && form.salePrice !== c.sale_price) ov.salePrice = form.salePrice;
+    if (form.isOnSale !== c.is_on_sale) ov.isOnSale = form.isOnSale;
+    if (typeof form.order === "number" && Number.isFinite(form.order)) ov.order = form.order;
+    if (form.hidden) ov.hidden = true;
+    return ov;
+  };
+
+  const persistMap = async (next: ProgramOverrides) => {
+    setOverrides(next);
+    setSaving(true);
+    try {
+      await saveProgramOverrides(next);
+      setDirty(false);
+      setSavedMsg(true);
+      setEditingId(null);
+    } catch {
+      /* 저장 실패 시 모달 유지 — 재시도 */
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveEditor = async () => {
+    if (!editing) return;
+    const ov = buildOverride(editing);
+    const next = { ...overrides };
+    if (Object.keys(ov).length === 0) delete next[String(editing.content_id)];
+    else next[String(editing.content_id)] = ov;
+    await persistMap(next);
+  };
+
+  const handleResetEditor = async () => {
+    if (!editing) return;
+    const next = { ...overrides };
+    delete next[String(editing.content_id)];
+    await persistMap(next);
   };
 
   const handleOpenAdd = () => {
@@ -209,13 +280,20 @@ export default function AdminProgramsPage() {
                   </td>
                 </tr>
               ) : (
-                contents.map((c) => {
+                contents.map((rawC) => {
+                  const ov = overrides[String(rawC.content_id)];
+                  const c = mergeProgram(rawC, ov);
+                  const hasContentOverride = !!ov && (
+                    ov.title !== undefined || ov.description !== undefined || ov.featuredImage !== undefined ||
+                    ov.contentType !== undefined || ov.isFree !== undefined || ov.basePrice !== undefined ||
+                    ov.salePrice !== undefined || ov.isOnSale !== undefined
+                  );
                   const rowDesc = htmlToPlainTextSummary(c.description_html, 60);
                   return (
                   <tr
                     key={c.content_id}
                     className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer"
-                    onClick={() => handleOpenEdit(c.content_id)}
+                    onClick={() => openEditor(rawC)}
                   >
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
@@ -233,8 +311,13 @@ export default function AdminProgramsPage() {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 text-sm truncate max-w-xs">
-                            {c.title}
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-gray-900 text-sm truncate max-w-xs">
+                              {c.title}
+                            </span>
+                            {hasContentOverride && (
+                              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">표시 수정됨</span>
+                            )}
                           </div>
                           {rowDesc ? (
                             <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">
@@ -275,7 +358,7 @@ export default function AdminProgramsPage() {
                     </td>
                     <td className="px-4 py-4">
                       <span className="text-sm text-gray-600">
-                        {c.categories.map((cat) => cat.name).join(", ") || "-"}
+                        {rawC.categories.map((cat) => cat.name).join(", ") || "-"}
                       </span>
                     </td>
                     <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
@@ -307,11 +390,18 @@ export default function AdminProgramsPage() {
                       })()}
                     </td>
                     <td className="px-4 py-4">
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(c.content_id); }}
+                          onClick={(e) => { e.stopPropagation(); openEditor(rawC); }}
                           className="p-2 rounded-lg hover:bg-primary-50 text-gray-400 hover:text-primary-600 transition-colors"
-                          title="Runmoa에서 수정"
+                          title="이 사이트에서 표시 내용 수정"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleOpenEdit(rawC.content_id); }}
+                          className="p-2 rounded-lg hover:bg-gray-100 text-gray-300 hover:text-gray-500 transition-colors"
+                          title="Runmoa 원본에서 수정"
                         >
                           <ExternalLink size={16} />
                         </button>
@@ -388,6 +478,172 @@ export default function AdminProgramsPage() {
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* 표시 내용 편집 모달 */}
+      {editing && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setEditingId(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">표시 내용 수정</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  이 사이트의 홈·교육과정 카드 표시만 바뀝니다. Runmoa 수강신청 페이지는 그대로입니다.
+                </p>
+              </div>
+              <button onClick={() => setEditingId(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+                <input
+                  type="text"
+                  value={form.title ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                <textarea
+                  value={form.description ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  rows={4}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">대표 이미지 URL</label>
+                <input
+                  type="text"
+                  value={form.featuredImage ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, featuredImage: e.target.value }))}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">유형 뱃지</label>
+                  <select
+                    value={form.contentType ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, contentType: e.target.value as RunmoaContentType }))}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white focus:outline-none"
+                  >
+                    {Object.entries(RUNMOA_CONTENT_TYPE_LABELS).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 pb-2">
+                    <input
+                      type="checkbox"
+                      checked={!!form.isFree}
+                      onChange={(e) => setForm((f) => ({ ...f, isFree: e.target.checked }))}
+                      className="rounded border-gray-300"
+                    />
+                    무료
+                  </label>
+                </div>
+              </div>
+
+              {!form.isFree && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">정가 (원)</label>
+                    <input
+                      type="number"
+                      value={form.basePrice ?? ""}
+                      onChange={(e) => setForm((f) => ({ ...f, basePrice: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">할인가 (원)</label>
+                    <input
+                      type="number"
+                      value={form.salePrice ?? ""}
+                      onChange={(e) => setForm((f) => ({ ...f, salePrice: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                      disabled={!form.isOnSale}
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:bg-gray-50 disabled:text-gray-400"
+                    />
+                    <label className="inline-flex items-center gap-2 text-xs text-gray-600 mt-1.5">
+                      <input
+                        type="checkbox"
+                        checked={!!form.isOnSale}
+                        onChange={(e) => setForm((f) => ({ ...f, isOnSale: e.target.checked }))}
+                        className="rounded border-gray-300"
+                      />
+                      할인가 적용
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">노출 순서</label>
+                  <input
+                    type="number"
+                    value={form.order ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, order: e.target.value === "" ? undefined : Number(e.target.value) }))}
+                    placeholder="작을수록 먼저 (빈 칸=기본)"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 pb-2">
+                    <input
+                      type="checkbox"
+                      checked={!!form.hidden}
+                      onChange={(e) => setForm((f) => ({ ...f, hidden: e.target.checked }))}
+                      className="rounded border-gray-300"
+                    />
+                    숨김 (홈·교육과정에서 제외)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-2xl">
+              <button
+                onClick={handleResetEditor}
+                disabled={saving}
+                className="text-sm text-gray-400 hover:text-red-500 disabled:opacity-50"
+              >
+                이 프로그램 수정 초기화
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditingId(null)}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSaveEditor}
+                  disabled={saving}
+                  className="px-5 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {saving ? "저장 중..." : "저장"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

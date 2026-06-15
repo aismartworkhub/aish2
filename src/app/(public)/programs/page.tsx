@@ -108,15 +108,16 @@ export default function ProgramsPage() {
       if (sort === "name") return [...list].sort((a, b) => a.title.localeCompare(b.title, "ko"));
       return list;
     }
-    const list = contents.filter((c) => {
+    // 관리자 오버레이(숨김 제외 + 표시 필드 병합 + 추천 순서)를 먼저 적용해
+    // 검색·필터·정렬이 모두 '표시되는 값' 기준으로 동작하게 한다.
+    const merged = applyProgramOverrides(contents, overrides);
+    const list = merged.filter((c) => {
       if (filter !== "ALL" && !c.category_ids.includes(Number(filter))) return false;
       if (debouncedSearch && !c.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
       return true;
     });
-    // 관리자 숨김 제외 + 추천(지정) 순서 적용. 다른 정렬은 숨김만 반영하고 기준대로 재정렬.
-    const visible = applyProgramOverrides(list, overrides);
-    if (sort === "recommended") return visible;
-    const sorted = [...visible];
+    if (sort === "recommended") return list;
+    const sorted = [...list];
     if (sort === "name") {
       sorted.sort((a, b) => a.title.localeCompare(b.title, "ko"));
     } else if (sort === "priceAsc") {
