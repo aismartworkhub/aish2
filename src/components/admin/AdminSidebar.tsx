@@ -90,6 +90,7 @@ const NAV_GROUPS: NavGroup[] = [
         { label: "실적 수치", href: "/admin/settings?tab=stats" },
         { label: "CTA 설정", href: "/admin/settings?tab=cta" },
         { label: "배너 관리", href: "/admin/settings?tab=banner" },
+        { label: "사업자 정보", href: "/admin/settings?tab=business" },
         { label: "기능 플래그 (Phase)", href: "/admin/settings?tab=phases" },
       ],
      },
