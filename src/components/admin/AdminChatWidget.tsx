@@ -15,6 +15,12 @@ const SUGGESTIONS = [
 /** 모든 관리자 화면에 떠 있는 AI 도우미 챗 — 전용 페이지(/admin/ai-assistant)에서는 숨김. */
 export default function AdminChatWidget() {
   const pathname = usePathname();
+  // 전용 페이지에서는 위젯 숨김 — 훅(대화기록·Gemini)이 이중 실행되지 않도록 마운트 전에 차단
+  if (pathname?.startsWith("/admin/ai-assistant")) return null;
+  return <AdminChatWidgetInner />;
+}
+
+function AdminChatWidgetInner() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const { apiKey, keyLoaded, messages, loading, send, clearChat } = useAdminAssistant();
@@ -23,9 +29,6 @@ export default function AdminChatWidget() {
   useEffect(() => {
     if (open) scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading, open]);
-
-  // 전용 페이지에서는 위젯 숨김 (중복 방지)
-  if (pathname?.startsWith("/admin/ai-assistant")) return null;
 
   const submit = (text?: string) => {
     const t = text ?? input;
