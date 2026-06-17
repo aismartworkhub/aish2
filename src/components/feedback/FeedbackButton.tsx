@@ -84,7 +84,8 @@ export default function FeedbackButton() {
           // 좌측 배치라 우측 위젯과 충돌 없음. 모바일 BottomTab(z-50) 위로 z-[52].
           "fixed left-4 bottom-24 lg:bottom-6 z-[52]",
           "h-12 w-12 rounded-full bg-rose-500 text-white shadow-lg",
-          "flex items-center justify-center",
+          // 모바일에서는 숨김 — 데스크톱(lg+)에서만 노출
+          "hidden lg:flex items-center justify-center",
           "hover:bg-rose-600 active:scale-95 transition-all duration-200",
           // 평상시 숨김 → 좌하단 호버 시 페이드 인 (터치 기기는 항상 보임)
           visible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-2 pointer-events-none",
