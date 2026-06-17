@@ -5,6 +5,7 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AuthGuard from "@/components/admin/AuthGuard";
 import FeedbackButton from "@/components/feedback/FeedbackButton";
+import AdminChatWidget from "@/components/admin/AdminChatWidget";
 
 export default function AdminLayout({
   children,
@@ -24,6 +25,7 @@ export default function AdminLayout({
           <main className="p-4 lg:p-6">{children}</main>
         </div>
         <FeedbackButton />
+        <AdminChatWidget />
       </div>
     </AuthGuard>
   );

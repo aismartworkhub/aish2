@@ -2,17 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { GoogleGenerativeAI, type Part } from "@google/generative-ai";
 import { Send, Loader2, Sparkles, Bot, User, Paperclip, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getGeminiApiKey } from "@/lib/gemini";
-import { GEMINI_MODEL } from "@/lib/gemini-model";
-import { buildAdminAssistantContext, buildAdminAssistantContextLive } from "@/lib/admin-help-content";
+import { useAdminAssistant, type AdminAttachment } from "@/hooks/useAdminAssistant";
 
-type Msg = { role: "user" | "model"; text: string; attachmentName?: string };
-type Attachment = { name: string; mimeType: string; data: string };
-
-const STORAGE_KEY = "aish_admin_ai_chat_v1";
 const MAX_FILE_MB = 15;
 const ACCEPT = "image/*,application/pdf,text/plain,.md,.csv";
 
@@ -23,46 +16,12 @@ const SUGGESTIONS = [
   "프로그램 소개 문구 3가지 제안해줘",
 ];
 
-function loadHistory(): Msg[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Msg[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 export default function AdminAiAssistantPage() {
-  // 정적 매뉴얼로 즉시 시작 → 마운트 후 라이브 상태(메뉴·프로그램·사업자정보)로 자동 업그레이드
-  const [systemPrompt, setSystemPrompt] = useState<string>(() => buildAdminAssistantContext());
-  useEffect(() => {
-    buildAdminAssistantContextLive().then(setSystemPrompt).catch(() => {});
-  }, []);
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [keyLoaded, setKeyLoaded] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>(loadHistory);
+  const { apiKey, keyLoaded, messages, loading, send: sendMessage, clearChat: clearChatHook } = useAdminAssistant();
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [attachment, setAttachment] = useState<AdminAttachment | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    getGeminiApiKey()
-      .then((k) => setApiKey(k))
-      .catch(() => setApiKey(null))
-      .finally(() => setKeyLoaded(true));
-  }, []);
-
-  // 히스토리 유지 — 다른 페이지 갔다 와도, 새로고침해도 남음 (브라우저 localStorage)
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-50)));
-    } catch {
-      /* 용량 초과 등 무시 */
-    }
-  }, [messages]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -84,54 +43,19 @@ export default function AdminAiAssistantPage() {
   };
 
   const clearChat = () => {
-    if (messages.length === 0 || confirm("대화 내용을 모두 지울까요?")) {
-      setMessages([]);
-      try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
-    }
+    if (messages.length === 0 || confirm("대화 내용을 모두 지울까요?")) clearChatHook();
   };
 
   const send = useCallback(
-    async (text?: string) => {
-      const userMsg = (text ?? input).trim();
-      if (!apiKey || loading || (!userMsg && !attachment)) return;
-      setInput("");
+    (text?: string) => {
+      const userMsg = text ?? input;
+      if (loading || (!userMsg.trim() && !attachment)) return;
       const att = attachment;
+      setInput("");
       setAttachment(null);
-      setLoading(true);
-      const prior = messages;
-      try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: systemPrompt });
-        const chat = model.startChat({
-          history: prior.map((m) => ({ role: m.role === "user" ? "user" : "model", parts: [{ text: m.text }] })),
-        });
-        const parts: Part[] = [];
-        if (userMsg) parts.push({ text: userMsg });
-        if (att) parts.push({ inlineData: { mimeType: att.mimeType, data: att.data } });
-        const result = await chat.sendMessage(parts.length ? parts : [{ text: " " }]);
-        setMessages([
-          ...prior,
-          { role: "user", text: userMsg || "(첨부 파일)", attachmentName: att?.name },
-          { role: "model", text: result.response.text() },
-        ]);
-      } catch (e) {
-        const raw = e instanceof Error ? e.message : "";
-        const quota = /429|RESOURCE_EXHAUSTED|quota/i.test(raw);
-        setMessages([
-          ...prior,
-          { role: "user", text: userMsg || "(첨부 파일)", attachmentName: att?.name },
-          {
-            role: "model",
-            text: quota
-              ? "오늘 AI 이용량이 많아 일시적으로 답변이 어렵습니다. 잠시 후 다시 시도해 주세요."
-              : "AI 응답에 실패했습니다. (첨부 파일 형식이 지원되지 않을 수 있습니다: 이미지·PDF·텍스트 권장)",
-          },
-        ]);
-      } finally {
-        setLoading(false);
-      }
+      void sendMessage(userMsg, att);
     },
-    [apiKey, input, loading, messages, systemPrompt, attachment],
+    [input, attachment, loading, sendMessage],
   );
 
   const aiUnavailable = keyLoaded && !apiKey;
