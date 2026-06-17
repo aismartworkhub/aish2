@@ -18,7 +18,7 @@ export const EDIT_TARGETS: EditTarget[] = [
   { what: "푸터 사업자 정보", menu: "사이트 설정 → 사업자 정보", path: "/admin/settings?tab=business" },
   { what: "페이지 히어로·소개 카드(이미지 포함)", menu: "사이트 관리 → 페이지 관리", path: "/admin/pages", note: "홈·소개 등 탭별" },
   { what: "강사(프로필 이미지·소개)", menu: "교육 운영 → 강사 관리", path: "/admin/instructors", note: "메인 'AI실전마스터' 섹션" },
-  { what: "교육 프로그램", menu: "교육 운영 → 프로그램 관리", path: "/admin/programs", note: "메인 'Program' 섹션" },
+  { what: "교육 프로그램 노출 순서·숨김·표시내용(제목·설명·이미지·가격)", menu: "교육 운영 → 프로그램 관리", path: "/admin/programs", note: "등록·수정 원본은 Runmoa(aish.runmoa.com). 이 화면은 홈·교육과정 카드 표시를 덮어쓰기. 행 클릭/연필로 편집·저장" },
   { what: "스마트워크톤 / 행사", menu: "교육 운영 → 스마트워크톤 / 일반 행사", path: "/admin/workathon" },
   { what: "갤러리(드라이브 일괄 가져오기)", menu: "콘텐츠 관리 → 갤러리", path: "/admin/gallery" },
   { what: "AI 상담 지식", menu: "사이트 설정 → AI 지식", path: "/admin/settings?tab=knowledge", note: "상담창 답변 근거" },
