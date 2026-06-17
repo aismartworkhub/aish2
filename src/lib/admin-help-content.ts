@@ -33,6 +33,16 @@ export const IMAGE_GUIDE_STEPS = [
   "'미리보기를 불러올 수 없습니다'가 뜨면 대개 드라이브 파일이 '링크가 있는 모든 사용자' 공개가 아닙니다.",
 ];
 
+/** 프로그램–Runmoa 연동 구조 설명 — AI 도우미가 "왜 여기서만 일부만 바뀌나"를 정확히 안내. */
+export const RUNMOA_INTEGRATION_NOTE = [
+  "교육 프로그램(과정) 데이터는 외부 플랫폼 Runmoa(aish.runmoa.com)와 연동됩니다.",
+  "- 원본 등록·수정·삭제·수강신청/결제는 모두 Runmoa에서 이뤄집니다. 새 과정을 '만드는' 곳은 Runmoa 관리자(aish.runmoa.com/admin/contents)입니다.",
+  "- 이 사이트(aish.co.kr)는 Runmoa의 공개 API로 과정 목록을 '읽기 전용'으로 가져와 홈의 'Program' 섹션과 교육과정 페이지(/programs)에 표시합니다.",
+  "- 따라서 이 사이트에서는 Runmoa 원본을 직접 못 고칩니다. 대신 '교육 운영 → 프로그램 관리(/admin/programs)'에서 카드의 노출 순서·숨김과 표시 내용(제목·설명·대표이미지·유형·가격)을 '덮어쓰기(오버레이)'할 수 있습니다.",
+  "- 오버레이는 이 사이트의 카드 표시에만 적용됩니다. 카드를 클릭하면 가는 Runmoa 수강신청 상세 페이지는 Runmoa 원본 그대로입니다. 카드와 상세를 똑같이 맞추려면 Runmoa 원본도 함께 수정해야 합니다.",
+  "- 오버레이에서 비워둔 항목은 Runmoa 원본 값을 자동으로 따라갑니다(원본이 바뀌면 자동 반영).",
+].join("\n");
+
 /** 관리자 AI 도우미 시스템 프롬프트(컨텍스트). 매뉴얼 + 화면별 도움말 기반. */
 export function buildAdminAssistantContext(): string {
   const editMap = EDIT_TARGETS.map((t) => `- ${t.what} → ${t.menu} (${t.path})${t.note ? ` · ${t.note}` : ""}`).join("\n");
@@ -57,6 +67,9 @@ export function buildAdminAssistantContext(): string {
     "",
     "## 이미지 넣는 법",
     IMAGE_GUIDE_STEPS.map((s) => `- ${s}`).join("\n"),
+    "",
+    "## 프로그램 ↔ Runmoa 연동",
+    RUNMOA_INTEGRATION_NOTE,
     "",
     "## 반영 규칙",
     "- 각 화면의 '저장하기'를 눌러야 반영됩니다. 공개 페이지는 약 30초 캐시가 있어, 바로 확인하려면 강제 새로고침(Cmd/Ctrl+Shift+R) 하라고 안내하세요.",
