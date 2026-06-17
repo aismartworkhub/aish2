@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { GoogleGenerativeAI, type Part } from "@google/generative-ai";
 import { Send, Loader2, Sparkles, Bot, User, Paperclip, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGeminiApiKey } from "@/lib/gemini";
 import { GEMINI_MODEL } from "@/lib/gemini-model";
-import { buildAdminAssistantContext } from "@/lib/admin-help-content";
+import { buildAdminAssistantContext, buildAdminAssistantContextLive } from "@/lib/admin-help-content";
 
 type Msg = { role: "user" | "model"; text: string; attachmentName?: string };
 type Attachment = { name: string; mimeType: string; data: string };
@@ -34,7 +34,11 @@ function loadHistory(): Msg[] {
 }
 
 export default function AdminAiAssistantPage() {
-  const systemPrompt = useMemo(() => buildAdminAssistantContext(), []);
+  // 정적 매뉴얼로 즉시 시작 → 마운트 후 라이브 상태(메뉴·프로그램·사업자정보)로 자동 업그레이드
+  const [systemPrompt, setSystemPrompt] = useState<string>(() => buildAdminAssistantContext());
+  useEffect(() => {
+    buildAdminAssistantContextLive().then(setSystemPrompt).catch(() => {});
+  }, []);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [keyLoaded, setKeyLoaded] = useState(false);
   const [messages, setMessages] = useState<Msg[]>(loadHistory);

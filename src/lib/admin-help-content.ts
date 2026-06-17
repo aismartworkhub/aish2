@@ -1,4 +1,7 @@
 import { HELP_TEXTS } from "@/lib/help-texts";
+import { NAV_GROUPS } from "@/lib/admin-nav";
+import { getRunmoaContents } from "@/lib/runmoa-api";
+import { loadBusinessInfo } from "@/lib/site-settings-public";
 
 /** "어디서 무엇을 수정하나" — 도움말 페이지 표 + 관리자 AI 지식 공용 데이터. */
 export interface EditTarget {
@@ -77,4 +80,58 @@ export function buildAdminAssistantContext(): string {
     "## 화면별 상세 도움말",
     help,
   ].join("\n");
+}
+
+/** 실제 사이드바 메뉴 구조(자동 추출) — 메뉴가 바뀌면 도우미 안내도 자동 반영. */
+function buildLiveMenuMap(): string {
+  const lines: string[] = [];
+  for (const group of NAV_GROUPS) {
+    const title = group.title || "기본";
+    for (const item of group.items) {
+      lines.push(`- [${title}] ${item.label} → ${item.href}`);
+      for (const child of item.children ?? []) {
+        lines.push(`   - ${item.label} > ${child.label} → ${child.href}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
+ * 사용 시점의 라이브 상태를 주입한 동적 컨텍스트.
+ * 정적 매뉴얼 + 실제 메뉴 구조 + 현재 프로그램/사업자 정보를 합친다.
+ * 각 라이브 조회는 실패해도 무시(정적 부분은 항상 제공).
+ */
+export async function buildAdminAssistantContextLive(): Promise<string> {
+  const parts: string[] = [
+    buildAdminAssistantContext(),
+    "",
+    "## 실제 관리자 메뉴 구조 (사이드바에서 자동 반영 — 항상 최신)",
+    buildLiveMenuMap(),
+  ];
+
+  try {
+    const res = await getRunmoaContents({ status: "publish", limit: 50 });
+    const list = res.data.map((c, i) => `${i + 1}. ${c.title} (id ${c.content_id})`).join("\n");
+    parts.push("", `## 현재 공개 중인 교육 프로그램 (${res.data.length}건 · Runmoa 실시간)`, list || "(없음)");
+  } catch {
+    /* Runmoa 조회 실패 시 생략 */
+  }
+
+  try {
+    const b = await loadBusinessInfo();
+    parts.push(
+      "",
+      "## 현재 사업자 정보 (푸터 표시값)",
+      `상호: ${b.companyName} / 대표: ${b.ceo} / 사업자등록번호: ${b.businessNumber} / 통신판매업: ${b.mailOrderNumber} / 주소: ${b.address} / 고객센터: ${b.phone} / 이메일: ${b.email} / 개인정보 보호책임자: ${b.privacyManager}`,
+    );
+  } catch {
+    /* 사업자 정보 조회 실패 시 생략 */
+  }
+
+  parts.push(
+    "",
+    "참고: 위 '실제 메뉴 구조'와 '현재 …' 항목은 이 대화를 연 시점의 실시간 값입니다. 운영자가 메뉴·프로그램·사업자 정보를 바꾸면 다음에 대화를 새로 열 때 자동 갱신됩니다.",
+  );
+  return parts.join("\n");
 }
