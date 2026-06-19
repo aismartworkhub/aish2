@@ -273,6 +273,14 @@ async function runCategory(
     const currentBoardCount = boardBreakdown[item.boardKey] ?? 0;
     if (currentBoardCount >= boardMax) { skipped++; continue; }
     if (item.qualityScore < bc.minQualityScore) { skipped++; continue; }
+    // 한글화 필수 — 한국어 제목(titleKo)이 없거나 한글이 안 들어간 항목은 게시하지 않음
+    // (Gemini 큐레이션 실패로 영문 원문만 남은 fallback 항목 차단)
+    const koTitle = (item.titleKo ?? "").trim();
+    if (!koTitle || !/[가-힣]/.test(koTitle)) {
+      console.log(`[${catLabel}] 한글 제목 없음 — 게시 제외: ${item.title.slice(0, 40)}`);
+      skipped++;
+      continue;
+    }
 
     try {
       if (item.mediaUrl) {
