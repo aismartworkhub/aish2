@@ -1,3 +1,4 @@
+import { getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
 import type {
   RunmoaContent,
   RunmoaContentsParams,
@@ -61,10 +62,51 @@ async function apiFetch<T>(path: string, params?: Record<string, string>): Promi
   return data;
 }
 
+/* ── Firestore 미러 (Runmoa가 브라우저 직접요청을 403 차단하므로 우선 사용) ──
+   cron(서버)이 siteSettings/runmoa-programs 에 매일 저장한 공개 프로그램 목록. */
+async function loadProgramsMirror(): Promise<RunmoaContent[]> {
+  try {
+    const doc = await getSingletonDoc<{ items?: RunmoaContent[] }>(COLLECTIONS.SETTINGS, "runmoa-programs");
+    return doc?.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /* ── 콘텐츠 목록 ── */
 export async function getRunmoaContents(
   params: RunmoaContentsParams = {}
 ): Promise<RunmoaContentsResponse> {
+  // 1) Firestore 미러 우선 — 브라우저에서 Runmoa 직접 호출은 403이므로 미러로 서빙
+  const mirror = await loadProgramsMirror();
+  if (mirror.length > 0) {
+    let items = mirror;
+    if (params.status) items = items.filter((c) => c.status === params.status);
+    if (params.content_type) items = items.filter((c) => c.content_type === params.content_type);
+    if (params.category_id) items = items.filter((c) => c.category_ids?.includes(Number(params.category_id)));
+    if (params.search) {
+      const term = params.search.toLowerCase();
+      items = items.filter((c) => c.title.toLowerCase().includes(term));
+    }
+    const perPage = params.limit ?? (items.length || 1);
+    const page = params.page ?? 1;
+    const start = (page - 1) * perPage;
+    const paged = items.slice(start, start + perPage);
+    return {
+      data: paged,
+      pagination: {
+        current_page: page,
+        per_page: perPage,
+        total: items.length,
+        last_page: Math.max(1, Math.ceil(items.length / perPage)),
+        from: items.length ? start + 1 : 0,
+        to: start + paged.length,
+        has_more_pages: start + perPage < items.length,
+      },
+    };
+  }
+
+  // 2) 폴백 — 직접 API (서버/허용 환경. 브라우저에서는 403 가능)
   const q: Record<string, string> = {};
   if (params.page) q.page = String(params.page);
   if (params.limit) q.limit = String(params.limit);
@@ -85,5 +127,13 @@ export async function getRunmoaContentById(
 
 /* ── 카테고리 목록 ── */
 export async function getRunmoaCategories(): Promise<RunmoaCategory[]> {
+  // 미러 프로그램들의 카테고리에서 고유 목록 파생 (브라우저 403 회피)
+  const mirror = await loadProgramsMirror();
+  if (mirror.length > 0) {
+    const unique = new Map<number, RunmoaCategory>();
+    mirror.forEach((c) => (c.categories ?? []).forEach((cat) => unique.set(cat.category_id, cat)));
+    if (unique.size > 0) return Array.from(unique.values());
+  }
+  // 폴백 — 직접 API
   return apiFetch<RunmoaCategory[]>("/content-categories");
 }

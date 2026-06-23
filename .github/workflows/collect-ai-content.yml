@@ -35,6 +35,8 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+          # Runmoa 프로그램 미러링용 (브라우저 403 차단 우회 — 서버에서 받아 Firestore에 저장)
+          NEXT_PUBLIC_RUNMOA_API_KEY: ${{ secrets.NEXT_PUBLIC_RUNMOA_API_KEY }}
           MAX_ITEMS: ${{ github.event.inputs.max_items || '10' }}
           MIN_QUALITY_SCORE: "7"
           # Phase 4-B: Drive 업로드 폴더 (선택). 미설정 시 base64 data URL 폴백.

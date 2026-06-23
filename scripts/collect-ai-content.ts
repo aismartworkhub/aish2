@@ -16,6 +16,7 @@ import * as admin from "firebase-admin";
 const SA_KEY = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 const YOUTUBE_KEY = process.env.YOUTUBE_API_KEY ?? "";
 const GEMINI_KEY = process.env.GEMINI_API_KEY ?? "";
+const RUNMOA_KEY = process.env.NEXT_PUBLIC_RUNMOA_API_KEY ?? "";
 const ENV_MAX_ITEMS = Number(process.env.MAX_ITEMS) || 10;
 const ENV_MIN_SCORE = Number(process.env.MIN_QUALITY_SCORE) || 7;
 // 관리자가 과도하게 높인 점수(예: 10)는 Gemini가 만점 준 항목만 통과시켜 모든 수집을 막는다.
@@ -352,6 +353,9 @@ async function runCategory(
 
       await firestore.collection("contents").add({
         boardKey: item.boardKey,
+        // group — /media·/community 피드가 where("group","==",...)로 필터하므로 필수.
+        // 누락 시 공개 피드에 노출되지 않음. 수집 보드는 media-*/community-* 뿐.
+        group: item.boardKey.startsWith("community") ? "community" : "media",
         title: item.title,
         titleKo: item.titleKo ?? null,
         body: item.body,
@@ -427,7 +431,68 @@ async function main() {
     { merge: true },
   );
 
+  await backfillGroups();
+  await mirrorRunmoaPrograms();
+
   console.log(`\n[Done] 전체 ${totalInserted}건 삽입, 총 소요 ${Math.round((Date.now() - startTime) / 1000)}초`);
+}
+
+/**
+ * 기존 콘텐츠 중 group 필드가 없는 항목을 보정.
+ * /media·/community 피드는 where("group","==",...)로 필터하므로 group 누락 시 노출되지 않음.
+ * boardKey 접두사로 group을 채운다(media-* → media, community-* → community).
+ */
+async function backfillGroups() {
+  try {
+    const snap = await firestore.collection("contents").get();
+    let patched = 0;
+    let batch = firestore.batch();
+    let inBatch = 0;
+    for (const doc of snap.docs) {
+      const data = doc.data();
+      if (data.group) continue;
+      const bk = typeof data.boardKey === "string" ? data.boardKey : "";
+      const group = bk.startsWith("community") ? "community" : bk.startsWith("media") ? "media" : "";
+      if (!group) continue;
+      batch.update(doc.ref, { group });
+      patched++;
+      inBatch++;
+      if (inBatch >= 400) { await batch.commit(); batch = firestore.batch(); inBatch = 0; }
+    }
+    if (inBatch > 0) await batch.commit();
+    if (patched > 0) console.log(`[Backfill] group 보정 ${patched}건`);
+  } catch (e) {
+    console.error("[Backfill] 실패", e);
+  }
+}
+
+/**
+ * Runmoa 공개 프로그램을 Firestore(siteSettings/runmoa-programs)에 미러링.
+ * Runmoa API가 브라우저 직접 요청을 403 차단하므로, 서버(cron)에서 받아 저장하고
+ * 공개 페이지·관리자는 이 미러를 읽는다.
+ */
+async function mirrorRunmoaPrograms() {
+  if (!RUNMOA_KEY) { console.log("[Mirror] Runmoa 키 없음 — skip"); return; }
+  try {
+    const res = await fetch("https://aish.runmoa.com/api/public/v1/contents?status=publish&limit=100", {
+      headers: { Accept: "application/json", Authorization: `Bearer ${RUNMOA_KEY}` },
+    });
+    if (!res.ok) { console.log(`[Mirror] Runmoa ${res.status} — skip`); return; }
+    const data = (await res.json()) as { data?: Record<string, unknown>[] };
+    const items = (data.data ?? []).map((c) => ({
+      ...c,
+      // 설명 HTML(임베디드 CSS 포함)이 클 수 있어 카드 표시에 충분한 길이로 제한
+      description_html: typeof c.description_html === "string" ? c.description_html.slice(0, 6000) : "",
+    }));
+    await firestore.doc("siteSettings/runmoa-programs").set({
+      items,
+      count: items.length,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log(`[Mirror] Runmoa 프로그램 ${items.length}건 미러링 완료`);
+  } catch (e) {
+    console.error("[Mirror] 실패", e);
+  }
 }
 
 async function saveCategoryRun(
