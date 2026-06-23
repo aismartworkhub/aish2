@@ -1,0 +1,50 @@
+name: Social Short (dry-run)
+
+# 숏폼(9:16) 샘플 생성 — 한글 요약 → 브랜드 카드 + 한글 TTS → ffmpeg 합성.
+# 드라이런: 업로드 없이 out/short.mp4 를 아티팩트로 제공(다운로드해서 품질 확인).
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "제목(비우면 최신 커뮤니티 글 자동 사용)"
+        required: false
+      summary:
+        description: "요약(비우면 최신 커뮤니티 글 자동 사용)"
+        required: false
+      url:
+        description: "원문 링크(선택)"
+        required: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg + 한글 폰트
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-nanum
+
+      - name: Install Python deps
+        run: pip install Pillow edge-tts
+
+      - name: Generate short
+        run: python scripts/make-short.py
+        env:
+          CONTENT_TITLE: ${{ github.event.inputs.title }}
+          CONTENT_SUMMARY: ${{ github.event.inputs.summary }}
+          CONTENT_URL: ${{ github.event.inputs.url }}
+          # 무료 스톡 B-roll(선택) — 시크릿 있으면 배경에 사용, 없으면 그라데이션
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+
+      - name: Upload mp4 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: short-sample
+          path: out/short.mp4
+          if-no-files-found: error
