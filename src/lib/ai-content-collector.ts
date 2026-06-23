@@ -6,7 +6,7 @@
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-export type ContentSource = "youtube" | "github" | "reddit" | "xcom" | "instagram" | "hackernews";
+export type ContentSource = "youtube" | "github" | "reddit" | "xcom" | "instagram" | "hackernews" | "devto";
 
 export interface RawCollectedItem {
   source: ContentSource;
@@ -194,8 +194,8 @@ export async function fetchXcomAI(maxResults = 5): Promise<RawCollectedItem[]> {
 // ── Hacker News via Algolia API (무료·무키, CORS·데이터센터 IP 허용) ──
 // reddit이 클라우드 IP를 차단하는 환경(GitHub Actions)에서 커뮤니티 소스로 사용.
 
-const HN_QUERIES = ["AI", "LLM", "machine learning"];
-const HN_MIN_POINTS = 20;
+const HN_QUERIES = ["AI", "LLM", "machine learning", "ChatGPT", "Claude", "OpenAI", "AI agent", "Gemini"];
+const HN_MIN_POINTS = 10;
 
 export async function fetchHackerNewsAI(maxResults = 5): Promise<RawCollectedItem[]> {
   const cutoffSec = Math.floor((Date.now() - SEVEN_DAYS_MS) / 1000);
@@ -225,6 +225,52 @@ export async function fetchHackerNewsAI(maxResults = 5): Promise<RawCollectedIte
       }
     } catch {
       /* HN API 실패 시 무시 */
+    }
+  }
+  return all.slice(0, maxResults);
+}
+
+// ── dev.to via 공개 API (무료·무키, CI·CORS 허용) ──
+// 커뮤니티 소스 보강용 — reddit 차단 환경에서도 안정적인 개발자 아티클 피드.
+
+const DEVTO_TAGS = ["ai", "machinelearning", "llm"];
+
+interface DevToArticle {
+  title?: string;
+  url?: string;
+  description?: string;
+  published_at?: string;
+  cover_image?: string | null;
+  social_image?: string | null;
+}
+
+export async function fetchDevToAI(maxResults = 5): Promise<RawCollectedItem[]> {
+  const all: RawCollectedItem[] = [];
+  const seen = new Set<string>();
+
+  for (const tag of DEVTO_TAGS) {
+    if (all.length >= maxResults) break;
+    try {
+      const res = await fetch(
+        `https://dev.to/api/articles?tag=${tag}&top=7&per_page=${maxResults}`,
+        { signal: withTimeout(8_000) },
+      );
+      if (!res.ok) continue;
+      const data = (await res.json()) as DevToArticle[];
+      for (const a of Array.isArray(data) ? data : []) {
+        if (!a?.title || !a?.url || seen.has(a.url)) continue;
+        seen.add(a.url);
+        all.push({
+          source: "devto",
+          title: a.title,
+          url: a.url,
+          description: (a.description || "").slice(0, 500),
+          publishedAt: a.published_at || new Date().toISOString(),
+          thumbnailUrl: a.cover_image || a.social_image || undefined,
+        });
+      }
+    } catch {
+      /* dev.to API 실패 시 무시 */
     }
   }
   return all.slice(0, maxResults);
@@ -330,6 +376,7 @@ export async function collectAll(
     xcom: { count: 0 },
     instagram: { count: 0 },
     hackernews: { count: 0 },
+    devto: { count: 0 },
   };
 
   const fetchers: [ContentSource, Promise<RawCollectedItem[]>][] = [
@@ -339,6 +386,7 @@ export async function collectAll(
     ["xcom", fetchXcomAI(max)],
     ["instagram", fetchInstagramAI(max)],
     ["hackernews", fetchHackerNewsAI(max)],
+    ["devto", fetchDevToAI(max)],
   ];
 
   const results = await Promise.allSettled(fetchers.map(([, p]) => p));
@@ -390,6 +438,7 @@ export async function collectByCategory(
     xcom: { count: 0 },
     instagram: { count: 0 },
     hackernews: { count: 0 },
+    devto: { count: 0 },
   };
 
   const fetchers: [ContentSource, () => Promise<RawCollectedItem[]>][] = [
@@ -399,6 +448,7 @@ export async function collectByCategory(
     ["xcom", () => fetchXcomAI(max)],
     ["instagram", () => fetchInstagramAI(max)],
     ["hackernews", () => fetchHackerNewsAI(max)],
+    ["devto", () => fetchDevToAI(max)],
   ];
 
   const activeFetchers = fetchers.filter(([source]) => enabledSources.has(source));
