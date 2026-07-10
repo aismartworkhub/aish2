@@ -193,7 +193,7 @@ export default function HomeModern(props: HomeDataProps) {
                 <Users size={240} />
               </div>
               <div className="relative z-10">
-                <Badge variant="secondary"><span className="text-brand-blue">{dDay} 마감임박</span></Badge>
+                <Badge variant="secondary"><span className="text-brand-blue" suppressHydrationWarning>{dDay} 마감임박</span></Badge>
                 {showSampleBadge && isDemoWorkathon && <span className="ml-2"><SampleBadge className="border-amber-400/50 bg-amber-500/20 text-amber-200" adminLink="/admin/workathon" /></span>}
                 <h2 className="mt-4 text-3xl font-bold leading-tight">{workathon.title}</h2>
                 <p className="mt-4 text-blue-100">{workathon.description}</p>

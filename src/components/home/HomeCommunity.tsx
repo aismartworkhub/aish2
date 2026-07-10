@@ -436,7 +436,7 @@ export default function HomeCommunity(props: HomeDataProps) {
             <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-5">{workathon.title}</h2>
             <p className="text-white/80 text-base leading-relaxed max-w-[400px]">{workathon.description}</p>
             <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-white/60">
-              <span className="text-white font-bold text-xl">{dDay}</span>
+              <span className="text-white font-bold text-xl" suppressHydrationWarning>{dDay}</span>
               <span className="w-px h-4 bg-white/30" />
               <span>{workathon.eventDate}</span>
               <span className="w-px h-4 bg-white/30" />
