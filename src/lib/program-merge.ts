@@ -107,7 +107,8 @@ function runmoaToMerged(c: RunmoaContent, overrides: ProgramOverrides): MergedPr
   return {
     ...merged,
     title: sanitizeProgramText(merged.title),
-    __href: `${RUNMOA_BASE}/classes/${c.content_id}`,
+    // 상품은 /products/{id}, 콘텐츠는 /classes/{id} — 미러가 detail_url을 주입
+    __href: c.detail_url?.trim() || `${RUNMOA_BASE}/classes/${c.content_id}`,
     __order: typeof ov?.order === "number" ? ov.order : NO_ORDER,
   };
 }

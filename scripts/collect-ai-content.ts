@@ -473,23 +473,69 @@ async function backfillGroups() {
  */
 async function mirrorRunmoaPrograms() {
   if (!RUNMOA_KEY) { console.log("[Mirror] Runmoa 키 없음 — skip"); return; }
+  const BASE = "https://aish.runmoa.com";
+  // 설명 HTML(임베디드 CSS 포함)이 클 수 있어 카드 표시에 충분한 길이로 제한
+  const clip = (v: unknown) => (typeof v === "string" ? v.slice(0, 6000) : "");
+
+  const fetchList = async (resource: string): Promise<Record<string, unknown>[]> => {
+    try {
+      const res = await fetch(`${BASE}/api/public/v1/${resource}?status=publish&limit=100`, {
+        headers: { Accept: "application/json", Authorization: `Bearer ${RUNMOA_KEY}` },
+      });
+      if (!res.ok) { console.log(`[Mirror] ${resource} ${res.status} — skip`); return []; }
+      const json = (await res.json()) as { data?: Record<string, unknown>[] };
+      return json.data ?? [];
+    } catch (e) {
+      console.error(`[Mirror] ${resource} 실패`, e);
+      return [];
+    }
+  };
+
   try {
-    const res = await fetch("https://aish.runmoa.com/api/public/v1/contents?status=publish&limit=100", {
-      headers: { Accept: "application/json", Authorization: `Bearer ${RUNMOA_KEY}` },
-    });
-    if (!res.ok) { console.log(`[Mirror] Runmoa ${res.status} — skip`); return; }
-    const data = (await res.json()) as { data?: Record<string, unknown>[] };
-    const items = (data.data ?? []).map((c) => ({
+    // 콘텐츠(강의)와 상품(products)을 모두 미러링 — 공개 페이지가 둘 다 노출
+    const [contentsRaw, productsRaw] = await Promise.all([fetchList("contents"), fetchList("products")]);
+
+    const contents = contentsRaw.map((c) => ({
       ...c,
-      // 설명 HTML(임베디드 CSS 포함)이 클 수 있어 카드 표시에 충분한 길이로 제한
-      description_html: typeof c.description_html === "string" ? c.description_html.slice(0, 6000) : "",
+      description_html: clip(c.description_html),
+      detail_url: `${BASE}/classes/${c.content_id}`,
     }));
+
+    // 상품은 content_id 자리에 product_id를 넣어 공개 카드가 콘텐츠와 동일 로직으로 소비.
+    // 상세 링크는 /products/{id} (콘텐츠의 /classes/{id}와 구분).
+    const products = productsRaw.map((p) => ({
+      content_id: p.product_id,
+      title: p.title ?? "",
+      description_html: clip(p.description_html),
+      content_type: "offline",
+      status: p.status ?? "publish",
+      language: "ko",
+      category_ids: p.category_ids ?? (p.category_id != null ? [p.category_id] : []),
+      categories: p.categories ?? [],
+      featured_image: p.featured_image ?? "",
+      images: p.images ?? [],
+      thumbnail_link: p.featured_image ?? null,
+      base_price: p.base_price ?? 0,
+      sale_price: p.sale_price ?? 0,
+      is_on_sale: p.is_on_sale ?? false,
+      is_free: p.is_free ?? false,
+      options: [],
+      created_at: p.created_at ?? "",
+      updated_at: p.updated_at ?? "",
+      detail_url: `${BASE}/products/${p.product_id}`,
+    }));
+
+    // content_id 기준 중복 제거 (동일 id면 콘텐츠 우선)
+    const byId = new Map<unknown, Record<string, unknown>>();
+    [...products, ...contents].forEach((it) => byId.set(it.content_id, it));
+    const items = Array.from(byId.values());
+
     await firestore.doc("siteSettings/runmoa-programs").set({
       items,
       count: items.length,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-    console.log(`[Mirror] Runmoa 프로그램 ${items.length}건 미러링 완료`);
+    console.log(`[Mirror] Runmoa 미러링 완료 — 콘텐츠 ${contents.length} + 상품 ${products.length} = ${items.length}건`);
   } catch (e) {
     console.error("[Mirror] 실패", e);
   }

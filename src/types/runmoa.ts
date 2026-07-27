@@ -54,6 +54,8 @@ export interface RunmoaContent {
   options: RunmoaContentOption[];
   created_at: string;
   updated_at: string;
+  /** 공개 상세 페이지 링크. 콘텐츠=/classes/{id}, 상품=/products/{id} (미러 cron이 주입) */
+  detail_url?: string;
 }
 
 export interface RunmoaPagination {
