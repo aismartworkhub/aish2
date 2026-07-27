@@ -8,6 +8,17 @@ const RUNMOA_BASE = "https://aish.runmoa.com";
 const NO_ORDER = Number.MAX_SAFE_INTEGER;
 /** 자체 프로그램 유형 뱃지 기본값 */
 const SELF_DEFAULT_TYPE: RunmoaContentType = "offline";
+/** 실제로 존재하지 않는 레거시 placeholder 경로 — '이미지 없음'으로 처리해 카드 폴백을 띄운다. */
+const MISSING_PLACEHOLDERS = new Set([
+  "/images/placeholder-program.jpg",
+  "/images/placeholder-profile.jpg",
+]);
+
+/** 유효한 썸네일만 반환 (없거나 레거시 placeholder면 빈 문자열) */
+function resolveThumb(url?: string): string {
+  const u = url?.trim() || "";
+  return MISSING_PLACEHOLDERS.has(u) ? "" : u;
+}
 
 /**
  * aish.co.kr 자체 등록 프로그램 (Firestore `programs` 컬렉션).
@@ -63,6 +74,7 @@ function normalizeTitle(title: string): string {
 function selfToMerged(p: SelfProgram): MergedProgram {
   const categoryName = (p.category && PROGRAM_CATEGORY_LABELS[p.category]) || p.category || "교육과정";
   const href = p.ctaLink?.trim() || `${RUNMOA_BASE}/classes`;
+  const thumb = resolveThumb(p.thumbnailUrl);
   return {
     content_id: 0,
     title: sanitizeProgramText(p.title),
@@ -72,9 +84,9 @@ function selfToMerged(p: SelfProgram): MergedProgram {
     language: "ko",
     category_ids: [],
     categories: [{ category_id: 0, parent_category_id: 0, name: categoryName, description: "", path: "" }],
-    featured_image: p.thumbnailUrl ?? "",
+    featured_image: thumb,
     images: [],
-    thumbnail_link: p.thumbnailUrl ?? null,
+    thumbnail_link: thumb || null,
     base_price: p.basePrice ?? 0,
     sale_price: p.salePrice ?? 0,
     is_on_sale: p.isOnSale ?? false,
