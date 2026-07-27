@@ -190,11 +190,10 @@ export default function HomeCommunity(props: HomeDataProps) {
             {mergedPrograms.slice(0, 8).map((c) => (
                   <a key={programKey(c)} href={c.__href} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
                     className="group bg-white rounded overflow-hidden border border-brand-border hover-lift">
-                    <div className="aspect-[16/9] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden">
-                      {c.featured_image ? (
-                        <img src={c.featured_image} alt={c.title} className="w-full h-full object-cover object-top" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center"><BookOpen size={36} className="text-gray-300" /></div>
+                    <div className="aspect-[16/9] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden flex items-center justify-center">
+                      <BookOpen size={36} className="text-gray-300 absolute" aria-hidden />
+                      {c.featured_image && (
+                        <img src={c.featured_image} alt={c.title} className="relative w-full h-full object-cover object-top" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                       )}
                       <div className="absolute top-3 left-3">
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-800">

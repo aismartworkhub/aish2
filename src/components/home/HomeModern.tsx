@@ -137,11 +137,10 @@ export default function HomeModern(props: HomeDataProps) {
             {mergedPrograms.slice(0, 4).map((c) => (
                 <a key={programKey(c)} href={c.__href} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
                   className="group flex flex-col bg-white rounded-sm border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
-                  <div className="relative h-40 w-full bg-gradient-to-br from-gray-100 to-gray-50 overflow-hidden">
-                    {c.featured_image ? (
-                      <img src={c.featured_image} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center"><BookOpen size={36} className="text-gray-300" /></div>
+                  <div className="relative h-40 w-full bg-gradient-to-br from-gray-100 to-gray-50 overflow-hidden flex items-center justify-center">
+                    <BookOpen size={36} className="text-gray-300 absolute" aria-hidden />
+                    {c.featured_image && (
+                      <img src={c.featured_image} alt={c.title} className="relative w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     )}
                     <div className="absolute top-2 left-2 flex space-x-1">
                       <span className="bg-white/90 backdrop-blur text-gray-800 text-xs font-bold px-2 py-1 rounded-sm shadow-sm">

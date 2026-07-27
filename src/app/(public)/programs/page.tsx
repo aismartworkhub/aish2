@@ -218,21 +218,19 @@ export default function ProgramsPage() {
               const descPlain = sanitizeProgramText(htmlToPlainTextSummary(c.description_html, 120));
               return (
               <div key={programKey(c)} className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden flex flex-col hover-lift hover:border-t-4 hover:border-t-brand-blue">
-                {c.featured_image ? (
-                  <div className="aspect-[16/9] overflow-hidden relative">
+                <div className="aspect-[16/9] bg-gradient-to-br from-brand-gray to-blue-50 flex items-center justify-center relative overflow-hidden">
+                  <span className="text-4xl absolute" aria-hidden>📚</span>
+                  {c.featured_image && (
                     <img
                       src={c.featured_image}
                       alt={c.title}
-                      className="w-full h-full object-cover object-top"
+                      className="relative w-full h-full object-cover object-top"
                       loading="lazy"
                       decoding="async"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
                     />
-                  </div>
-                ) : (
-                  <div className="aspect-[16/9] bg-gradient-to-br from-brand-gray to-blue-50 flex items-center justify-center">
-                    <span className="text-4xl">📚</span>
-                  </div>
-                )}
+                  )}
+                </div>
                 <div className="p-5 flex-1 flex flex-col">
                   <div className="flex items-center gap-2 mb-2">
                     <span className={cn(
