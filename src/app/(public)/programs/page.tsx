@@ -71,7 +71,8 @@ export default function ProgramsPage() {
 
   useEffect(() => {
     Promise.all([
-      getRunmoaContents({ status: "publish", limit: 100 }),
+      // 판매중 + 판매중지를 함께 노출(카드에 상태 배지 표시). 숨김(pending)은 제외.
+      getRunmoaContents({ limit: 100 }, { statuses: ["publish", "paused"] }),
       getRunmoaCategories(),
       loadProgramOverrides().catch(() => ({})),
       getCollection<SelfProgram>(COLLECTIONS.PROGRAMS).catch(() => [] as SelfProgram[]),

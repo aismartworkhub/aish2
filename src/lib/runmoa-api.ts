@@ -186,13 +186,14 @@ async function loadStorefrontPrograms(): Promise<RunmoaContent[]> {
 
 /* ── 콘텐츠 목록 ── */
 /**
- * @param opts.adminAllStatuses 관리자용 — 판매중지(paused)·숨김(pending) 포함 전 상태 노출.
- *   실시간 publish(스토어프론트) ∪ 미러의 비-publish 항목을 합쳐 반환한다.
- *   공개 페이지는 이 옵션 없이 호출해 publish만 노출한다.
+ * @param opts.adminAllStatuses 관리자용 — 전 상태(판매중지·숨김 포함) 노출.
+ * @param opts.statuses 공개용 — 노출할 상태 화이트리스트(예: ["publish","paused"]).
+ *   스토어프론트 실시간(publish) ∪ 미러에서 해당 상태 항목을 합친다.
+ *   미지정 시 스토어프론트(publish) → 미러 폴백.
  */
 export async function getRunmoaContents(
   params: RunmoaContentsParams = {},
-  opts: { adminAllStatuses?: boolean } = {},
+  opts: { adminAllStatuses?: boolean; statuses?: string[] } = {},
 ): Promise<RunmoaContentsResponse> {
   let base: RunmoaContent[] = [];
   if (opts.adminAllStatuses) {
@@ -203,8 +204,20 @@ export async function getRunmoaContents(
     ]);
     const liveIds = new Set(live.map((x) => x.content_id));
     base = [...live, ...mirror.filter((m) => !liveIds.has(m.content_id))];
+  } else if (opts.statuses && opts.statuses.length > 0) {
+    // 공개(상태 화이트리스트) — 실시간 publish + 미러의 해당 상태 항목(판매중지 등)
+    const wanted = new Set(opts.statuses);
+    const [live, mirror] = await Promise.all([
+      loadStorefrontPrograms().catch(() => [] as RunmoaContent[]),
+      loadProgramsMirror(),
+    ]);
+    const liveIds = new Set(live.map((x) => x.content_id));
+    base = [
+      ...live.filter((x) => wanted.has(x.status)),
+      ...mirror.filter((m) => wanted.has(m.status) && !liveIds.has(m.content_id)),
+    ];
   } else {
-    // 공개 — 스토어프론트 실시간(publish) → 실패/빈값이면 Firestore 미러 폴백
+    // 공개(기본) — 스토어프론트 실시간(publish) → 실패/빈값이면 Firestore 미러 폴백
     try {
       base = await loadStorefrontPrograms();
     } catch { /* 폴백 진행 */ }
