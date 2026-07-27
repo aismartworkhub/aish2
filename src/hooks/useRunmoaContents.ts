@@ -27,7 +27,8 @@ const EMPTY_PAGINATION: RunmoaPagination = {
 };
 
 export function useRunmoaContents(
-  params: RunmoaContentsParams = {}
+  params: RunmoaContentsParams = {},
+  opts: { adminAllStatuses?: boolean } = {},
 ): UseRunmoaContentsResult {
   const [data, setData] = useState<RunmoaContent[]>([]);
   const [pagination, setPagination] = useState<RunmoaPagination | null>(null);
@@ -35,13 +36,13 @@ export function useRunmoaContents(
   const [error, setError] = useState<string | null>(null);
 
   // 파라미터를 JSON 문자열로 직렬화하여 deps로 사용
-  const paramKey = JSON.stringify(params);
+  const paramKey = JSON.stringify({ params, opts });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await getRunmoaContents(params);
+      const res = await getRunmoaContents(params, opts);
       setData(res.data);
       setPagination(res.pagination);
     } catch (e) {

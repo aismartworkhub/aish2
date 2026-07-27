@@ -1,0 +1,37 @@
+name: Maintenance — Set Program Hidden
+
+on:
+  workflow_dispatch:
+    inputs:
+      program_ids:
+        description: "자체 프로그램 문서 id (콤마 구분)"
+        required: true
+      hidden:
+        description: "숨김 여부 (true=숨김, false=노출)"
+        required: false
+        default: "true"
+
+jobs:
+  set-hidden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install firebase-admin
+        run: npm install firebase-admin
+
+      - name: Set program hidden
+        run: npx tsx scripts/set-program-hidden.ts
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROGRAM_IDS: ${{ github.event.inputs.program_ids }}
+          HIDDEN: ${{ github.event.inputs.hidden || 'true' }}

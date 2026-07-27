@@ -477,18 +477,26 @@ async function mirrorRunmoaPrograms() {
   // 설명 HTML(임베디드 CSS 포함)이 클 수 있어 카드 표시에 충분한 길이로 제한
   const clip = (v: unknown) => (typeof v === "string" ? v.slice(0, 6000) : "");
 
+  // 관리자가 판매중지(paused)·숨김(pending) 항목도 볼 수 있도록 전 상태를 미러링.
+  // 공개 페이지는 별도로 publish만 필터해 노출한다.
+  const MIRROR_STATUSES = ["publish", "pending", "paused"];
   const fetchList = async (resource: string): Promise<Record<string, unknown>[]> => {
-    try {
-      const res = await fetch(`${BASE}/api/public/v1/${resource}?status=publish&limit=100`, {
-        headers: { Accept: "application/json", Authorization: `Bearer ${RUNMOA_KEY}` },
-      });
-      if (!res.ok) { console.log(`[Mirror] ${resource} ${res.status} — skip`); return []; }
-      const json = (await res.json()) as { data?: Record<string, unknown>[] };
-      return json.data ?? [];
-    } catch (e) {
-      console.error(`[Mirror] ${resource} 실패`, e);
-      return [];
-    }
+    const perStatus = await Promise.all(
+      MIRROR_STATUSES.map(async (status) => {
+        try {
+          const res = await fetch(`${BASE}/api/public/v1/${resource}?status=${status}&limit=100`, {
+            headers: { Accept: "application/json", Authorization: `Bearer ${RUNMOA_KEY}` },
+          });
+          if (!res.ok) { console.log(`[Mirror] ${resource}/${status} ${res.status} — skip`); return []; }
+          const json = (await res.json()) as { data?: Record<string, unknown>[] };
+          return json.data ?? [];
+        } catch (e) {
+          console.error(`[Mirror] ${resource}/${status} 실패`, e);
+          return [];
+        }
+      }),
+    );
+    return perStatus.flat();
   };
 
   try {

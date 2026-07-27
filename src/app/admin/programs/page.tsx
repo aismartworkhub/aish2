@@ -46,7 +46,8 @@ export default function AdminProgramsPage() {
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
   }), [page, statusFilter, typeFilter, debouncedSearch]);
 
-  const { data: contents, pagination, loading, error, refresh } = useRunmoaContents(params);
+  // 관리자는 판매중지·숨김(pending/paused) 항목도 봐야 하므로 전 상태 조회
+  const { data: contents, pagination, loading, error, refresh } = useRunmoaContents(params, { adminAllStatuses: true });
 
   // 관리자 지정 노출 순서·숨김 (홈·프로그램 페이지에 반영)
   const [overrides, setOverrides] = useState<ProgramOverrides>({});
