@@ -16,7 +16,8 @@ import * as admin from "firebase-admin";
 const SA_KEY = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 const YOUTUBE_KEY = process.env.YOUTUBE_API_KEY ?? "";
 const GEMINI_KEY = process.env.GEMINI_API_KEY ?? "";
-const RUNMOA_KEY = process.env.NEXT_PUBLIC_RUNMOA_API_KEY ?? "";
+// 전 상태(paused/pending) 조회 권한이 있는 서버키 우선, 없으면 기존 공개 API 키
+const RUNMOA_KEY = process.env.RUNMOA_SERVER_KEY || process.env.NEXT_PUBLIC_RUNMOA_API_KEY || "";
 const ENV_MAX_ITEMS = Number(process.env.MAX_ITEMS) || 10;
 const ENV_MIN_SCORE = Number(process.env.MIN_QUALITY_SCORE) || 7;
 // 관리자가 과도하게 높인 점수(예: 10)는 Gemini가 만점 준 항목만 통과시켜 모든 수집을 막는다.
@@ -480,23 +481,22 @@ async function mirrorRunmoaPrograms() {
   // 관리자가 판매중지(paused)·숨김(pending) 항목도 볼 수 있도록 전 상태를 미러링.
   // 공개 페이지는 별도로 publish만 필터해 노출한다.
   const MIRROR_STATUSES = ["publish", "pending", "paused"];
+  // 상태별 순차 조회 — 동시 요청으로 인한 rate-limit/인증 오류 회피. 상태별 실패는 무시.
   const fetchList = async (resource: string): Promise<Record<string, unknown>[]> => {
-    const perStatus = await Promise.all(
-      MIRROR_STATUSES.map(async (status) => {
-        try {
-          const res = await fetch(`${BASE}/api/public/v1/${resource}?status=${status}&limit=100`, {
-            headers: { Accept: "application/json", Authorization: `Bearer ${RUNMOA_KEY}` },
-          });
-          if (!res.ok) { console.log(`[Mirror] ${resource}/${status} ${res.status} — skip`); return []; }
-          const json = (await res.json()) as { data?: Record<string, unknown>[] };
-          return json.data ?? [];
-        } catch (e) {
-          console.error(`[Mirror] ${resource}/${status} 실패`, e);
-          return [];
-        }
-      }),
-    );
-    return perStatus.flat();
+    const out: Record<string, unknown>[] = [];
+    for (const status of MIRROR_STATUSES) {
+      try {
+        const res = await fetch(`${BASE}/api/public/v1/${resource}?status=${status}&limit=100`, {
+          headers: { Accept: "application/json", Authorization: `Bearer ${RUNMOA_KEY}` },
+        });
+        if (!res.ok) { console.log(`[Mirror] ${resource}/${status} ${res.status} — skip`); continue; }
+        const json = (await res.json()) as { data?: Record<string, unknown>[] };
+        if (Array.isArray(json.data)) out.push(...json.data);
+      } catch (e) {
+        console.error(`[Mirror] ${resource}/${status} 실패`, e);
+      }
+    }
+    return out;
   };
 
   try {
@@ -537,6 +537,12 @@ async function mirrorRunmoaPrograms() {
     const byId = new Map<unknown, Record<string, unknown>>();
     [...products, ...contents].forEach((it) => byId.set(it.content_id, it));
     const items = Array.from(byId.values());
+
+    // 일시적 장애로 0건이 미러를 덮어쓰는 것을 방지 — 기존 미러 보존
+    if (items.length === 0) {
+      console.log("[Mirror] 결과 0건 — 기존 미러 보존(덮어쓰기 skip)");
+      return;
+    }
 
     await firestore.doc("siteSettings/runmoa-programs").set({
       items,
