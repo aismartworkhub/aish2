@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { ExternalLink, Search, ArrowUpDown } from "lucide-react";
 import { DEMO_PROGRAMS } from "@/lib/demo-data";
 import { getRunmoaContents, getRunmoaCategories } from "@/lib/runmoa-api";
+import { getCollection, COLLECTIONS } from "@/lib/firestore";
 import {
   RUNMOA_CONTENT_TYPE_LABELS,
   RUNMOA_STATUS_LABELS,
@@ -14,12 +15,13 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { loadPageContent, DEFAULT_PROGRAMS } from "@/lib/page-content-public";
 import {
-  loadProgramOverrides, applyProgramOverrides, sanitizeProgramText, type ProgramOverrides,
+  loadProgramOverrides, sanitizeProgramText, type ProgramOverrides,
 } from "@/lib/program-overrides";
+import {
+  mergeProgramSources, programKey, type SelfProgram, type MergedProgram,
+} from "@/lib/program-merge";
 import type { PageContentBase } from "@/types/page-content";
 import type { RunmoaContent, RunmoaCategory } from "@/types/runmoa";
-
-const RUNMOA_BASE = "https://aish.runmoa.com";
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat("ko-KR").format(price);
@@ -45,6 +47,7 @@ export default function ProgramsPage() {
   );
   const debouncedSearch = useDebounce(search);
   const [contents, setContents] = useState<RunmoaContent[]>([]);
+  const [selfPrograms, setSelfPrograms] = useState<SelfProgram[]>([]);
   const [overrides, setOverrides] = useState<ProgramOverrides>({});
   const [categories, setCategories] = useState<RunmoaCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,15 +74,15 @@ export default function ProgramsPage() {
       getRunmoaContents({ status: "publish", limit: 100 }),
       getRunmoaCategories(),
       loadProgramOverrides().catch(() => ({})),
+      getCollection<SelfProgram>(COLLECTIONS.PROGRAMS).catch(() => [] as SelfProgram[]),
     ])
-      .then(([res, cats, ov]) => {
-        if (res.data.length > 0) {
-          setContents(res.data);
-          setCategories(cats);
-          setOverrides(ov);
-        } else {
-          setUseFallback(true);
-        }
+      .then(([res, cats, ov, self]) => {
+        setContents(res.data);
+        setCategories(cats);
+        setOverrides(ov);
+        setSelfPrograms(self);
+        // Runmoa·자체 모두 비어 있을 때만 데모 폴백
+        if (res.data.length === 0 && self.length === 0) setUseFallback(true);
       })
       .catch(() => {
         setUseFallback(true);
@@ -108,9 +111,9 @@ export default function ProgramsPage() {
       if (sort === "name") return [...list].sort((a, b) => a.title.localeCompare(b.title, "ko"));
       return list;
     }
-    // 관리자 오버레이(숨김 제외 + 표시 필드 병합 + 추천 순서)를 먼저 적용해
-    // 검색·필터·정렬이 모두 '표시되는 값' 기준으로 동작하게 한다.
-    const merged = applyProgramOverrides(contents, overrides);
+    // Runmoa 상품 + 자체 프로그램 병합(중복 제거) 후, 검색·필터·정렬이
+    // 모두 '표시되는 값' 기준으로 동작하게 한다.
+    const merged = mergeProgramSources(contents, selfPrograms, overrides);
     const list = merged.filter((c) => {
       if (filter !== "ALL" && !c.category_ids.includes(Number(filter))) return false;
       if (debouncedSearch && !c.title.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
@@ -128,7 +131,7 @@ export default function ProgramsPage() {
       sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
     return sorted;
-  }, [contents, filter, debouncedSearch, useFallback, sort, overrides]);
+  }, [contents, selfPrograms, filter, debouncedSearch, useFallback, sort, overrides]);
 
   return (
     <div className="py-16">
@@ -211,10 +214,10 @@ export default function ProgramsPage() {
         {/* Runmoa 콘텐츠 카드 */}
         {!loading && !useFallback && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(filtered as RunmoaContent[]).map((c) => {
+            {(filtered as MergedProgram[]).map((c) => {
               const descPlain = sanitizeProgramText(htmlToPlainTextSummary(c.description_html, 120));
               return (
-              <div key={c.content_id} className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden flex flex-col hover-lift hover:border-t-4 hover:border-t-brand-blue">
+              <div key={programKey(c)} className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden flex flex-col hover-lift hover:border-t-4 hover:border-t-brand-blue">
                 {c.featured_image ? (
                   <div className="aspect-[16/9] overflow-hidden relative">
                     <img
@@ -263,7 +266,7 @@ export default function ProgramsPage() {
                 </div>
                 <div className="px-5 pb-5 pt-0 mt-auto border-t border-brand-border">
                   <a
-                    href={`${RUNMOA_BASE}/classes/${c.content_id}`}
+                    href={c.__href}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-sm bg-brand-blue text-white text-sm font-semibold uppercase tracking-widest hover:bg-brand-blue transition-colors"

@@ -11,7 +11,8 @@ import { getCollection, getSingletonDoc, COLLECTIONS } from "@/lib/firestore";
 import { getContents } from "@/lib/content-engine";
 import type { Content } from "@/types/content";
 import { getRunmoaContents } from "@/lib/runmoa-api";
-import { loadProgramOverrides, applyProgramOverrides } from "@/lib/program-overrides";
+import { loadProgramOverrides, applyProgramOverrides, type ProgramOverrides } from "@/lib/program-overrides";
+import { mergeProgramSources, type SelfProgram } from "@/lib/program-merge";
 import type { RunmoaContent } from "@/types/runmoa";
 import type { AdminEvent } from "@/types/firestore";
 import {
@@ -83,6 +84,9 @@ export function useHomeData() {
   const [stats, setStats] = useState(DEMO_STATS);
   const [programs, setPrograms] = useState(DEMO_PROGRAMS);
   const [runmoaPrograms, setRunmoaPrograms] = useState<RunmoaContent[]>([]);
+  // 병합용 원본 — Runmoa 원본 + 관리자 오버레이 (자체 프로그램은 programs 상태 재사용)
+  const [runmoaRaw, setRunmoaRaw] = useState<RunmoaContent[]>([]);
+  const [homeOverrides, setHomeOverrides] = useState<ProgramOverrides>({});
   const [adminEvents, setAdminEvents] = useState<(AdminEvent & { id: string })[]>([]);
   const [reviews, setReviews] = useState(DEMO_REVIEWS);
   const [workathon, setWorkathon] = useState<typeof DEMO_WORKATHON & { posterUrl?: string }>(DEMO_WORKATHON);
@@ -187,6 +191,9 @@ export function useHomeData() {
           ]);
           // 관리자 지정 노출 순서·숨김 적용 후 홈 노출 개수만큼 슬라이스
           if (runmoaRes.data.length > 0) setRunmoaPrograms(applyProgramOverrides(runmoaRes.data, programOverrides).slice(0, 8));
+          // 자체 프로그램과 병합하기 위한 원본·오버레이 보관
+          setRunmoaRaw(runmoaRes.data);
+          setHomeOverrides(programOverrides);
           if (eventsData.length > 0) setAdminEvents(eventsData.filter((e) => e.status !== "COMPLETED" && e.status !== "CANCELLED"));
           const merged = [...lectureContents, ...resourceContents]
             .filter((c) => c.isApproved !== false && !c.homeHidden)
@@ -291,9 +298,19 @@ export function useHomeData() {
   const primaryCtaHref = currentHero ? resolveHeroCtaLink(currentHero, ctaCfg.buttonUrl) : ctaCfg.buttonUrl;
   const primaryCtaLabel = currentHero ? resolveHeroCtaText(currentHero, ctaCfg.buttonText) : ctaCfg.buttonText;
 
+  // Runmoa 상품 + 자체 프로그램 병합(중복 제거·정렬). 홈 카드가 소비하는 통합 목록.
+  // 데모 프로그램은 실데이터와 섞이지 않도록 병합에서 제외하고, 실데이터가
+  // 하나도 없을 때만(모두 로드 실패/빈값) 데모를 어댑트해 폴백 노출한다.
+  const mergedPrograms = useMemo(() => {
+    const realSelf = isDemoPrograms ? [] : (programs as unknown as SelfProgram[]);
+    const merged = mergeProgramSources(runmoaRaw, realSelf, homeOverrides);
+    if (merged.length > 0) return merged;
+    return mergeProgramSources([], programs as unknown as SelfProgram[], {});
+  }, [runmoaRaw, programs, isDemoPrograms, homeOverrides]);
+
   return {
     router, searchTerm, setSearchTerm,
-    stats, programs, runmoaPrograms, adminEvents,
+    stats, programs, runmoaPrograms, mergedPrograms, adminEvents,
     reviews, workathon, notices, featuredVideos,
     heroSlides, heroIndex, setHeroIndex,
     siteBanner, ctaCfg, sectionToggles, pageContent, homeLayout, instructors,

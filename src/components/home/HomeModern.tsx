@@ -5,9 +5,9 @@ import {
   ChevronRight, Star, Users, ArrowRight, Calendar, Award, Play,
   BookOpen, MessageCircle,
 } from "lucide-react";
-import { PROGRAM_CATEGORY_LABELS, RUNMOA_CONTENT_TYPE_LABELS } from "@/lib/constants";
+import { RUNMOA_CONTENT_TYPE_LABELS } from "@/lib/constants";
+import { programKey } from "@/lib/program-merge";
 import { calculateDDay, cn, isExternalHref } from "@/lib/utils";
-import StatusBadge from "@/components/ui/StatusBadge";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import SampleBadge from "@/components/ui/SampleBadge";
@@ -30,7 +30,7 @@ function Badge({ children, variant = "primary" }: { children: React.ReactNode; v
 export default function HomeModern(props: HomeDataProps) {
   const {
     router, searchTerm, setSearchTerm,
-    stats, programs, runmoaPrograms,
+    stats, mergedPrograms,
     reviews, workathon, notices, featuredVideos,
     heroSlides, heroIndex, setHeroIndex,
     siteBanner, ctaCfg, sectionToggles, instructors,
@@ -134,9 +134,8 @@ export default function HomeModern(props: HomeDataProps) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {runmoaPrograms.length > 0
-              ? runmoaPrograms.slice(0, 4).map((c) => (
-                <a key={c.content_id} href={`https://aish.runmoa.com/classes/${c.content_id}`} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
+            {mergedPrograms.slice(0, 4).map((c) => (
+                <a key={programKey(c)} href={c.__href} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
                   className="group flex flex-col bg-white rounded-sm border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
                   <div className="relative h-40 w-full bg-gradient-to-br from-gray-100 to-gray-50 overflow-hidden">
                     {c.featured_image ? (
@@ -160,20 +159,6 @@ export default function HomeModern(props: HomeDataProps) {
                     </div>
                   </div>
                 </a>
-              ))
-              : programs.filter((p) => p.status !== "CLOSED").slice(0, 4).map((program) => (
-                <Link key={program.id} href={`/programs#${program.id}`} ref={addRevealRef}
-                  className="group flex flex-col bg-white rounded-sm border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
-                  <div className="relative h-40 w-full bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
-                    <BookOpen size={36} className="text-gray-300" />
-                    <div className="absolute top-2 left-2"><StatusBadge status={program.status} /></div>
-                  </div>
-                  <div className="p-5 flex flex-col flex-grow">
-                    <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-brand-blue transition-colors line-clamp-2">{program.title}</h3>
-                    <p className="text-sm text-gray-500 mt-2">{PROGRAM_CATEGORY_LABELS[program.category] ?? program.category}</p>
-                    <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{program.summary}</p>
-                  </div>
-                </Link>
               ))}
           </div>
           <Link href="/programs" className="w-full sm:hidden mt-6 bg-gray-50 border border-gray-200 text-gray-700 py-3 rounded-sm font-medium flex items-center justify-center">

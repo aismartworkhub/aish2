@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { PROGRAM_CATEGORY_LABELS, EVENT_STATUS_LABELS, EVENT_STATUS_COLORS, RUNMOA_CONTENT_TYPE_LABELS } from "@/lib/constants";
 import { calculateDDay, cn, isExternalHref } from "@/lib/utils";
-import StatusBadge from "@/components/ui/StatusBadge";
+import { programKey } from "@/lib/program-merge";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
 import DriveOrExternalImage from "@/components/ui/DriveOrExternalImage";
 import SampleBadge from "@/components/ui/SampleBadge";
@@ -32,7 +32,7 @@ const MEMBER_BENEFITS = [
 export default function HomeCommunity(props: HomeDataProps) {
   const {
     router, searchTerm, setSearchTerm,
-    stats, programs, runmoaPrograms, adminEvents,
+    stats, mergedPrograms, adminEvents,
     reviews, workathon, notices, featuredVideos,
     heroSlides, heroIndex, setHeroIndex,
     siteBanner, ctaCfg, homeLayout, instructors,
@@ -187,9 +187,8 @@ export default function HomeCommunity(props: HomeDataProps) {
             </Link>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {runmoaPrograms.length > 0
-              ? runmoaPrograms.slice(0, 8).map((c) => (
-                  <a key={c.content_id} href={`https://aish.runmoa.com/classes/${c.content_id}`} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
+            {mergedPrograms.slice(0, 8).map((c) => (
+                  <a key={programKey(c)} href={c.__href} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
                     className="group bg-white rounded overflow-hidden border border-brand-border hover-lift">
                     <div className="aspect-[16/9] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden">
                       {c.featured_image ? (
@@ -211,20 +210,6 @@ export default function HomeCommunity(props: HomeDataProps) {
                       </p>
                     </div>
                   </a>
-                ))
-              : programs.filter((p) => p.status !== "CLOSED").map((program) => (
-                  <Link key={program.id} href={`/programs#${program.id}`} ref={addRevealRef}
-                    className="group bg-white rounded overflow-hidden border border-brand-border hover-lift">
-                    <div className="aspect-[16/9] bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center relative">
-                      <BookOpen size={36} className="text-gray-300" />
-                      <div className="absolute top-3 left-3"><StatusBadge status={program.status} /></div>
-                    </div>
-                    <div className="p-5">
-                      <p className="text-xs text-gray-400 mb-1">{PROGRAM_CATEGORY_LABELS[program.category] ?? program.category}</p>
-                      <h3 className="text-sm font-bold text-gray-900 group-hover:text-brand-blue transition-colors line-clamp-1">{program.title}</h3>
-                      <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{program.summary}</p>
-                    </div>
-                  </Link>
                 ))}
           </div>
           <div className="text-center mt-10 md:hidden">

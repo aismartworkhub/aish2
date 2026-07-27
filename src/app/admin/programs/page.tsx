@@ -19,7 +19,10 @@ import { RUNMOA_ADMIN_ADD_URL, runmoaAdminEditUrl } from "@/lib/runmoa-api";
 import { useRunmoaContents } from "@/hooks/useRunmoaContents";
 import { useDebounce } from "@/hooks/useDebounce";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
+import SelfProgramsManager from "@/components/admin/SelfProgramsManager";
 import type { RunmoaContent, RunmoaContentType, RunmoaStatus } from "@/types/runmoa";
+
+type ProgramTab = "runmoa" | "self";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -28,6 +31,7 @@ function formatPrice(price: number): string {
 }
 
 export default function AdminProgramsPage() {
+  const [tab, setTab] = useState<ProgramTab>("runmoa");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 400);
   const [statusFilter, setStatusFilter] = useState<RunmoaStatus | "">("");
@@ -182,14 +186,44 @@ export default function AdminProgramsPage() {
     setPage(1);
   };
 
-  if (loading && contents.length === 0) return <AdminLoading />;
-  if (error && contents.length === 0) return <AdminError message={error} onRetry={refresh} />;
-
   const lastPage = pagination?.last_page ?? 1;
   const total = pagination?.total ?? 0;
 
+  const runmoaLoadingView = loading && contents.length === 0;
+  const runmoaErrorView = error && contents.length === 0;
+
   return (
     <div>
+      {/* 상단 탭 */}
+      <div className="flex gap-1 mb-6 border-b border-gray-200">
+        {([
+          { key: "runmoa", label: "Runmoa 표시 관리" },
+          { key: "self", label: "자체 프로그램" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors",
+              tab === t.key
+                ? "border-primary-600 text-primary-600"
+                : "border-transparent text-gray-500 hover:text-gray-700",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "self" && <SelfProgramsManager />}
+
+      {tab === "runmoa" && runmoaLoadingView && <AdminLoading />}
+      {tab === "runmoa" && !runmoaLoadingView && runmoaErrorView && (
+        <AdminError message={error!} onRetry={refresh} />
+      )}
+
+      {tab === "runmoa" && !runmoaLoadingView && !runmoaErrorView && (
+      <>
       {/* 헤더 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
@@ -645,6 +679,8 @@ export default function AdminProgramsPage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
