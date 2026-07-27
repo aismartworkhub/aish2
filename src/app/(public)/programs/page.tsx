@@ -27,6 +27,78 @@ function formatPrice(price: number): string {
   return new Intl.NumberFormat("ko-KR").format(price);
 }
 
+/** 교육과정 카드 — 판매중지(ended)면 회색 처리 + "판매 종료" 버튼 */
+function ProgramCard({ c }: { c: MergedProgram }) {
+  const ended = c.status === "paused";
+  const descPlain = sanitizeProgramText(htmlToPlainTextSummary(c.description_html, 120));
+  return (
+    <div className={cn(
+      "bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden flex flex-col",
+      ended ? "opacity-75" : "hover-lift hover:border-t-4 hover:border-t-brand-blue",
+    )}>
+      <div className="aspect-[16/9] bg-gradient-to-br from-brand-gray to-blue-50 flex items-center justify-center relative overflow-hidden">
+        <span className="text-4xl absolute" aria-hidden>📚</span>
+        {c.featured_image && (
+          <img
+            src={c.featured_image}
+            alt={c.title}
+            className={cn("relative w-full h-full object-cover object-top", ended && "grayscale")}
+            loading="lazy"
+            decoding="async"
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
+        )}
+      </div>
+      <div className="p-5 flex-1 flex flex-col">
+        <div className="flex items-center gap-2 mb-2">
+          <span className={cn(
+            "text-xs px-2 py-0.5 rounded-full font-medium",
+            RUNMOA_STATUS_COLORS[c.status] ?? "bg-gray-100 text-gray-600",
+          )}>
+            {RUNMOA_STATUS_LABELS[c.status] ?? c.status}
+          </span>
+          <span className="text-xs text-gray-400">
+            {RUNMOA_CONTENT_TYPE_LABELS[c.content_type] ?? c.content_type}
+          </span>
+        </div>
+        <h3 className={cn("text-lg font-semibold mb-2", ended ? "text-gray-500" : "text-gray-900")}>{c.title}</h3>
+        {descPlain ? (
+          <p className="text-sm text-gray-500 mb-3 flex-1 line-clamp-3">{descPlain}</p>
+        ) : null}
+        <div className="mb-4">
+          {c.is_free ? (
+            <span className={cn("text-lg font-bold", ended ? "text-gray-400" : "text-green-600")}>무료</span>
+          ) : c.is_on_sale && c.sale_price > 0 ? (
+            <div className="flex items-center gap-2">
+              <span className={cn("text-lg font-bold", ended ? "text-gray-500" : "text-gray-900")}>₩{formatPrice(c.sale_price)}</span>
+              <span className="text-xs text-gray-400 line-through">₩{formatPrice(c.base_price)}</span>
+            </div>
+          ) : c.base_price > 0 ? (
+            <span className={cn("text-lg font-bold", ended ? "text-gray-500" : "text-gray-900")}>₩{formatPrice(c.base_price)}</span>
+          ) : null}
+        </div>
+      </div>
+      <div className="px-5 pb-5 pt-0 mt-auto border-t border-brand-border">
+        {ended ? (
+          <div className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-sm bg-gray-100 text-gray-400 text-sm font-semibold uppercase tracking-widest cursor-not-allowed">
+            판매 종료
+          </div>
+        ) : (
+          <a
+            href={c.__href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-sm bg-brand-blue text-white text-sm font-semibold uppercase tracking-widest hover:bg-brand-blue transition-colors"
+          >
+            자세히 보기
+            <ExternalLink size={16} />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type SortKey = "recommended" | "newest" | "name" | "priceAsc";
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -212,73 +284,31 @@ export default function ProgramsPage() {
           </div>
         )}
 
-        {/* Runmoa 콘텐츠 카드 */}
-        {!loading && !useFallback && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(filtered as MergedProgram[]).map((c) => {
-              const descPlain = sanitizeProgramText(htmlToPlainTextSummary(c.description_html, 120));
-              return (
-              <div key={programKey(c)} className="bg-white rounded-sm border border-brand-border shadow-sm overflow-hidden flex flex-col hover-lift hover:border-t-4 hover:border-t-brand-blue">
-                <div className="aspect-[16/9] bg-gradient-to-br from-brand-gray to-blue-50 flex items-center justify-center relative overflow-hidden">
-                  <span className="text-4xl absolute" aria-hidden>📚</span>
-                  {c.featured_image && (
-                    <img
-                      src={c.featured_image}
-                      alt={c.title}
-                      className="relative w-full h-full object-cover object-top"
-                      loading="lazy"
-                      decoding="async"
-                      onError={(e) => { e.currentTarget.style.display = "none"; }}
-                    />
-                  )}
-                </div>
-                <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={cn(
-                      "text-xs px-2 py-0.5 rounded-full font-medium",
-                      RUNMOA_STATUS_COLORS[c.status] ?? "bg-gray-100 text-gray-600"
-                    )}>
-                      {RUNMOA_STATUS_LABELS[c.status] ?? c.status}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {RUNMOA_CONTENT_TYPE_LABELS[c.content_type] ?? c.content_type}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{c.title}</h3>
-                  {descPlain ? (
-                    <p className="text-sm text-gray-500 mb-3 flex-1 line-clamp-3">
-                      {descPlain}
-                    </p>
-                  ) : null}
-                  <div className="mb-4">
-                    {c.is_free ? (
-                      <span className="text-lg font-bold text-green-600">무료</span>
-                    ) : c.is_on_sale && c.sale_price > 0 ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-gray-900">₩{formatPrice(c.sale_price)}</span>
-                        <span className="text-xs text-gray-400 line-through">₩{formatPrice(c.base_price)}</span>
-                      </div>
-                    ) : c.base_price > 0 ? (
-                      <span className="text-lg font-bold text-gray-900">₩{formatPrice(c.base_price)}</span>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="px-5 pb-5 pt-0 mt-auto border-t border-brand-border">
-                  <a
-                    href={c.__href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-sm bg-brand-blue text-white text-sm font-semibold uppercase tracking-widest hover:bg-brand-blue transition-colors"
-                  >
-                    자세히 보기
-                    <ExternalLink size={16} />
-                  </a>
-                </div>
+        {/* Runmoa 콘텐츠 카드 — 판매중 먼저, 판매 종료(판매중지)는 아래 섹션으로 분리 */}
+        {!loading && !useFallback && (() => {
+          const list = filtered as MergedProgram[];
+          const active = list.filter((c) => c.status !== "paused");
+          const ended = list.filter((c) => c.status === "paused");
+          return (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {active.map((c) => <ProgramCard key={programKey(c)} c={c} />)}
               </div>
-              );
-            })}
-          </div>
-        )}
+              {ended.length > 0 && (
+                <div className="mt-14">
+                  <div className="flex items-center gap-3 mb-6">
+                    <h2 className="text-lg font-bold text-gray-500 shrink-0">판매 종료</h2>
+                    <span className="text-sm text-gray-400 shrink-0">{ended.length}건</span>
+                    <div className="flex-1 border-t border-gray-100" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {ended.map((c) => <ProgramCard key={programKey(c)} c={c} />)}
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* 폴백: 기존 데모 프로그램 카드 */}
         {!loading && useFallback && (

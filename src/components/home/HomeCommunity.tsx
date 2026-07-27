@@ -6,7 +6,7 @@ import {
   Star, Play, BookOpen, Trophy,
   FolderOpen, Award, MessageCircle, Bell, Handshake,
 } from "lucide-react";
-import { PROGRAM_CATEGORY_LABELS, EVENT_STATUS_LABELS, EVENT_STATUS_COLORS, RUNMOA_CONTENT_TYPE_LABELS } from "@/lib/constants";
+import { PROGRAM_CATEGORY_LABELS, EVENT_STATUS_LABELS, EVENT_STATUS_COLORS, RUNMOA_CONTENT_TYPE_LABELS, RUNMOA_STATUS_LABELS, RUNMOA_STATUS_COLORS } from "@/lib/constants";
 import { calculateDDay, cn, isExternalHref } from "@/lib/utils";
 import { programKey } from "@/lib/program-merge";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
@@ -187,29 +187,32 @@ export default function HomeCommunity(props: HomeDataProps) {
             </Link>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {mergedPrograms.slice(0, 8).map((c) => (
+            {mergedPrograms.slice(0, 8).map((c) => {
+                  const ended = c.status === "paused";
+                  return (
                   <a key={programKey(c)} href={c.__href} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
-                    className="group bg-white rounded overflow-hidden border border-brand-border hover-lift">
+                    className={cn("group bg-white rounded overflow-hidden border border-brand-border", ended ? "opacity-70" : "hover-lift")}>
                     <div className="aspect-[16/9] bg-gradient-to-br from-gray-100 to-gray-50 relative overflow-hidden flex items-center justify-center">
                       <BookOpen size={36} className="text-gray-300 absolute" aria-hidden />
                       {c.featured_image && (
-                        <img src={c.featured_image} alt={c.title} className="relative w-full h-full object-cover object-top" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                        <img src={c.featured_image} alt={c.title} className={cn("relative w-full h-full object-cover object-top", ended && "grayscale")} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                       )}
-                      <div className="absolute top-3 left-3">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-800">
-                          {RUNMOA_CONTENT_TYPE_LABELS[c.content_type] ?? c.content_type}
+                      <div className="absolute top-3 left-3 flex gap-1">
+                        <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", RUNMOA_STATUS_COLORS[c.status] ?? "bg-green-100 text-green-800")}>
+                          {RUNMOA_STATUS_LABELS[c.status] ?? c.status}
                         </span>
                       </div>
                     </div>
                     <div className="p-5">
                       <p className="text-xs text-gray-400 mb-1">{c.categories.map((cat) => cat.name).join(", ") || "교육과정"}</p>
-                      <h3 className="text-sm font-bold text-gray-900 group-hover:text-brand-blue transition-colors line-clamp-1">{c.title}</h3>
+                      <h3 className={cn("text-sm font-bold transition-colors line-clamp-1", ended ? "text-gray-500" : "text-gray-900 group-hover:text-brand-blue")}>{c.title}</h3>
                       <p className="mt-1.5">
-                        {c.is_free ? <span className="text-sm font-semibold text-green-600">무료</span> : c.is_on_sale && c.sale_price > 0 ? <span className="text-sm font-semibold text-gray-900">₩{c.sale_price.toLocaleString("ko-KR")}</span> : c.base_price > 0 ? <span className="text-sm font-semibold text-gray-900">₩{c.base_price.toLocaleString("ko-KR")}</span> : null}
+                        {ended ? <span className="text-sm font-semibold text-gray-400">판매 종료</span> : c.is_free ? <span className="text-sm font-semibold text-green-600">무료</span> : c.is_on_sale && c.sale_price > 0 ? <span className="text-sm font-semibold text-gray-900">₩{c.sale_price.toLocaleString("ko-KR")}</span> : c.base_price > 0 ? <span className="text-sm font-semibold text-gray-900">₩{c.base_price.toLocaleString("ko-KR")}</span> : null}
                       </p>
                     </div>
                   </a>
-                ))}
+                  );
+                })}
           </div>
           <div className="text-center mt-10 md:hidden">
             <Link href="/programs" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-brand-blue transition-colors font-medium">

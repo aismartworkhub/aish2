@@ -5,7 +5,7 @@ import {
   ChevronRight, Star, Users, ArrowRight, Calendar, Award, Play,
   BookOpen, MessageCircle,
 } from "lucide-react";
-import { RUNMOA_CONTENT_TYPE_LABELS } from "@/lib/constants";
+import { RUNMOA_CONTENT_TYPE_LABELS, RUNMOA_STATUS_LABELS, RUNMOA_STATUS_COLORS } from "@/lib/constants";
 import { programKey } from "@/lib/program-merge";
 import { calculateDDay, cn, isExternalHref } from "@/lib/utils";
 import YouTubeThumbnailImage from "@/components/ui/YouTubeThumbnailImage";
@@ -134,31 +134,41 @@ export default function HomeModern(props: HomeDataProps) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {mergedPrograms.slice(0, 4).map((c) => (
+            {mergedPrograms.slice(0, 4).map((c) => {
+                const ended = c.status === "paused";
+                return (
                 <a key={programKey(c)} href={c.__href} target="_blank" rel="noopener noreferrer" ref={addRevealRef}
-                  className="group flex flex-col bg-white rounded-sm border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
+                  className={cn(
+                    "group flex flex-col bg-white rounded-sm border border-gray-100 overflow-hidden shadow-sm transition-all duration-300",
+                    ended ? "opacity-70" : "hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
+                  )}>
                   <div className="relative h-40 w-full bg-gradient-to-br from-gray-100 to-gray-50 overflow-hidden flex items-center justify-center">
                     <BookOpen size={36} className="text-gray-300 absolute" aria-hidden />
                     {c.featured_image && (
-                      <img src={c.featured_image} alt={c.title} className="relative w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      <img src={c.featured_image} alt={c.title} className={cn("relative w-full h-full object-cover", ended && "grayscale")} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                     )}
-                    <div className="absolute top-2 left-2 flex space-x-1">
+                    <div className="absolute top-2 left-2 flex gap-1">
+                      <span className={cn("text-xs font-bold px-2 py-1 rounded-sm shadow-sm", RUNMOA_STATUS_COLORS[c.status] ?? "bg-white/90 text-gray-800")}>
+                        {RUNMOA_STATUS_LABELS[c.status] ?? c.status}
+                      </span>
                       <span className="bg-white/90 backdrop-blur text-gray-800 text-xs font-bold px-2 py-1 rounded-sm shadow-sm">
                         {RUNMOA_CONTENT_TYPE_LABELS[c.content_type] ?? c.content_type}
                       </span>
                     </div>
                   </div>
                   <div className="p-5 flex flex-col flex-grow">
-                    <h3 className="text-lg font-bold text-gray-900 leading-snug group-hover:text-brand-blue transition-colors line-clamp-2">{c.title}</h3>
+                    <h3 className={cn("text-lg font-bold leading-snug transition-colors line-clamp-2", ended ? "text-gray-500" : "text-gray-900 group-hover:text-brand-blue")}>{c.title}</h3>
                     <p className="text-sm text-gray-500 mt-2">{c.categories.map((cat) => cat.name).join(", ") || "교육과정"}</p>
                     <div className="mt-auto pt-4">
-                      {c.is_free ? <span className="text-sm font-semibold text-green-600">무료</span>
+                      {ended ? <span className="text-sm font-semibold text-gray-400">판매 종료</span>
+                        : c.is_free ? <span className="text-sm font-semibold text-green-600">무료</span>
                         : c.is_on_sale && c.sale_price > 0 ? <span className="text-sm font-semibold text-gray-900">₩{c.sale_price.toLocaleString("ko-KR")}</span>
                         : c.base_price > 0 ? <span className="text-sm font-semibold text-gray-900">₩{c.base_price.toLocaleString("ko-KR")}</span> : null}
                     </div>
                   </div>
                 </a>
-              ))}
+                );
+              })}
           </div>
           <Link href="/programs" className="w-full sm:hidden mt-6 bg-gray-50 border border-gray-200 text-gray-700 py-3 rounded-sm font-medium flex items-center justify-center">
             전체 강의 보기 <ChevronRight className="w-4 h-4 ml-1" />

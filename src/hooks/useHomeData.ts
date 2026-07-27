@@ -179,7 +179,7 @@ export function useHomeData() {
         }
         try {
           const [runmoaRes, eventsData, lectureContents, resourceContents, freeContents, qnaContents, noticeContents, reviewContents, programOverrides] = await Promise.all([
-            getRunmoaContents({ status: "publish", limit: 40 }),
+            getRunmoaContents({ limit: 40 }, { statuses: ["publish", "paused"] }),
             getCollection<AdminEvent & { id: string }>(COLLECTIONS.ADMIN_EVENTS),
             getContents("media-lecture", { maxItems: 15 }),
             getContents("media-resource", { maxItems: 15 }),
