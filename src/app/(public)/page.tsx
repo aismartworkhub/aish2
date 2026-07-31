@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import HomeDefault from "@/components/home/HomeDefault";
 import HomeModern from "@/components/home/HomeModern";
 import HomeCommunity from "@/components/home/HomeCommunity";
+import SuccessCasesTeaser from "@/components/home/SuccessCasesTeaser";
 
 export default function HomePage() {
   const [template, setTemplate] = useState<HomeTemplate>("default");
@@ -55,6 +56,7 @@ export default function HomePage() {
         </div>
       )}
       {view}
+      <SuccessCasesTeaser />
     </>
   );
 }

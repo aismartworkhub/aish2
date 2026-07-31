@@ -77,6 +77,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "메인 페이지 편집", href: "/admin/home-layout", icon: "LayoutGrid" },
       { label: "퀵배너 관리", href: "/admin/banners", icon: "Megaphone" },
       { label: "페이지 관리", href: "/admin/pages", icon: "LayoutTemplate" },
+      { label: "성공사례", href: "/admin/success", icon: "TrendingUp" },
       { label: "파트너", href: "/admin/partners", icon: "Handshake" },
       { label: "연혁", href: "/admin/history", icon: "Clock" },
     ],

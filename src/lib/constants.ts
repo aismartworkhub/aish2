@@ -28,6 +28,7 @@ export const NAV_ITEMS = [
  { label: "교육 프로그램", href: "/programs" },
  { label: "AI실전마스터", href: "/instructors" },
  { label: "스마트워크톤", href: "/workathon" },
+ { label: "성공사례", href: "/success" },
  { label: "콘텐츠", href: "/media" },
  { label: "커뮤니티 허브", href: "/community" },
 ] as const;
