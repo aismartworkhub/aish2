@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, ExternalLink, Building2, Quote, ArrowRight } from "lucide-react";
+import { X, ExternalLink, Building2, Quote, ArrowRight, UserCheck } from "lucide-react";
 import { cn, isExternalHref } from "@/lib/utils";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
 import { DEMO_SUCCESS_CASES } from "@/lib/demo-data";
@@ -167,9 +167,55 @@ function SuccessCaseModal({ item, onClose }: { item: SuccessCase; onClose: () =>
             </div>
           )}
 
+          {/* 컨설턴트 */}
+          {item.consultants && item.consultants.length > 0 && (
+            <div>
+              <h4 className="text-sm font-bold text-brand-blue mb-2">컨설턴트</h4>
+              <div className="flex flex-wrap gap-4">
+                {item.consultants.map((c, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    {c.imageUrl ? (
+                      <img src={c.imageUrl} alt={c.name} className="w-9 h-9 rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                    ) : (
+                      <span className="w-9 h-9 rounded-full bg-brand-gray flex items-center justify-center text-gray-400"><UserCheck size={16} /></span>
+                    )}
+                    <div className="leading-tight">
+                      <div className="text-sm font-medium text-gray-900">{c.name}</div>
+                      {c.title && <div className="text-[11px] text-gray-500">{c.title}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Section title="현황파악">{item.situation}</Section>
+          <Section title="분석진단">{item.diagnosis}</Section>
           <Section title="도입 전 과제">{item.challenge}</Section>
           <Section title="AI 솔루션">{item.solution}</Section>
           <Section title="성과·변화">{item.result}</Section>
+
+          {/* 관련 프롬프트 */}
+          {item.prompts && item.prompts.length > 0 && (
+            <div>
+              <h4 className="text-sm font-bold text-brand-blue mb-2">관련 프롬프트</h4>
+              <div className="space-y-2">
+                {item.prompts.map((p, i) => (
+                  <div key={i} className="rounded-lg border border-brand-border p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-medium text-gray-900">{p.title}</div>
+                      {p.url && (
+                        <a href={p.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-brand-blue hover:underline text-xs inline-flex items-center gap-0.5">
+                          열기 <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
+                    {p.content && <p className="text-xs text-gray-500 mt-1 leading-relaxed">{p.content}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {item.testimonial && (
             <div className="rounded-xl border-l-4 border-brand-blue bg-blue-50/50 p-4">

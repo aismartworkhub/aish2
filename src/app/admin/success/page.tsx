@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Pencil, Trash2, X, Eye, EyeOff, Building2, GripVertical } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Pencil, Trash2, X, Eye, EyeOff, Building2, GripVertical, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COLLECTIONS, createDoc, upsertDoc, removeDoc } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, removeDoc, getCollection } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { useToast } from "@/components/ui/Toast";
-import type { SuccessCase, SuccessMetric } from "@/types/success-case";
+import { DEMO_INSTRUCTORS } from "@/lib/demo-data";
+import type { SuccessCase, SuccessMetric, SuccessConsultant, SuccessPrompt } from "@/types/success-case";
+
+interface InstructorLite { id: string; name: string; title?: string; imageUrl?: string }
+
+function toInstructorLite(list: { id: string; name: string; title?: string; profileImageUrl?: string }[]): InstructorLite[] {
+  return list.map((i) => ({ id: i.id, name: i.name, title: i.title, imageUrl: i.profileImageUrl }));
+}
 
 const INPUT_CLASS =
   "w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20";
@@ -22,9 +29,13 @@ function emptyForm(): SuccessCase {
     summary: "",
     thumbnailUrl: "",
     companyLogoUrl: "",
+    consultants: [],
+    situation: "",
+    diagnosis: "",
     challenge: "",
     solution: "",
     result: "",
+    prompts: [],
     metrics: [],
     tags: [],
     testimonial: "",
@@ -49,6 +60,17 @@ export default function AdminSuccessPage() {
   const [editing, setEditing] = useState<SuccessCase | null>(null);
   const [saving, setSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [instructors, setInstructors] = useState<InstructorLite[]>(() => toInstructorLite(DEMO_INSTRUCTORS));
+
+  // 컨설턴트 선택용 강사 목록 로드 (없으면 데모)
+  useEffect(() => {
+    getCollection<{ id: string; name: string; title?: string; profileImageUrl?: string; isActive?: boolean }>(COLLECTIONS.INSTRUCTORS)
+      .then((data) => {
+        const active = data.filter((i) => i.isActive !== false && i.name);
+        if (active.length > 0) setInstructors(toInstructorLite(active));
+      })
+      .catch(() => {});
+  }, []);
 
   const sorted = [...cases].sort(
     (a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER),
@@ -56,6 +78,23 @@ export default function AdminSuccessPage() {
 
   const patch = (fields: Partial<SuccessCase>) =>
     setEditing((prev) => (prev ? { ...prev, ...fields } : prev));
+
+  // ── 컨설턴트(강사 선택) ──
+  const toggleConsultant = (inst: InstructorLite) => {
+    const cur = editing?.consultants ?? [];
+    const exists = cur.some((c) => c.id === inst.id);
+    const next: SuccessConsultant[] = exists
+      ? cur.filter((c) => c.id !== inst.id)
+      : [...cur, { id: inst.id, name: inst.name, title: inst.title, imageUrl: inst.imageUrl }];
+    patch({ consultants: next });
+  };
+
+  // ── 관련 프롬프트 ──
+  const addPrompt = () => patch({ prompts: [...(editing?.prompts ?? []), { title: "", content: "", url: "" }] });
+  const updatePrompt = (i: number, field: keyof SuccessPrompt, v: string) =>
+    patch({ prompts: (editing?.prompts ?? []).map((p, idx) => (idx === i ? { ...p, [field]: v } : p)) });
+  const removePrompt = (i: number) =>
+    patch({ prompts: (editing?.prompts ?? []).filter((_, idx) => idx !== i) });
 
   // ── 지표(metrics) 편집 ──
   const addMetric = () => patch({ metrics: [...(editing?.metrics ?? []), { label: "", value: "" }] });
@@ -86,6 +125,7 @@ export default function AdminSuccessPage() {
       companyName: rest.companyName.trim(),
       title: rest.title.trim(),
       metrics: (rest.metrics ?? []).filter((m) => m.label.trim() || m.value.trim()),
+      prompts: (rest.prompts ?? []).filter((p) => p.title.trim() || (p.content ?? "").trim() || (p.url ?? "").trim()),
     });
     try {
       if (id) {
@@ -158,7 +198,7 @@ export default function AdminSuccessPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">업종</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">지표</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">순서</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">노출</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">활성</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">관리</th>
                 </tr>
               </thead>
@@ -183,7 +223,7 @@ export default function AdminSuccessPage() {
                           "p-2 rounded-lg transition-colors",
                           c.hidden ? "text-gray-300 hover:text-gray-500 hover:bg-gray-50" : "text-primary-600 hover:bg-primary-50",
                         )}
-                        title={c.hidden ? "숨김 — 클릭하면 노출" : "노출 중 — 클릭하면 숨김"}
+                        title={c.hidden ? "비활성 — 클릭하면 활성화" : "활성 — 클릭하면 비활성화"}
                       >
                         {c.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
@@ -248,6 +288,39 @@ export default function AdminSuccessPage() {
                 </div>
               </div>
 
+              {/* 컨설턴트 (강사에서 선택) */}
+              <div className="pt-2 border-t border-gray-100">
+                <label className={cn(LABEL_CLASS)}>컨설턴트 <span className="text-gray-400 font-normal">(강사에서 선택 · 1~2명)</span></label>
+                <div className="flex flex-wrap gap-2">
+                  {instructors.map((inst) => {
+                    const selected = (editing.consultants ?? []).some((c) => c.id === inst.id);
+                    return (
+                      <button
+                        key={inst.id}
+                        type="button"
+                        onClick={() => toggleConsultant(inst)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors",
+                          selected ? "border-primary-500 bg-primary-50 text-primary-700" : "border-gray-200 text-gray-600 hover:bg-gray-50",
+                        )}
+                      >
+                        <UserCheck size={14} />{inst.name}{inst.title ? ` · ${inst.title}` : ""}
+                      </button>
+                    );
+                  })}
+                  {instructors.length === 0 && <span className="text-xs text-gray-400">등록된 강사가 없습니다.</span>}
+                </div>
+              </div>
+
+              <div>
+                <label className={cn(LABEL_CLASS)}>현황파악</label>
+                <textarea value={editing.situation ?? ""} onChange={(e) => patch({ situation: e.target.value })} rows={2} placeholder="도입 전 기업의 상황·데이터 진단" className={cn(INPUT_CLASS, "resize-none")} />
+              </div>
+              <div>
+                <label className={cn(LABEL_CLASS)}>분석진단</label>
+                <textarea value={editing.diagnosis ?? ""} onChange={(e) => patch({ diagnosis: e.target.value })} rows={2} placeholder="문제 원인 분석과 AI 적용 판단" className={cn(INPUT_CLASS, "resize-none")} />
+              </div>
+
               <div>
                 <label className={cn(LABEL_CLASS)}>도입 전 과제</label>
                 <textarea value={editing.challenge ?? ""} onChange={(e) => patch({ challenge: e.target.value })} rows={2} className={cn(INPUT_CLASS, "resize-none")} />
@@ -259,6 +332,28 @@ export default function AdminSuccessPage() {
               <div>
                 <label className={cn(LABEL_CLASS)}>성과·변화</label>
                 <textarea value={editing.result ?? ""} onChange={(e) => patch({ result: e.target.value })} rows={2} className={cn(INPUT_CLASS, "resize-none")} />
+              </div>
+
+              {/* 관련 프롬프트 */}
+              <div className="pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <label className={cn(LABEL_CLASS, "mb-0")}>관련 프롬프트 <span className="text-gray-400 font-normal">(edunfuture 등에서 선택)</span></label>
+                  <button type="button" onClick={addPrompt} className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700">
+                    <Plus size={14} />추가
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {(editing.prompts ?? []).map((p, i) => (
+                    <div key={i} className="rounded-lg border border-gray-200 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input type="text" value={p.title} onChange={(e) => updatePrompt(i, "title", e.target.value)} placeholder="프롬프트 제목" className={cn(INPUT_CLASS, "flex-1")} />
+                        <button type="button" onClick={() => removePrompt(i)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 shrink-0"><Trash2 size={14} /></button>
+                      </div>
+                      <textarea value={p.content ?? ""} onChange={(e) => updatePrompt(i, "content", e.target.value)} rows={2} placeholder="프롬프트 내용/설명" className={cn(INPUT_CLASS, "resize-none")} />
+                      <input type="text" value={p.url ?? ""} onChange={(e) => updatePrompt(i, "url", e.target.value)} placeholder="출처 링크 (예: https://edunfuture.vercel.app/)" className={cn(INPUT_CLASS)} />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* 지표 */}
@@ -334,7 +429,7 @@ export default function AdminSuccessPage() {
                 <div className="flex items-end">
                   <label className="inline-flex items-center gap-2 text-sm text-gray-700 pb-2">
                     <input type="checkbox" checked={!!editing.hidden} onChange={(e) => patch({ hidden: e.target.checked })} className="rounded border-gray-300" />
-                    숨김
+                    비활성(숨김)
                   </label>
                 </div>
               </div>

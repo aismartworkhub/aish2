@@ -419,9 +419,18 @@ export const DEMO_SUCCESS_CASES = [
     title: "AI 수요예측으로 재고 비용 38% 절감",
     summary: "생성형 AI와 수요예측 모델로 재고·배차를 자동 최적화해 운영비를 크게 줄였습니다.",
     thumbnailUrl: "/images/defaults/edu-data.jpg",
+    consultants: [
+      { id: "ins-3", name: "김학태", title: "데이터 분석 전문가", imageUrl: "/images/placeholder-profile.jpg" },
+    ],
+    situation: "주문·재고·배차 데이터가 엑셀과 담당자 머릿속에 흩어져 있었고, 성수기마다 재고 과잉과 결품이 반복됐습니다. 배차 계획은 매일 사람이 수기로 세워 오류와 야근이 잦았습니다.",
+    diagnosis: "과거 3년 주문 데이터를 분석하니 뚜렷한 계절성·요일별 수요 패턴이 확인됐습니다. 예측 모델로 수요를 미리 잡고, 배차는 규칙 기반 + 생성형 AI 초안화로 자동화하는 것이 적합하다고 진단했습니다.",
     challenge: "성수기 재고 과잉과 결품이 반복되고, 배차 계획을 사람이 수기로 세워 오류와 야근이 잦았습니다.",
     solution: "과거 3년 주문 데이터를 학습한 수요예측 모델을 도입하고, 생성형 AI로 일일 배차 계획 초안을 자동 생성했습니다.",
     result: "재고 회전율이 개선되고 배차 담당자의 반복 업무가 사라져, 팀이 고부가 업무에 집중하게 됐습니다.",
+    prompts: [
+      { title: "수요예측용 주문데이터 정리 프롬프트", content: "월별·품목별 주문 데이터를 붙여넣으면 계절성·이상치를 요약하고 예측 입력용 표로 정리해 주는 프롬프트", url: "https://edunfuture.vercel.app/" },
+      { title: "일일 배차 브리핑 자동 생성 (브리핑 메이커)", content: "예측 수요와 재고 현황을 넣으면 당일 배차 브리핑 초안을 자동 작성", url: "https://edunfuture.vercel.app/" },
+    ],
     metrics: [
       { label: "재고 비용", value: "-38%" },
       { label: "배차 계획 시간", value: "-70%" },
@@ -444,9 +453,18 @@ export const DEMO_SUCCESS_CASES = [
     title: "AI 상담봇으로 고객응대 70% 자동화",
     summary: "문의 데이터를 학습한 AI 상담봇이 반복 문의를 처리하고, 상담사는 복잡한 케이스에 집중합니다.",
     thumbnailUrl: "/images/defaults/edu-smart.jpg",
+    consultants: [
+      { id: "ins-1", name: "김상용", title: "AI 교육 총괄 디렉터", imageUrl: "/images/placeholder-profile.jpg" },
+    ],
+    situation: "프로모션 시즌마다 문의량이 폭증해 응대가 지연되고 고객 이탈이 늘었습니다. FAQ와 주문 데이터가 분산돼 상담사가 매번 여러 시스템을 오갔습니다.",
+    diagnosis: "문의를 유형별로 분석하니 약 70%가 반복 FAQ(배송·교환·주문조회)로 커버 가능했습니다. FAQ·주문 데이터를 연결한 RAG 챗봇으로 1차 응대를 자동화하고, 미해결 건만 상담사에게 이관하는 구조가 적합하다고 진단했습니다.",
     challenge: "문의량 급증으로 응대 지연과 고객 이탈이 늘고, 상담사 채용·교육 비용이 부담이었습니다.",
     solution: "자사 FAQ·주문 데이터를 연결한 RAG 기반 상담봇을 구축하고, 미해결 건만 상담사에게 자동 이관했습니다.",
     result: "1차 응대의 대부분을 AI가 처리해 평균 응답 시간이 크게 단축되고 고객 만족도가 올랐습니다.",
+    prompts: [
+      { title: "고객 문의 분류·응답 프롬프트", content: "고객 문의를 붙여넣으면 유형을 분류하고 정중한 1차 응답 초안을 생성", url: "https://edunfuture.vercel.app/" },
+      { title: "FAQ 지식베이스(RAG) 정리 가이드", content: "흩어진 FAQ 문서를 챗봇 학습용 지식베이스 형태로 구조화하는 가이드", url: "https://edunfuture.vercel.app/" },
+    ],
     metrics: [
       { label: "문의 자동응대", value: "70%" },
       { label: "평균 응답시간", value: "-65%" },
@@ -469,9 +487,19 @@ export const DEMO_SUCCESS_CASES = [
     title: "AI 비전 검사로 불량 검출률 3배 향상",
     summary: "생산 라인에 AI 영상 검사를 도입해 육안 검사의 한계를 넘고 품질 대응 속도를 높였습니다.",
     thumbnailUrl: "/images/defaults/edu-ai.jpg",
+    consultants: [
+      { id: "ins-1", name: "김상용", title: "AI 교육 총괄 디렉터", imageUrl: "/images/placeholder-profile.jpg" },
+      { id: "ins-3", name: "김학태", title: "데이터 분석 전문가", imageUrl: "/images/placeholder-profile.jpg" },
+    ],
+    situation: "품질 검사를 작업자 육안에 의존해 미세 불량을 놓치는 경우가 많았고, 반복 검사로 인력 피로도와 클레임이 높았습니다.",
+    diagnosis: "불량 유형이 표면 스크래치·이물·변형 등 영상 패턴으로 명확히 구분 가능함을 확인했습니다. 라인 카메라 영상에 컴퓨터비전 검사 모델을 적용하고, 이상 발생 시 실시간 대시보드로 알림하는 방식이 적합하다고 진단했습니다.",
     challenge: "육안 검사에 의존해 미세 불량을 놓치는 경우가 많고, 검사 인력의 피로도가 높았습니다.",
     solution: "라인 카메라 영상에 AI 비전 검사 모델을 적용하고, 이상 패턴을 실시간 대시보드로 알림 처리했습니다.",
     result: "미세 불량까지 자동으로 잡아내며 재작업·클레임이 감소하고, 검사 인력은 설비 관리로 재배치됐습니다.",
+    prompts: [
+      { title: "불량 이미지 라벨링 가이드 프롬프트", content: "불량 유형 정의와 라벨링 기준을 정리해 검사 모델 학습 데이터를 만드는 가이드", url: "https://edunfuture.vercel.app/" },
+      { title: "품질 리포트 자동화 (브리핑 메이커)", content: "일일 검사 결과를 넣으면 불량률·추세 요약 리포트를 자동 작성", url: "https://edunfuture.vercel.app/" },
+    ],
     metrics: [
       { label: "불량 검출률", value: "3배" },
       { label: "클레임", value: "-44%" },
