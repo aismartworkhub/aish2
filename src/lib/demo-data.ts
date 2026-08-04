@@ -428,8 +428,8 @@ export const DEMO_SUCCESS_CASES = [
     solution: "과거 3년 주문 데이터를 학습한 수요예측 모델을 도입하고, 생성형 AI로 일일 배차 계획 초안을 자동 생성했습니다.",
     result: "재고 회전율이 개선되고 배차 담당자의 반복 업무가 사라져, 팀이 고부가 업무에 집중하게 됐습니다.",
     prompts: [
-      { title: "수요예측용 주문데이터 정리 프롬프트", content: "월별·품목별 주문 데이터를 붙여넣으면 계절성·이상치를 요약하고 예측 입력용 표로 정리해 주는 프롬프트", url: "https://edunfuture.vercel.app/" },
-      { title: "일일 배차 브리핑 자동 생성 (브리핑 메이커)", content: "예측 수요와 재고 현황을 넣으면 당일 배차 브리핑 초안을 자동 작성", url: "https://edunfuture.vercel.app/" },
+      { title: "자동화 기초 공장", content: "재고·배차 등 반복 업무를 AI로 자동화하는 기초 도구", url: "https://ai-showroom-xi.vercel.app/#/factories/automation-basics" },
+      { title: "브리핑 메이커", content: "예측 수요·재고 현황으로 일일 배차 브리핑을 자동 작성", url: "https://ai-showroom-xi.vercel.app/#/factories/briefing-maker" },
     ],
     metrics: [
       { label: "재고 비용", value: "-38%" },
@@ -462,8 +462,8 @@ export const DEMO_SUCCESS_CASES = [
     solution: "자사 FAQ·주문 데이터를 연결한 RAG 기반 상담봇을 구축하고, 미해결 건만 상담사에게 자동 이관했습니다.",
     result: "1차 응대의 대부분을 AI가 처리해 평균 응답 시간이 크게 단축되고 고객 만족도가 올랐습니다.",
     prompts: [
-      { title: "고객 문의 분류·응답 프롬프트", content: "고객 문의를 붙여넣으면 유형을 분류하고 정중한 1차 응답 초안을 생성", url: "https://edunfuture.vercel.app/" },
-      { title: "FAQ 지식베이스(RAG) 정리 가이드", content: "흩어진 FAQ 문서를 챗봇 학습용 지식베이스 형태로 구조화하는 가이드", url: "https://edunfuture.vercel.app/" },
+      { title: "자동화 기초 공장", content: "반복 고객 문의 응대를 AI로 자동화하는 기초 도구", url: "https://ai-showroom-xi.vercel.app/#/factories/automation-basics" },
+      { title: "옵시디언 공장", content: "흩어진 FAQ·상담 지식을 챗봇 지식베이스로 구조화·정리", url: "https://ai-showroom-xi.vercel.app/#/factories/obsidian" },
     ],
     metrics: [
       { label: "문의 자동응대", value: "70%" },
@@ -497,8 +497,8 @@ export const DEMO_SUCCESS_CASES = [
     solution: "라인 카메라 영상에 AI 비전 검사 모델을 적용하고, 이상 패턴을 실시간 대시보드로 알림 처리했습니다.",
     result: "미세 불량까지 자동으로 잡아내며 재작업·클레임이 감소하고, 검사 인력은 설비 관리로 재배치됐습니다.",
     prompts: [
-      { title: "불량 이미지 라벨링 가이드 프롬프트", content: "불량 유형 정의와 라벨링 기준을 정리해 검사 모델 학습 데이터를 만드는 가이드", url: "https://edunfuture.vercel.app/" },
-      { title: "품질 리포트 자동화 (브리핑 메이커)", content: "일일 검사 결과를 넣으면 불량률·추세 요약 리포트를 자동 작성", url: "https://edunfuture.vercel.app/" },
+      { title: "바이브코딩 기초 공장", content: "비전 검사 등 현장용 AI 도구를 직접 만들어보는 코딩 기초", url: "https://ai-showroom-xi.vercel.app/#/factories/vibecoding" },
+      { title: "브리핑 메이커", content: "일일 검사 결과로 불량률·추세 품질 리포트를 자동 작성", url: "https://ai-showroom-xi.vercel.app/#/factories/briefing-maker" },
     ],
     metrics: [
       { label: "불량 검출률", value: "3배" },

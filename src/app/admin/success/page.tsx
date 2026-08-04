@@ -8,6 +8,7 @@ import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { useToast } from "@/components/ui/Toast";
 import { DEMO_INSTRUCTORS } from "@/lib/demo-data";
+import { AI_SHOWROOM_FACTORIES, factoryUrl } from "@/lib/ai-showroom-factories";
 import type { SuccessCase, SuccessMetric, SuccessConsultant, SuccessPrompt } from "@/types/success-case";
 
 interface InstructorLite { id: string; name: string; title?: string; imageUrl?: string }
@@ -91,6 +92,11 @@ export default function AdminSuccessPage() {
 
   // ── 관련 프롬프트 ──
   const addPrompt = () => patch({ prompts: [...(editing?.prompts ?? []), { title: "", content: "", url: "" }] });
+  const addFactoryPrompt = (slug: string) => {
+    const f = AI_SHOWROOM_FACTORIES.find((x) => x.slug === slug);
+    if (!f) return;
+    patch({ prompts: [...(editing?.prompts ?? []), { title: f.name, content: "", url: factoryUrl(f.slug) }] });
+  };
   const updatePrompt = (i: number, field: keyof SuccessPrompt, v: string) =>
     patch({ prompts: (editing?.prompts ?? []).map((p, idx) => (idx === i ? { ...p, [field]: v } : p)) });
   const removePrompt = (i: number) =>
@@ -337,10 +343,22 @@ export default function AdminSuccessPage() {
               {/* 관련 프롬프트 */}
               <div className="pt-2 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
-                  <label className={cn(LABEL_CLASS, "mb-0")}>관련 프롬프트 <span className="text-gray-400 font-normal">(edunfuture 등에서 선택)</span></label>
-                  <button type="button" onClick={addPrompt} className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700">
-                    <Plus size={14} />추가
-                  </button>
+                  <label className={cn(LABEL_CLASS, "mb-0")}>관련 프롬프트 <span className="text-gray-400 font-normal">(AI 쇼룸 공장에서 선택)</span></label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value=""
+                      onChange={(e) => { if (e.target.value) addFactoryPrompt(e.target.value); e.target.value = ""; }}
+                      className="px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white focus:outline-none"
+                    >
+                      <option value="">공장에서 추가…</option>
+                      {AI_SHOWROOM_FACTORIES.map((f) => (
+                        <option key={f.slug} value={f.slug}>{f.name}</option>
+                      ))}
+                    </select>
+                    <button type="button" onClick={addPrompt} className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700">
+                      <Plus size={14} />직접 추가
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   {(editing.prompts ?? []).map((p, i) => (
@@ -350,7 +368,7 @@ export default function AdminSuccessPage() {
                         <button type="button" onClick={() => removePrompt(i)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 shrink-0"><Trash2 size={14} /></button>
                       </div>
                       <textarea value={p.content ?? ""} onChange={(e) => updatePrompt(i, "content", e.target.value)} rows={2} placeholder="프롬프트 내용/설명" className={cn(INPUT_CLASS, "resize-none")} />
-                      <input type="text" value={p.url ?? ""} onChange={(e) => updatePrompt(i, "url", e.target.value)} placeholder="출처 링크 (예: https://edunfuture.vercel.app/)" className={cn(INPUT_CLASS)} />
+                      <input type="text" value={p.url ?? ""} onChange={(e) => updatePrompt(i, "url", e.target.value)} placeholder="링크 (예: https://ai-showroom-xi.vercel.app/#/factories/video-cloner)" className={cn(INPUT_CLASS)} />
                     </div>
                   ))}
                 </div>
