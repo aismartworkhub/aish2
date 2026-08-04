@@ -5,6 +5,8 @@ import { X, ExternalLink, Building2, Quote, ArrowRight } from "lucide-react";
 import { cn, isExternalHref } from "@/lib/utils";
 import { getCollection, COLLECTIONS } from "@/lib/firestore";
 import { DEMO_SUCCESS_CASES } from "@/lib/demo-data";
+import { loadPageContent, DEFAULT_SUCCESS } from "@/lib/page-content-public";
+import type { PageContentBase } from "@/types/page-content";
 import type { SuccessCase } from "@/types/success-case";
 
 function sortVisible(list: SuccessCase[]): SuccessCase[] {
@@ -16,6 +18,11 @@ function sortVisible(list: SuccessCase[]): SuccessCase[] {
 export default function SuccessPage() {
   const [cases, setCases] = useState<SuccessCase[]>(() => sortVisible(DEMO_SUCCESS_CASES));
   const [selected, setSelected] = useState<SuccessCase | null>(null);
+  const [pc, setPc] = useState<PageContentBase>(DEFAULT_SUCCESS);
+
+  useEffect(() => {
+    loadPageContent("success").then(setPc).catch(() => {});
+  }, []);
 
   useEffect(() => {
     getCollection<SuccessCase>(COLLECTIONS.SUCCESS_CASES)
@@ -28,10 +35,10 @@ export default function SuccessPage() {
   return (
     <div className="py-16">
       <div className="max-w-6xl mx-auto px-4">
-        {/* Hero */}
+        {/* Hero — 문구는 관리자 '페이지 관리 > 성공사례'에서 편집 */}
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">성공사례</h1>
-          <p className="text-lg text-gray-500">기업들이 AI를 어떻게 활용해 성장하고 변화했는지 확인하세요.</p>
+          <h1 className="text-3xl font-bold text-brand-dark uppercase tracking-tight mb-3">{pc.hero.title}</h1>
+          <p className="text-lg text-gray-500">{pc.hero.subtitle}</p>
         </div>
 
         {/* Cards */}

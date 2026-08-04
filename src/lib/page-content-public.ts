@@ -103,12 +103,22 @@ export const DEFAULT_COMMUNITY: PageContentBase = {
   sections: {},
 };
 
+export const DEFAULT_SUCCESS: PageContentBase = {
+  hero: {
+    imageUrl: "",
+    title: "성공사례",
+    subtitle: "기업들이 AI를 어떻게 활용해 성장하고 변화했는지 확인하세요.",
+  },
+  sections: {},
+};
+
 const PAGE_DEFAULTS: Record<PageKey, PageContentBase | HomePageContent | AboutPageContent> = {
   home: DEFAULT_HOME,
   about: DEFAULT_ABOUT,
   programs: DEFAULT_PROGRAMS,
   instructors: DEFAULT_INSTRUCTORS,
   workathon: DEFAULT_WORKATHON,
+  success: DEFAULT_SUCCESS,
   videos: DEFAULT_VIDEOS,
   media: DEFAULT_MEDIA,
   community: DEFAULT_COMMUNITY,
