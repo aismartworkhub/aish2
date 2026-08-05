@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, X, Eye, EyeOff, Building2, GripVertical, UserCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Eye, EyeOff, Building2, GripVertical, UserCheck, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { COLLECTIONS, createDoc, upsertDoc, removeDoc, getCollection } from "@/lib/firestore";
+import { COLLECTIONS, createDoc, upsertDoc, removeDoc, getCollection, invalidateCache } from "@/lib/firestore";
 import { useFirestoreCollection } from "@/hooks/useFirestoreCollection";
 import { AdminLoading, AdminError } from "@/components/admin/AdminLoadingState";
 import { useToast } from "@/components/ui/Toast";
@@ -181,12 +181,20 @@ export default function AdminSuccessPage() {
           <h1 className="text-2xl font-bold text-gray-900">성공사례 관리</h1>
           <p className="text-gray-500 mt-1">기업이 AI를 활용해 어떻게 성공·변화했는지 소개하는 사례를 관리합니다.</p>
         </div>
-        <button
-          onClick={() => setEditing(emptyForm())}
-          className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
-        >
-          <Plus size={18} />새 성공사례
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => { invalidateCache(COLLECTIONS.SUCCESS_CASES); refresh(); }}
+            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw size={16} />새로고침
+          </button>
+          <button
+            onClick={() => setEditing(emptyForm())}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
+          >
+            <Plus size={18} />새 성공사례
+          </button>
+        </div>
       </div>
 
       {sorted.length === 0 ? (
