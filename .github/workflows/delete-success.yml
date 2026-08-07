@@ -1,0 +1,32 @@
+name: Maintenance — Delete Success Cases
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_ids:
+        description: "삭제할 성공사례 문서 id (콤마 구분)"
+        required: true
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install firebase-admin
+        run: npm install firebase-admin
+
+      - name: Delete success cases
+        run: npx tsx scripts/delete-success-cases.ts
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CASE_IDS: ${{ github.event.inputs.case_ids }}
